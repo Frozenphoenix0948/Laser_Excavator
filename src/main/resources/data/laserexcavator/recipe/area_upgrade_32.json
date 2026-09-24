@@ -1,0 +1,43 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:area_upgrades",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:iron_block"
+    },
+    "B": {
+      "item": "minecraft:compass"
+    },
+    "C": {
+      "item": "minecraft:iron_block"
+    },
+    "D": {
+      "item": "minecraft:redstone_block"
+    },
+    "E": {
+      "item": "minecraft:paper"
+    },
+    "F": {
+      "item": "minecraft:redstone_block"
+    },
+    "G": {
+      "item": "minecraft:iron_block"
+    },
+    "H": {
+      "item": "minecraft:compass"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:area_upgrade_32"
+  }
+}

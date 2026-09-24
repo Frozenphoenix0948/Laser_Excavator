@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "laserexcavator:block/excavator" },
+    "facing=east":  { "model": "laserexcavator:block/excavator", "y": 90 },
+    "facing=south": { "model": "laserexcavator:block/excavator", "y": 180 },
+    "facing=west":  { "model": "laserexcavator:block/excavator", "y": 270 }
+  }
+}

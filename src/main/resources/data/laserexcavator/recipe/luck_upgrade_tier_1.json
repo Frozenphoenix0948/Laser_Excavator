@@ -1,0 +1,41 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:redstone"
+    },
+    "B": {
+      "item": "minecraft:lapis_lazuli"
+    },
+    "C": {
+      "item": "minecraft:redstone"
+    },
+    "D": {
+      "item": "minecraft:quartz"
+    },
+    "E": {
+      "item": "minecraft:paper"
+    },
+    "F": {
+      "item": "minecraft:quartz"
+    },
+    "G": {
+      "item": "minecraft:redstone"
+    },
+    "H": {
+      "item": "minecraft:lapis_lazuli"
+    },
+    "I": {
+      "item": "minecraft:redstone"
+    }
+  },
+  "result": {
+    "id": "laserexcavator:luck_upgrade_tier_1",
+    "count": 1
+  }
+}

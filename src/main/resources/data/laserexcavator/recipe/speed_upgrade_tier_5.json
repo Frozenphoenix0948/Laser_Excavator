@@ -1,0 +1,43 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:speed_upgrades",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:netherite_ingot"
+    },
+    "B": {
+      "item": "minecraft:ender_eye"
+    },
+    "C": {
+      "item": "minecraft:redstone_block"
+    },
+    "D": {
+      "item": "minecraft:diamond_block"
+    },
+    "E": {
+      "item": "laserexcavator:speed_upgrade_tier_4"
+    },
+    "F": {
+      "item": "minecraft:diamond_block"
+    },
+    "G": {
+      "item": "minecraft:redstone_block"
+    },
+    "H": {
+      "item": "minecraft:ender_eye"
+    },
+    "I": {
+      "item": "minecraft:netherite_ingot"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:speed_upgrade_tier_5"
+  }
+}

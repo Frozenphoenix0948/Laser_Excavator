@@ -1,0 +1,43 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:speed_upgrades",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:redstone_block"
+    },
+    "B": {
+      "item": "minecraft:gold_block"
+    },
+    "C": {
+      "item": "minecraft:redstone_block"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "E": {
+      "item": "laserexcavator:speed_upgrade_tier_1"
+    },
+    "F": {
+      "item": "minecraft:diamond"
+    },
+    "G": {
+      "item": "minecraft:redstone_block"
+    },
+    "H": {
+      "item": "minecraft:gold_block"
+    },
+    "I": {
+      "item": "minecraft:redstone_block"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:speed_upgrade_tier_2"
+  }
+}

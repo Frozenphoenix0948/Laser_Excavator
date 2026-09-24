@@ -1,0 +1,43 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:filter_upgrades",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:diamond_block"
+    },
+    "B": {
+      "item": "minecraft:ender_eye"
+    },
+    "C": {
+      "item": "minecraft:diamond_block"
+    },
+    "D": {
+      "item": "minecraft:obsidian"
+    },
+    "E": {
+      "item": "laserexcavator:filter_upgrade_tier_3"
+    },
+    "F": {
+      "item": "minecraft:obsidian"
+    },
+    "G": {
+      "item": "minecraft:diamond_block"
+    },
+    "H": {
+      "item": "minecraft:comparator"
+    },
+    "I": {
+      "item": "minecraft:diamond_block"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:filter_upgrade_tier_4"
+  }
+}

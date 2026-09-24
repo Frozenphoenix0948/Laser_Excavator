@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "laserexcavator:item/filter_upgrade_tier_5"
+  }
+}

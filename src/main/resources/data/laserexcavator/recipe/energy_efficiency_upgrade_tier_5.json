@@ -1,0 +1,43 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:energy_efficiency_upgrades",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:obsidian"
+    },
+    "B": {
+      "item": "minecraft:nether_star"
+    },
+    "C": {
+      "item": "minecraft:obsidian"
+    },
+    "D": {
+      "item": "minecraft:netherite_ingot"
+    },
+    "E": {
+      "item": "laserexcavator:energy_efficiency_upgrade_tier_4"
+    },
+    "F": {
+      "item": "minecraft:netherite_ingot"
+    },
+    "G": {
+      "item": "minecraft:obsidian"
+    },
+    "H": {
+      "item": "minecraft:echo_shard"
+    },
+    "I": {
+      "item": "minecraft:obsidian"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:energy_efficiency_upgrade_tier_5"
+  }
+}

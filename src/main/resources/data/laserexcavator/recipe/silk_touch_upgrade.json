@@ -1,0 +1,50 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "B": {
+      "item": "minecraft:diamond"
+    },
+    "C": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "D": {
+      "item": "minecraft:obsidian"
+    },
+    "E": {
+      "type": "neoforge:components",
+      "items": "minecraft:enchanted_book",
+      "components": {
+        "minecraft:stored_enchantments": {
+          "levels": {
+            "minecraft:silk_touch": 1
+          }
+        }
+      },
+      "strict": false
+    },
+    "F": {
+      "item": "minecraft:obsidian"
+    },
+    "G": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "H": {
+      "item": "minecraft:enchanting_table"
+    },
+    "I": {
+      "item": "minecraft:amethyst_shard"
+    }
+  },
+  "result": {
+    "id": "laserexcavator:silk_touch_upgrade",
+    "count": 1
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:lapis_block"
+    },
+    "B": {
+      "item": "minecraft:emerald"
+    },
+    "C": {
+      "item": "minecraft:lapis_block"
+    },
+    "D": {
+      "item": "minecraft:gold_ingot"
+    },
+    "E": {
+      "item": "laserexcavator:luck_upgrade_tier_1"
+    },
+    "F": {
+      "item": "minecraft:gold_ingot"
+    },
+    "G": {
+      "item": "minecraft:lapis_block"
+    },
+    "H": {
+      "item": "minecraft:diamond"
+    },
+    "I": {
+      "item": "minecraft:lapis_block"
+    }
+  },
+  "result": {
+    "id": "laserexcavator:luck_upgrade_tier_2",
+    "count": 1
+  }
+}

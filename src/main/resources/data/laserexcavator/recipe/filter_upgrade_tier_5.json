@@ -1,0 +1,43 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:filter_upgrades",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:netherite_block"
+    },
+    "B": {
+      "item": "minecraft:ender_eye"
+    },
+    "C": {
+      "item": "minecraft:netherite_block"
+    },
+    "D": {
+      "item": "minecraft:diamond_block"
+    },
+    "E": {
+      "item": "laserexcavator:filter_upgrade_tier_4"
+    },
+    "F": {
+      "item": "minecraft:diamond_block"
+    },
+    "G": {
+      "item": "minecraft:netherite_block"
+    },
+    "H": {
+      "item": "minecraft:nether_star"
+    },
+    "I": {
+      "item": "minecraft:netherite_block"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:filter_upgrade_tier_5"
+  }
+}

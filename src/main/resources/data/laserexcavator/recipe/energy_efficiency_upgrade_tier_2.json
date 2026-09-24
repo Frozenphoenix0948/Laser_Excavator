@@ -1,0 +1,43 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:energy_efficiency_upgrades",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:quartz"
+    },
+    "B": {
+      "item": "minecraft:copper_block"
+    },
+    "C": {
+      "item": "minecraft:quartz"
+    },
+    "D": {
+      "item": "minecraft:redstone_block"
+    },
+    "E": {
+      "item": "laserexcavator:energy_efficiency_upgrade_tier_1"
+    },
+    "F": {
+      "item": "minecraft:redstone_block"
+    },
+    "G": {
+      "item": "minecraft:quartz"
+    },
+    "H": {
+      "item": "minecraft:copper_block"
+    },
+    "I": {
+      "item": "minecraft:quartz"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:energy_efficiency_upgrade_tier_2"
+  }
+}

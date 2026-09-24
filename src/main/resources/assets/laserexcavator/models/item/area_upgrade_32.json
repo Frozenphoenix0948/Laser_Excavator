@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "laserexcavator:item/area_upgrade_32"
+  }
+}

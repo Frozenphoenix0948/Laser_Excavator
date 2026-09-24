@@ -1,0 +1,28 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:area_upgrades",
+  "pattern": [
+    "DED",
+    "OTO",
+    "DED"
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:diamond_block"
+    },
+    "E": {
+      "item": "minecraft:ender_eye"
+    },
+    "O": {
+      "item": "minecraft:crying_obsidian"
+    },
+    "T": {
+      "item": "laserexcavator:area_upgrade_64"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:area_upgrade_128"
+  }
+}

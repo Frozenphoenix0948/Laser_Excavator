@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "laserexcavator:block/excavator_top",
+    "front": "laserexcavator:block/excavator_front",
+    "side": "laserexcavator:block/excavator_side"
+  }
+}

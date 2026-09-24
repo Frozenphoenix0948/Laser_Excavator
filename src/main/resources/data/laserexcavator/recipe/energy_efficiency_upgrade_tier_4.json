@@ -1,0 +1,43 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:energy_efficiency_upgrades",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:ender_eye"
+    },
+    "B": {
+      "item": "minecraft:diamond_block"
+    },
+    "C": {
+      "item": "minecraft:ender_eye"
+    },
+    "D": {
+      "item": "minecraft:emerald"
+    },
+    "E": {
+      "item": "laserexcavator:energy_efficiency_upgrade_tier_3"
+    },
+    "F": {
+      "item": "minecraft:emerald"
+    },
+    "G": {
+      "item": "minecraft:ender_eye"
+    },
+    "H": {
+      "item": "minecraft:diamond_block"
+    },
+    "I": {
+      "item": "minecraft:ender_eye"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:energy_efficiency_upgrade_tier_4"
+  }
+}
