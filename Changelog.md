@@ -5,6 +5,9 @@
 ### New Features:
 
 ### Optimization:
+- Refactored the "NextTagetSelection" step (only relevant for the server)
+  - This affects specifically excavators with filters, as "duplicate" checks are removed (8-10% less server runtime)
+  - Also affects the excavators without filters (3-5% less server runtime)
 
 ### Bug Fixes:
 
