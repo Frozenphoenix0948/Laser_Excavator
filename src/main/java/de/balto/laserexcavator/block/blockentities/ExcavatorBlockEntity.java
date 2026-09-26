@@ -864,6 +864,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         columns.beginExcavationState(total);
 
         ExcavatorArea area = getExcavatorArea();
+        boolean sharedHeights = usesSharedColumnHeights();
         for (int i = 0; i < total; i++) {
             int y = columns.currentHeight(i);
             if (y == ExcavationScanner.NO_SURFACE) continue;
@@ -880,7 +881,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 continue;
             }
 
-            ResolvedTarget resolved = findNextTarget(level, worldX, worldZ, y, area.min().getY());
+            ResolvedTarget resolved = findNextTarget(level, worldX, worldZ, y, area.min().getY(), sharedHeights);
             columns.setCurrentHeight(i, resolved.y());
             if (resolved.y() != ExcavationScanner.NO_SURFACE) {
                 columns.addActiveColumn(i);
@@ -1070,13 +1071,18 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             return new ResolvedTarget(y, ExcavatorUpgradeManager.TargetHandling.IGNORED, null);
         }
 
-        int minY = sharedHeights ? ExcavatorSharedColumnHeights.getRegisteredMinY(level, worldX, worldZ, area.min().getY()) : area.min().getY();
-
-        ResolvedTarget resolved = findNextTarget(level, worldX, worldZ, y, minY);
-
         if (sharedHeights) {
-            if (resolved.y() == y) return resolved;
+            targetLookupCursor.set(worldX, y, worldZ);
+            BlockState state = level.getBlockState(targetLookupCursor);
+            if (!state.isAir()) {
+                Block block = state.getBlock();
+                if (!LaserExcavatorConfig.unbreakableBlocks().contains(block)) {
+                    return new ResolvedTarget(y, ExcavatorUpgradeManager.TargetHandling.NORMAL, block);
+                }
+            }
 
+            int minY = ExcavatorSharedColumnHeights.getRegisteredMinY(level, worldX, worldZ, area.min().getY());
+            ResolvedTarget resolved = findNextTarget(level, worldX, worldZ, y - 1, minY, true);
             int actualY = ExcavatorSharedColumnHeights.advance(level, worldX, worldZ, y, resolved.y());
             columns.setCurrentHeight(columnIndex, actualY);
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.SHARED_HEIGHT_REPAIRS);
@@ -1085,6 +1091,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             return new ResolvedTarget(actualY, ExcavatorUpgradeManager.TargetHandling.IGNORED, null);
         }
 
+        ResolvedTarget resolved = findNextTarget(level, worldX, worldZ, y, area.min().getY(), false);
         columns.setCurrentHeight(columnIndex, resolved.y());
         return resolved;
     }
@@ -1363,7 +1370,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         lastStorageWaitCheckedRevision = -1L;
     }
 
-    private ResolvedTarget findNextTarget(ServerLevel level, int x, int z, int startY, int minY) {
+    private ResolvedTarget findNextTarget(ServerLevel level, int x, int z, int startY, int minY, boolean sharedHeights) {
         long lookupProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.NEXT_TARGET_LOOKUP);
         boolean profile = ExcavatorProfiler.isEnabled();
         int lookups = 0;
@@ -1385,9 +1392,17 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 if (profile) lookups++;
                 if (state.isAir()) continue;
 
+                Block block = state.getBlock();
+                if (sharedHeights) {
+                    if (!unbreakableBlocks.contains(block)) {
+                        return new ResolvedTarget(y, ExcavatorUpgradeManager.TargetHandling.NORMAL, block);
+                    }
+                    continue;
+                }
+
                 ExcavatorUpgradeManager.TargetHandling handling = upgrades.classifyTarget(level, cursor, state, unbreakableBlocks);
                 if (handling != ExcavatorUpgradeManager.TargetHandling.IGNORED) {
-                    return new ResolvedTarget(y, handling, state.getBlock());
+                    return new ResolvedTarget(y, handling, block);
                 }
             }
 
@@ -1404,11 +1419,11 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         ExcavatorArea area = getExcavatorArea();
         int x = area.worldXForColumn(columnIndex);
         int z = area.worldZForColumn(columnIndex);
-        int nextY = removedY - 1;
-        if (nextY < minY) nextY = ExcavationScanner.NO_SURFACE;
 
         if (usesSharedColumnHeights()) {
-            int actualY = ExcavatorSharedColumnHeights.advance(level, x, z, removedY, nextY);
+            int sharedMinY = ExcavatorSharedColumnHeights.getRegisteredMinY(level, x, z, minY);
+            ResolvedTarget resolved = findNextTarget(level, x, z, removedY - 1, sharedMinY, true);
+            int actualY = ExcavatorSharedColumnHeights.advance(level, x, z, removedY, resolved.y());
             columns.setCurrentHeight(columnIndex, actualY);
             if (actualY == ExcavationScanner.NO_SURFACE || actualY < minY) {
                 columns.removeActiveColumnByColumnIndex(columnIndex);
@@ -1416,6 +1431,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             return;
         }
 
+        int nextY = removedY - 1;
+        if (nextY < minY) nextY = ExcavationScanner.NO_SURFACE;
         columns.setCurrentHeight(columnIndex, nextY);
         if (nextY == ExcavationScanner.NO_SURFACE) {
             columns.removeActiveColumnByColumnIndex(columnIndex);
