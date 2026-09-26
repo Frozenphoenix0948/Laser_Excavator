@@ -1,8 +1,10 @@
 package de.balto.laserexcavator.block.excavator;
 
+import de.balto.laserexcavator.compat.DynamicTreesCompat;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeItem;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -15,6 +17,7 @@ import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,8 +63,11 @@ public final class ExcavatorUpgradeManager {
     private int cachedFilterCapacity;
     private int cachedActiveSlotCount = -1;
     private ItemStack cachedLootTool = ItemStack.EMPTY;
+    private ItemStack cachedFilterSilkTouchTool = ItemStack.EMPTY;
     private int cachedLootToolLuckLevel = -1;
     private boolean cachedLootToolSilkTouch;
+
+    private static final boolean DYNAMIC_TREES_LOADED = ModList.get().isLoaded("dynamictrees");
 
     /** Upgrade inventory; not exposed to pipes. */
     private final ItemStackHandler inventory = new ItemStackHandler(STORED_UPGRADE_SLOTS) {
@@ -269,9 +275,33 @@ public final class ExcavatorUpgradeManager {
         }
     }
 
-    private boolean isFilteredBlock(Block block) {
-        // Most excavators have no active filter at all, making this a single branch.
-        return !filteredBlockLookup.isEmpty() && filteredBlockLookup.contains(block);
+    private boolean isFilteredBlock(ServerLevel level, BlockPos pos, BlockState state) {
+        if (filteredBlockLookup.isEmpty()) {return false;}
+
+        Block block = state.getBlock();
+
+        if (filteredBlockLookup.contains(block)) {return true;}
+
+        if (DYNAMIC_TREES_LOADED) {
+            Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
+
+            if (primitiveLog != null && filteredBlockLookup.contains(primitiveLog)) {return true;}
+        }
+
+        Block equivalent = ExcavatorLootCache.getSilkTouchFilterEquivalent(level, pos, state, silkTouchTool(level));
+
+        return equivalent != null && filteredBlockLookup.contains(equivalent);
+    }
+
+    private ItemStack silkTouchTool(ServerLevel level) {
+        if (!cachedFilterSilkTouchTool.isEmpty()) {
+            return cachedFilterSilkTouchTool;
+        }
+
+        ItemStack tool = new ItemStack(Items.NETHERITE_PICKAXE);
+        tool.enchant(level.registryAccess().holderOrThrow(Enchantments.SILK_TOUCH), 1);
+        cachedFilterSilkTouchTool = tool;
+        return tool;
     }
 
     public static boolean isFluidBlock(BlockState state) {
@@ -286,20 +316,18 @@ public final class ExcavatorUpgradeManager {
      * True only for user-filtered blocks that should use the tier-dependent skip
      * cooldown. Global protected blocks and Fluid Ignore remain immediate skips.
      */
-    public boolean isFilterCooldownTarget(BlockState state, Set<Block> unbreakableBlocks) {
+    public boolean isFilterCooldownTarget(ServerLevel level, BlockPos pos, BlockState state, Set<Block> unbreakableBlocks
+    ) {
         ensureActiveSlotCountCurrent();
         Block block = state.getBlock();
-        return !unbreakableBlocks.contains(block)
-                && isFilteredBlock(block)
-                && !(hasFluidIgnore() && isFluidBlock(state));
+        return !unbreakableBlocks.contains(block) && isFilteredBlock(level, pos, state) && !(hasFluidIgnore() && isFluidBlock(state));
     }
 
-    public boolean shouldIgnoreTarget(BlockState state, Set<Block> unbreakableBlocks) {
+    public boolean shouldIgnoreTarget(ServerLevel level, BlockPos pos, BlockState state, Set<Block> unbreakableBlocks
+    ) {
         ensureActiveSlotCountCurrent();
         Block block = state.getBlock();
-        return unbreakableBlocks.contains(block)
-                || isFilteredBlock(block)
-                || (hasFluidIgnore() && isFluidBlock(state));
+        return unbreakableBlocks.contains(block) || isFilteredBlock(level, pos, state) || (hasFluidIgnore() && isFluidBlock(state));
     }
 
     /**

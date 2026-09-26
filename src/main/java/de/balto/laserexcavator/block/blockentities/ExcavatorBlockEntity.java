@@ -388,16 +388,16 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         return upgrades.setFilterBlock(slot, block);
     }
 
-    private boolean shouldIgnoreTarget(BlockState state) {
-        return upgrades.shouldIgnoreTarget(state, LaserExcavatorConfig.unbreakableBlocks());
+    private boolean shouldIgnoreTarget(ServerLevel level, BlockPos pos, BlockState state) {
+        return upgrades.shouldIgnoreTarget(level, pos, state, LaserExcavatorConfig.unbreakableBlocks());
     }
 
-    private boolean shouldIgnoreTarget(BlockState state, Set<Block> unbreakableBlocks) {
-        return upgrades.shouldIgnoreTarget(state, unbreakableBlocks);
+    private boolean shouldIgnoreTarget(ServerLevel level, BlockPos pos, BlockState state, Set<Block> unbreakableBlocks) {
+        return upgrades.shouldIgnoreTarget(level, pos, state, unbreakableBlocks);
     }
 
-    private boolean isFilterCooldownTarget(BlockState state, Set<Block> unbreakableBlocks) {
-        return upgrades.isFilterCooldownTarget(state, unbreakableBlocks);
+    private boolean isFilterCooldownTarget(ServerLevel level, BlockPos pos, BlockState state, Set<Block> unbreakableBlocks) {
+        return upgrades.isFilterCooldownTarget(level, pos, state, unbreakableBlocks);
     }
 
     private boolean usesSharedColumnHeights() {
@@ -1018,7 +1018,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
                 targetLookupCursor.set(worldX, y, worldZ);
                 BlockState targetState = level.getBlockState(targetLookupCursor);
-                if (isFilterCooldownTarget(targetState, LaserExcavatorConfig.unbreakableBlocks())) {
+                if (isFilterCooldownTarget(level, targetLookupCursor, targetState, LaserExcavatorConfig.unbreakableBlocks())) {
                     if (skipFilteredTarget(level, area, activeSlot, columnIndex, worldX, worldZ, y)) {
                         return;
                     }
@@ -1111,8 +1111,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         BlockState state = level.getBlockState(targetLookupCursor);
         Set<Block> unbreakableBlocks = LaserExcavatorConfig.unbreakableBlocks();
         if (!state.isAir()
-                && (isFilterCooldownTarget(state, unbreakableBlocks)
-                || !shouldIgnoreTarget(state, unbreakableBlocks))) {
+                && (isFilterCooldownTarget(level, targetLookupCursor, state, unbreakableBlocks)
+                || !shouldIgnoreTarget(level, targetLookupCursor, state, unbreakableBlocks))) {
             return y;
         }
 
@@ -1278,7 +1278,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         BlockState state = level.getBlockState(target);
-        if (!state.isAir() && !shouldIgnoreTarget(state)) return state;
+        if (!state.isAir() && !shouldIgnoreTarget(level, target, state)) return state;
 
         int recoveredY;
         if (sharedHeights) {
@@ -1457,8 +1457,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 BlockState state = level.getBlockState(cursor);
                 if (profile) lookups++;
                 if (!state.isAir()
-                        && (isFilterCooldownTarget(state, unbreakableBlocks)
-                        || !shouldIgnoreTarget(state, unbreakableBlocks))) {
+                        && (isFilterCooldownTarget(level, cursor, state, unbreakableBlocks)
+                        || !shouldIgnoreTarget(level, cursor, state, unbreakableBlocks))) {
                     return y;
                 }
             }

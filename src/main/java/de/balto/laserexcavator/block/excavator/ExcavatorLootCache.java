@@ -2,11 +2,13 @@ package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -105,6 +107,8 @@ public final class ExcavatorLootCache {
     private static final class ServerCache {
         /** BlockStates are canonical StateHolder instances, so identity keys avoid hashing properties. */
         private final IdentityHashMap<BlockState, Int2ObjectOpenHashMap<Entry>> byState = new IdentityHashMap<>();
+        /** Map specifically for blocks broken with silktouch, used only for the filter matching*/
+        private final IdentityHashMap<BlockState, Block> silkTouchFilterEquivalents = new IdentityHashMap<>();
 
         private Entry entry(BlockState state, int toolKey) {
             Int2ObjectOpenHashMap<Entry> byTool = byState.get(state);
@@ -258,5 +262,28 @@ public final class ExcavatorLootCache {
         entry.hitsSinceAudit = 0;
         entry.auditPending = false;
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_REJECTIONS);
+    }
+
+    /**
+     * Function to either cache a blocks silk touch loot or return what is in the cache.
+     */
+    public static @Nullable Block getSilkTouchFilterEquivalent(ServerLevel level, BlockPos pos, BlockState state, ItemStack silkTouchTool
+    ) {
+        ServerCache cache = serverCache(level.getServer());
+
+        if (cache.silkTouchFilterEquivalents.containsKey(state)) {
+            return cache.silkTouchFilterEquivalents.get(state);
+        }
+
+        List<ItemStack> drops = Block.getDrops(state, level, pos, state.hasBlockEntity() ? level.getBlockEntity(pos) : null, null, silkTouchTool);
+
+        Block equivalent = null;
+
+        if (drops.size() == 1 && drops.getFirst().getItem() instanceof BlockItem blockItem) {
+            equivalent = blockItem.getBlock();
+        }
+
+        cache.silkTouchFilterEquivalents.put(state, equivalent);
+        return equivalent;
     }
 }
