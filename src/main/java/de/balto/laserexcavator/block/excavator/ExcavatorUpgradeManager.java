@@ -2,6 +2,7 @@ package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.compat.DynamicTreesCompat;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
+import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeItem;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
 import net.minecraft.core.BlockPos;
@@ -40,6 +41,12 @@ public final class ExcavatorUpgradeManager {
     public static final int STORED_UPGRADE_SLOTS = 8;
     public static final int MAX_UPGRADE_SLOTS = 7;
     public static final int MAX_FILTER_SLOTS = 16;
+
+    public enum TargetHandling {
+        NORMAL,
+        FILTERED,
+        IGNORED
+    }
 
     private final BooleanSupplier levelAvailableSupplier;
     private final BooleanSupplier busySupplier;
@@ -278,19 +285,25 @@ public final class ExcavatorUpgradeManager {
     private boolean isFilteredBlock(ServerLevel level, BlockPos pos, BlockState state) {
         if (filteredBlockLookup.isEmpty()) {return false;}
 
-        Block block = state.getBlock();
+        long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.FILTER_MATCHING);
 
-        if (filteredBlockLookup.contains(block)) {return true;}
+        try {
+            Block block = state.getBlock();
 
-        if (DYNAMIC_TREES_LOADED) {
-            Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
+            if (filteredBlockLookup.contains(block)) {return true;}
 
-            if (primitiveLog != null && filteredBlockLookup.contains(primitiveLog)) {return true;}
+            if (DYNAMIC_TREES_LOADED) {
+                Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
+
+                if (primitiveLog != null && filteredBlockLookup.contains(primitiveLog)) {return true;}
+            }
+
+            Block equivalent = ExcavatorLootCache.getSilkTouchFilterEquivalent(level, pos, state, silkTouchTool(level));
+
+            return equivalent != null && filteredBlockLookup.contains(equivalent);
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.FILTER_MATCHING, profile);
         }
-
-        Block equivalent = ExcavatorLootCache.getSilkTouchFilterEquivalent(level, pos, state, silkTouchTool(level));
-
-        return equivalent != null && filteredBlockLookup.contains(equivalent);
     }
 
     private ItemStack silkTouchTool(ServerLevel level) {
@@ -312,22 +325,20 @@ public final class ExcavatorUpgradeManager {
                 || !state.getBlock().defaultBlockState().getFluidState().isEmpty();
     }
 
-    /**
-     * True only for user-filtered blocks that should use the tier-dependent skip
-     * cooldown. Global protected blocks and Fluid Ignore remain immediate skips.
-     */
-    public boolean isFilterCooldownTarget(ServerLevel level, BlockPos pos, BlockState state, Set<Block> unbreakableBlocks
-    ) {
+    public TargetHandling classifyTarget(ServerLevel level, BlockPos pos, BlockState state, Set<Block> unbreakableBlocks) {
         ensureActiveSlotCountCurrent();
-        Block block = state.getBlock();
-        return !unbreakableBlocks.contains(block) && isFilteredBlock(level, pos, state) && !(hasFluidIgnore() && isFluidBlock(state));
-    }
 
-    public boolean shouldIgnoreTarget(ServerLevel level, BlockPos pos, BlockState state, Set<Block> unbreakableBlocks
-    ) {
-        ensureActiveSlotCountCurrent();
         Block block = state.getBlock();
-        return unbreakableBlocks.contains(block) || isFilteredBlock(level, pos, state) || (hasFluidIgnore() && isFluidBlock(state));
+
+        if (unbreakableBlocks.contains(block) || (hasFluidIgnore() && isFluidBlock(state))) {
+            return TargetHandling.IGNORED;
+        }
+
+        if (isFilteredBlock(level, pos, state)) {
+            return TargetHandling.FILTERED;
+        }
+
+        return TargetHandling.NORMAL;
     }
 
     /**

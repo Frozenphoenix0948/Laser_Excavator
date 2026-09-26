@@ -18,13 +18,14 @@ import java.util.concurrent.atomic.LongAdder;
  * top-level sections.
  */
 public final class ExcavatorProfiler {
-    public static final String IMPLEMENTATION_VERSION = "V1.0";
+    public static final String IMPLEMENTATION_VERSION = "V1.1";
     private static final double SERVER_TICKS_PER_SECOND = 20.0;
 
     public enum Section {
         SCANNER("01 Scanner total", Side.SERVER),
         EXCAVATION_TICK("02 Excavation tick total", Side.SERVER),
         TARGET_SELECTION("03 Target selection", Side.SERVER),
+        FILTER_MATCHING("03a Filter matching", Side.SERVER),
         LOOT_GENERATION("04 Loot generation", Side.SERVER),
         STORAGE_RESERVATION("05 Storage capacity check", Side.SERVER),
         BLOCK_REMOVAL("06 setBlock / block removal", Side.SERVER),
@@ -448,6 +449,7 @@ public final class ExcavatorProfiler {
         lines.add("  Excavation rate while ticking: " + formatRate(blocks, context.serverActiveSeconds) + " blocks/s");
         addSummaryTiming(lines, "Excavation tick", Section.EXCAVATION_TICK);
         addSummaryTiming(lines, "Target selection", Section.TARGET_SELECTION);
+        addSummaryTiming(lines, "Filter matching", Section.FILTER_MATCHING);
         addSummaryTiming(lines, "Block removal", Section.BLOCK_REMOVAL);
         addSummaryTiming(lines, "Delivery processing", Section.DELIVERY_PROCESSING);
         if (CALLS[Section.SCANNER.ordinal()].sum() > 0L) {
