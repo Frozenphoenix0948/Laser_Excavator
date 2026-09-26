@@ -1374,6 +1374,11 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         long lookupProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.NEXT_TARGET_LOOKUP);
         boolean profile = ExcavatorProfiler.isEnabled();
         int lookups = 0;
+        boolean immediateFilterSkip = !sharedHeights
+                && LaserExcavatorConfig.filterSkipCooldownTicks(
+                upgrades.tier(ExcavatorUpgradeType.FILTER),
+                100
+        ) <= 0;
 
         try {
             if (startY == ExcavationScanner.NO_SURFACE) {
@@ -1401,6 +1406,9 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 }
 
                 ExcavatorUpgradeManager.TargetHandling handling = upgrades.classifyTarget(level, cursor, state, unbreakableBlocks);
+                if (handling == ExcavatorUpgradeManager.TargetHandling.FILTERED && immediateFilterSkip) {
+                    continue;
+                }
                 if (handling != ExcavatorUpgradeManager.TargetHandling.IGNORED) {
                     return new ResolvedTarget(y, handling, block);
                 }

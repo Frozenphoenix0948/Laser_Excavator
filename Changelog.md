@@ -6,8 +6,9 @@
 
 ### Optimization:
 - Refactored the "NextTagetSelection" step (only relevant for the server)
-  - This affects specifically excavators with filters, as "duplicate" checks are removed (8-10% less server runtime)
-  - Also affects the excavators without filters (3-5% less server runtime)
+  - Biggest improvement for 100% Cooldown Reduction (so by default only tier 5 upgrade): around 60% lower server runtime
+  - Other filter tiers: 8-10% lower server runtime
+  - Excavators without filters: 3-5% lower server runtime
 
 ### Bug Fixes:
 
