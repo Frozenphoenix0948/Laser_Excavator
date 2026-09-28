@@ -52,7 +52,6 @@ public final class ExcavatorUpgradeManager {
     private final BooleanSupplier busySupplier;
     private final BooleanSupplier excavationInitializedSupplier;
     private final Runnable configurationChanged;
-    private final Runnable fluidIgnoreModeChanged;
     private final Runnable clampSelectionToAreaUpgrade;
     private final Runnable changeListener;
     private final Runnable syncChangeListener;
@@ -95,21 +94,15 @@ public final class ExcavatorUpgradeManager {
             boolean previousFluidIgnore = hasFluidIgnore();
             refreshCache();
 
-            if (levelAvailableSupplier.getAsBoolean()) {
+            if (levelAvailableSupplier.getAsBoolean() && !busySupplier.getAsBoolean()) {
+                boolean filterChanged = previousFilterTier != tier(ExcavatorUpgradeType.FILTER);
                 boolean fluidIgnoreChanged = previousFluidIgnore != hasFluidIgnore();
-                if (fluidIgnoreChanged && excavationInitializedSupplier.getAsBoolean()) {
-                    fluidIgnoreModeChanged.run();
+                if ((filterChanged || fluidIgnoreChanged) && excavationInitializedSupplier.getAsBoolean()) {
+                    configurationChanged.run();
+                    return;
                 }
-
-                if (!busySupplier.getAsBoolean()) {
-                    boolean filterChanged = previousFilterTier != tier(ExcavatorUpgradeType.FILTER);
-                    if (filterChanged && excavationInitializedSupplier.getAsBoolean()) {
-                        configurationChanged.run();
-                        return;
-                    }
-                    if (maxHorizontalSize() < previousMaxArea) {
-                        clampSelectionToAreaUpgrade.run();
-                    }
+                if (maxHorizontalSize() < previousMaxArea) {
+                    clampSelectionToAreaUpgrade.run();
                 }
             }
             changeListener.run();
@@ -121,7 +114,6 @@ public final class ExcavatorUpgradeManager {
             BooleanSupplier busySupplier,
             BooleanSupplier excavationInitializedSupplier,
             Runnable configurationChanged,
-            Runnable fluidIgnoreModeChanged,
             Runnable clampSelectionToAreaUpgrade,
             Runnable changeListener,
             Runnable syncChangeListener
@@ -130,7 +122,6 @@ public final class ExcavatorUpgradeManager {
         this.busySupplier = busySupplier;
         this.excavationInitializedSupplier = excavationInitializedSupplier;
         this.configurationChanged = configurationChanged;
-        this.fluidIgnoreModeChanged = fluidIgnoreModeChanged;
         this.clampSelectionToAreaUpgrade = clampSelectionToAreaUpgrade;
         this.changeListener = changeListener;
         this.syncChangeListener = syncChangeListener;
@@ -158,8 +149,8 @@ public final class ExcavatorUpgradeManager {
     public static boolean isHotSwappable(@Nullable ExcavatorUpgradeType type) {
         if (type == null) return false;
         return switch (type) {
-            case SPEED, AUTO_SMELTING, LUCK, SILK_TOUCH, FLUID_IGNORE, ENERGY_EFFICIENCY, NETHER_COOLING -> true;
-            case AREA, FILTER -> false;
+            case SPEED, AUTO_SMELTING, LUCK, SILK_TOUCH, ENERGY_EFFICIENCY, NETHER_COOLING -> true;
+            case AREA, FILTER, FLUID_IGNORE -> false;
         };
     }
 
@@ -306,6 +297,23 @@ public final class ExcavatorUpgradeManager {
         }
     }
 
+    public boolean isDefinitelyFilteredPaletteState(BlockState state) {
+        if (filteredBlockLookup.isEmpty()) return false;
+
+        Block block = state.getBlock();
+        if (filteredBlockLookup.contains(block)) return true;
+
+        if (DYNAMIC_TREES_LOADED) {
+            Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
+            return primitiveLog != null && filteredBlockLookup.contains(primitiveLog);
+        }
+        return false;
+    }
+
+    public boolean isFilteredBlockForTargetScan(ServerLevel level, BlockPos pos, BlockState state) {
+        return isFilteredBlock(level, pos, state);
+    }
+
     private ItemStack silkTouchTool(ServerLevel level) {
         if (!cachedFilterSilkTouchTool.isEmpty()) {
             return cachedFilterSilkTouchTool;
@@ -321,24 +329,12 @@ public final class ExcavatorUpgradeManager {
         // Include normal LiquidBlock implementations and custom/modded blocks
         // whose default state is intrinsically a fluid. Waterlogged solid blocks
         // are intentionally not treated as fluid blocks.
-        return state.getBlock() instanceof LiquidBlock
-                || !state.getBlock().defaultBlockState().getFluidState().isEmpty();
+        return state.getBlock() instanceof LiquidBlock || !state.getBlock().defaultBlockState().getFluidState().isEmpty();
     }
 
-    public TargetHandling classifyTarget(ServerLevel level, BlockPos pos, BlockState state, Set<Block> unbreakableBlocks) {
+    public boolean fluidIgnoreForTargetScan() {
         ensureActiveSlotCountCurrent();
-
-        Block block = state.getBlock();
-
-        if (unbreakableBlocks.contains(block) || (hasFluidIgnore() && isFluidBlock(state))) {
-            return TargetHandling.IGNORED;
-        }
-
-        if (isFilteredBlock(level, pos, state)) {
-            return TargetHandling.FILTERED;
-        }
-
-        return TargetHandling.NORMAL;
+        return cachedUpgradeTiers[ExcavatorUpgradeType.FLUID_IGNORE.ordinal()] > 0;
     }
 
     /**

@@ -104,6 +104,17 @@ public final class ExcavatorStressGridCommands {
             "brown", "green", "red", "black"
     };
 
+    private static final List<Block> STRESS_FILTER_BLOCKS = List.of(
+            Blocks.GRASS_BLOCK,
+            Blocks.DIRT,
+            Blocks.STONE,
+            Blocks.DEEPSLATE,
+            Blocks.GRAVEL,
+            Blocks.SAND,
+            Blocks.COARSE_DIRT,
+            Blocks.CALCITE
+    );
+
     private static final Map<String, Block> BLOCK_CACHE = new HashMap<>();
     private static final Map<String, Item> ITEM_CACHE = new HashMap<>();
     private static final Map<MethodKey, Method> METHOD_CACHE = new HashMap<>();
@@ -119,7 +130,11 @@ public final class ExcavatorStressGridCommands {
         event.getDispatcher().register(
                 Commands.literal("excavatorstressgrid")
                         .requires(source -> LaserExcavatorConfig.stressTestCommandsEnabled() && source.hasPermission(2))
-                        .executes(context -> start(context.getSource()))
+                        .executes(context -> start(context.getSource(), StressUpgradePreset.DEFAULT))
+                        .then(Commands.literal("tier3")
+                                .executes(context -> start(context.getSource(), StressUpgradePreset.TIER_3_FILTERED)))
+                        .then(Commands.literal("tier5")
+                                .executes(context -> start(context.getSource(), StressUpgradePreset.TIER_5_FILTERED)))
                         .then(Commands.literal("status")
                                 .executes(context -> status(context.getSource())))
                         .then(Commands.literal("cancel")
@@ -202,7 +217,7 @@ public final class ExcavatorStressGridCommands {
         }
     }
 
-    private static int start(CommandSourceStack source) throws CommandSyntaxException {
+    private static int start(CommandSourceStack source, StressUpgradePreset upgradePreset) throws CommandSyntaxException {
         if (activeBuild != null) {
             source.sendFailure(Component.literal(
                     "An excavator stress-grid build is already running. Use /excavatorstressgrid status or cancel."
@@ -245,11 +260,11 @@ public final class ExcavatorStressGridCommands {
                 StressMode.NETWORKED
         );
         activeRun = run;
-        activeBuild = new BuildTask(level, player.getUUID(), spans, machines, network, run);
+        activeBuild = new BuildTask(level, player.getUUID(), spans, machines, network, run, upgradePreset);
 
         source.sendSuccess(
                 () -> Component.literal(
-                        "Started 3x3 excavator stress grid: footprint "
+                        "Started " + upgradePreset.startLabel + "3x3 excavator stress grid: footprint "
                                 + TOTAL_LENGTH + " x " + TOTAL_WIDTH
                                 + ", " + activeBuild.totalStoneTargets + " stone positions, "
                                 + TOTAL_EXCAVATORS + " excavators, "
@@ -259,7 +274,6 @@ public final class ExcavatorStressGridCommands {
                                 + network.drives() + " ME Drives / " + network.storageCells() + " 256k cells. "
                                 + "Oritech is split into " + network.powerNetworks() + " isolated lines (max "
                                 + network.maxPowerNetworkNodes() + " conductor nodes/line). "
-                                + "Use /excavatorstressgrid power on to energize all ten at once."
                 ),
                 true
         );
@@ -301,7 +315,7 @@ public final class ExcavatorStressGridCommands {
                 StressMode.ISOLATED
         );
         activeRun = run;
-        activeBuild = new BuildTask(level, player.getUUID(), spans, machines, network, run);
+        activeBuild = new BuildTask(level, player.getUUID(), spans, machines, network, run, StressUpgradePreset.DEFAULT);
 
         source.sendSuccess(
                 () -> Component.literal(
@@ -1299,6 +1313,7 @@ public final class ExcavatorStressGridCommands {
         private final List<MachineSpec> machines;
         private final NetworkPlan network;
         private final StressRun run;
+        private final StressUpgradePreset upgradePreset;
         private final BlockState stone = Blocks.STONE.defaultBlockState();
         private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         private final long totalStoneTargets;
@@ -1321,7 +1336,8 @@ public final class ExcavatorStressGridCommands {
                 List<FillSpan> spans,
                 List<MachineSpec> machines,
                 NetworkPlan network,
-                StressRun run
+                StressRun run,
+                StressUpgradePreset upgradePreset
         ) {
             this.level = level;
             this.owner = owner;
@@ -1329,6 +1345,7 @@ public final class ExcavatorStressGridCommands {
             this.machines = machines;
             this.network = network;
             this.run = run;
+            this.upgradePreset = upgradePreset;
             this.settleTicksRemaining = run.mode == StressMode.ISOLATED ? 0 : NETWORK_SETTLE_TICKS;
 
             long total = 0L;
@@ -1449,10 +1466,7 @@ public final class ExcavatorStressGridCommands {
                 return false;
             }
 
-            ItemStackHandler upgrades = excavator.getUpgradeInventory();
-            upgrades.setStackInSlot(0, new ItemStack(ModItems.SPEED_UPGRADE_TIER_5.get()));
-            upgrades.setStackInSlot(1, new ItemStack(ModItems.ENERGY_EFFICIENCY_UPGRADE_TIER_5.get()));
-            upgrades.setStackInSlot(2, new ItemStack(ModItems.AREA_UPGRADE_128.get()));
+            if (!configureStressUpgrades(excavator, upgradePreset)) {return false;}
 
             excavator.setSelectionWidth(EXCAVATION_WIDTH);
             excavator.setSelectionHeight(EXCAVATION_HEIGHT);
@@ -1461,6 +1475,47 @@ public final class ExcavatorStressGridCommands {
             // Do not inject FE and do not clear output here. The generated
             // Oritech conductors intentionally have no power source, so after
             // scanning/starting the excavator must wait for externally supplied FE.
+            return true;
+        }
+
+        private boolean configureStressUpgrades(
+                ExcavatorBlockEntity excavator,
+                StressUpgradePreset preset
+        ) {
+            ItemStackHandler upgrades = excavator.getUpgradeInventory();
+
+            upgrades.setStackInSlot(0, new ItemStack(
+                    preset.upgradeTier == 3
+                            ? ModItems.SPEED_UPGRADE_TIER_3.get()
+                            : ModItems.SPEED_UPGRADE_TIER_5.get()
+            ));
+            upgrades.setStackInSlot(1, new ItemStack(
+                    preset.upgradeTier == 3
+                            ? ModItems.ENERGY_EFFICIENCY_UPGRADE_TIER_3.get()
+                            : ModItems.ENERGY_EFFICIENCY_UPGRADE_TIER_5.get()
+            ));
+            upgrades.setStackInSlot(2, new ItemStack(ModItems.AREA_UPGRADE_128.get()));
+
+            if (!preset.filtered) {
+                return true;
+            }
+
+            upgrades.setStackInSlot(3, new ItemStack(
+                    preset.upgradeTier == 3
+                            ? ModItems.FILTER_UPGRADE_TIER_3.get()
+                            : ModItems.FILTER_UPGRADE_TIER_5.get()
+            ));
+            upgrades.setStackInSlot(4, new ItemStack(ModItems.FLUID_IGNORE_UPGRADE.get()));
+
+            for (int slot = 0; slot < STRESS_FILTER_BLOCKS.size(); slot++) {
+                if (!excavator.setFilterBlock(slot, STRESS_FILTER_BLOCKS.get(slot))) {
+                    LaserExcavator.LOGGER.warn(
+                            "Could not configure stress-grid filter slot {} on excavator at {}",
+                            slot, excavator.getBlockPos()
+                    );
+                    return false;
+                }
+            }
             return true;
         }
 
@@ -1839,6 +1894,22 @@ public final class ExcavatorStressGridCommands {
                     storageFull,
                     complete
             );
+        }
+    }
+
+    private enum StressUpgradePreset {
+        DEFAULT(5, false, ""),
+        TIER_3_FILTERED(3, true, "tier-3 filtered "),
+        TIER_5_FILTERED(5, true, "tier-5 filtered ");
+
+        private final int upgradeTier;
+        private final boolean filtered;
+        private final String startLabel;
+
+        StressUpgradePreset(int upgradeTier, boolean filtered, String startLabel) {
+            this.upgradeTier = upgradeTier;
+            this.filtered = filtered;
+            this.startLabel = startLabel;
         }
     }
 

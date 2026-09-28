@@ -1,6 +1,7 @@
 package de.balto.laserexcavator.block.excavator;
 
 import java.util.Arrays;
+import java.util.BitSet;
 
 /**
  * Mutable per-column excavation state. It owns the scan heights, current target
@@ -17,6 +18,7 @@ public final class ExcavatorColumnState {
     private int activeColumnCount;
     private boolean excavationInitialized;
     private boolean sharedColumnsRegistered;
+    private final BitSet sharedColumns = new BitSet();
 
     public void beginScan(int totalColumns) {
         surfaceHeights = new int[totalColumns];
@@ -26,6 +28,7 @@ public final class ExcavatorColumnState {
         activeColumnCount = 0;
         excavationInitialized = false;
         sharedColumnsRegistered = false;
+        sharedColumns.clear();
         scanIndex = 0;
         highestSurfaceY = ExcavationScanner.NO_SURFACE;
     }
@@ -91,6 +94,16 @@ public final class ExcavatorColumnState {
         activeColumns[activeColumnCount++] = columnIndex;
     }
 
+    public void ensureActiveColumn(int columnIndex) {
+        for (int slot = 0; slot < activeColumnCount; slot++) {
+            if (activeColumns[slot] == columnIndex) return;
+        }
+        if (activeColumnCount >= activeColumns.length) {
+            activeColumns = Arrays.copyOf(activeColumns, Math.max(activeColumnCount + 1, activeColumns.length * 2 + 1));
+        }
+        activeColumns[activeColumnCount++] = columnIndex;
+    }
+
     public void trimActiveColumns() {
         if (activeColumnCount < activeColumns.length) {
             activeColumns = Arrays.copyOf(activeColumns, activeColumnCount);
@@ -127,6 +140,7 @@ public final class ExcavatorColumnState {
     public void markExcavationInitialized() {
         excavationInitialized = true;
         sharedColumnsRegistered = false;
+        sharedColumns.clear();
     }
 
     public boolean areSharedColumnsRegistered() {
@@ -137,6 +151,22 @@ public final class ExcavatorColumnState {
         sharedColumnsRegistered = registered;
     }
 
+    public boolean isSharedColumn(int columnIndex) {
+        return sharedColumns.get(columnIndex);
+    }
+
+    public void setSharedColumn(int columnIndex, boolean shared) {
+        sharedColumns.set(columnIndex, shared);
+    }
+
+    public int nextSharedColumn(int fromIndex) {
+        return sharedColumns.nextSetBit(fromIndex);
+    }
+
+    public void clearSharedColumns() {
+        sharedColumns.clear();
+    }
+
     public void finishExcavation() {
         activeColumnCount = 0;
         currentHeights = new int[0];
@@ -144,6 +174,7 @@ public final class ExcavatorColumnState {
         surfaceHeights = new int[0];
         excavationInitialized = false;
         sharedColumnsRegistered = false;
+        sharedColumns.clear();
     }
 
     public void resetAll() {
@@ -155,6 +186,7 @@ public final class ExcavatorColumnState {
         activeColumnCount = 0;
         excavationInitialized = false;
         sharedColumnsRegistered = false;
+        sharedColumns.clear();
     }
 
     public int[] surfaceHeightsForSave() {
@@ -174,6 +206,7 @@ public final class ExcavatorColumnState {
         this.highestSurfaceY = highestSurfaceY;
         this.activeColumnCount = Math.max(0, activeColumnCount);
         this.sharedColumnsRegistered = false;
+        sharedColumns.clear();
     }
 
     public void loadExcavationState(
@@ -187,6 +220,8 @@ public final class ExcavatorColumnState {
         this.activeColumns = activeColumns;
         this.activeColumnCount = Math.min(activeColumnCount, activeColumns.length);
         this.excavationInitialized = excavationInitialized;
+        this.sharedColumnsRegistered = false;
+        sharedColumns.clear();
     }
 
     public void loadClientSyncState(boolean excavationInitialized) {
@@ -195,6 +230,7 @@ public final class ExcavatorColumnState {
         activeColumns = new int[0];
         this.excavationInitialized = excavationInitialized;
         sharedColumnsRegistered = false;
+        sharedColumns.clear();
     }
 
     public void clampScanIndex(int totalColumns) {

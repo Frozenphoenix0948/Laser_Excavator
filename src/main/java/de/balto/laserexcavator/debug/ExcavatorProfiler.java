@@ -26,6 +26,9 @@ public final class ExcavatorProfiler {
         EXCAVATION_TICK("02 Excavation tick total", Side.SERVER),
         TARGET_SELECTION("03 Target selection", Side.SERVER),
         FILTER_MATCHING("03a Filter matching", Side.SERVER),
+        TARGET_SELECTION_SETUP("03b Target-selection setup", Side.SERVER),
+        TARGET_COLUMN_CHOICE("03c Loaded-column choice", Side.SERVER),
+        TARGET_RESOLUTION("03d Target resolution", Side.SERVER),
         LOOT_GENERATION("04 Loot generation", Side.SERVER),
         STORAGE_RESERVATION("05 Storage capacity check", Side.SERVER),
         BLOCK_REMOVAL("06 setBlock / block removal", Side.SERVER),
@@ -94,14 +97,23 @@ public final class ExcavatorProfiler {
         EXCAVATOR_SERVER_TICKS("Excavator server ticks observed"),
         SCAN_COLUMNS("Scan columns processed"),
         SCAN_BLOCK_STATE_LOOKUPS("Scan block-state lookups"),
-        NEXT_TARGET_STATE_LOOKUPS("Next-target block-state lookups"),
-        SHARED_HEIGHT_COLUMNS_CREATED("Shared-height columns created"),
-        SHARED_HEIGHT_REGISTRATIONS("Shared-height column registrations"),
+        NEXT_TARGET_STATE_LOOKUPS("Next-target logical positions inspected"),
+        NEXT_TARGET_IMMEDIATE_FILTER_SKIPS("Next-target immediate filtered skips"),
+        NEXT_TARGET_NORMAL_RETURNS("Next-target normal returns"),
+        NEXT_TARGET_FILTERED_RETURNS("Next-target cooldown-filter returns"),
+        NEXT_TARGET_SUCCESSFUL_SCANS("Next-target successful scans"),
+        NEXT_TARGET_SUCCESSFUL_SCAN_LOOKUPS("Positions inspected in successful next-target scans"),
+        NEXT_TARGET_EXHAUSTED_SCANS("Next-target exhausted scans"),
+        NEXT_TARGET_EXHAUSTED_SCAN_LOOKUPS("Positions inspected in exhausted next-target scans"),
+        NEXT_TARGET_NO_SURFACE_INPUTS("Next-target calls starting at NO_SURFACE"),
+        PRIVATE_CURSOR_UPWARD_REGRESSIONS("Private cursor upward regressions"),
+        SHARED_HEIGHT_COLUMNS_CREATED("Overlap-shared columns created"),
+        SHARED_HEIGHT_REGISTRATIONS("Overlap-shared column memberships"),
         SHARED_HEIGHT_OWNER_AREAS_REGISTERED("Shared-height owner areas registered"),
         SHARED_HEIGHT_DUPLICATE_AREA_REGISTRATIONS_SKIPPED("Duplicate shared-height area registrations skipped"),
         SHARED_HEIGHT_OWNER_AREAS_UNREGISTERED("Shared-height owner areas unregistered"),
-        SHARED_HEIGHT_REFERENCE_RELEASES("Shared-height column-reference releases"),
-        SHARED_HEIGHT_COLUMNS_RELEASED("Shared-height columns released after last owner"),
+        SHARED_HEIGHT_REFERENCE_RELEASES("Overlap-shared membership releases"),
+        SHARED_HEIGHT_COLUMNS_RELEASED("Overlap-shared columns demoted"),
         SHARED_HEIGHT_LOOKUPS("Shared-height cursor lookups"),
         SHARED_HEIGHT_ADVANCES("Shared-height cursor advances"),
         SHARED_HEIGHT_REPAIRS("Shared-height downward repairs"),
@@ -301,15 +313,10 @@ public final class ExcavatorProfiler {
 
     private ExcavatorProfiler() {}
 
-    /** Returns zero without reading the clock while profiling is disabled. */
     public static long begin(Section section) {
         return enabled ? System.nanoTime() : 0L;
     }
 
-    /**
-     * Nested hot paths can reuse one outer isEnabled() result and avoid
-     * repeatedly reading the profiler's volatile enabled flag.
-     */
     public static long begin(boolean profiling, Section section) {
         return profiling ? System.nanoTime() : 0L;
     }
@@ -377,6 +384,25 @@ public final class ExcavatorProfiler {
 
     public static void add(Counter counter, long amount) {
         if (enabled && amount != 0L) COUNTER_VALUES[counter.ordinal()].add(amount);
+    }
+
+    public static void recordNextTargetScan(int lookups, int immediateFilterSkips, boolean attempted, boolean normalReturn, boolean filteredReturn) {
+        if (!enabled) return;
+
+        if (lookups != 0) COUNTER_VALUES[Counter.NEXT_TARGET_STATE_LOOKUPS.ordinal()].add(lookups);
+        if (immediateFilterSkips != 0) {
+            COUNTER_VALUES[Counter.NEXT_TARGET_IMMEDIATE_FILTER_SKIPS.ordinal()].add(immediateFilterSkips);
+        }
+        if (!attempted) return;
+
+        if (normalReturn || filteredReturn) {Counter resultCounter = normalReturn ? Counter.NEXT_TARGET_NORMAL_RETURNS : Counter.NEXT_TARGET_FILTERED_RETURNS;
+            COUNTER_VALUES[resultCounter.ordinal()].increment();
+            COUNTER_VALUES[Counter.NEXT_TARGET_SUCCESSFUL_SCANS.ordinal()].increment();
+            COUNTER_VALUES[Counter.NEXT_TARGET_SUCCESSFUL_SCAN_LOOKUPS.ordinal()].add(lookups);
+        } else {
+            COUNTER_VALUES[Counter.NEXT_TARGET_EXHAUSTED_SCANS.ordinal()].increment();
+            COUNTER_VALUES[Counter.NEXT_TARGET_EXHAUSTED_SCAN_LOOKUPS.ordinal()].add(lookups);
+        }
     }
 
     public static void recordMax(Counter counter, long value) {
@@ -449,7 +475,6 @@ public final class ExcavatorProfiler {
         lines.add("  Excavation rate while ticking: " + formatRate(blocks, context.serverActiveSeconds) + " blocks/s");
         addSummaryTiming(lines, "Excavation tick", Section.EXCAVATION_TICK);
         addSummaryTiming(lines, "Target selection", Section.TARGET_SELECTION);
-        addSummaryTiming(lines, "Filter matching", Section.FILTER_MATCHING);
         addSummaryTiming(lines, "Block removal", Section.BLOCK_REMOVAL);
         addSummaryTiming(lines, "Delivery processing", Section.DELIVERY_PROCESSING);
         if (CALLS[Section.SCANNER.ordinal()].sum() > 0L) {
@@ -533,6 +558,32 @@ public final class ExcavatorProfiler {
         long nextLookups = getCounter(Counter.NEXT_TARGET_STATE_LOOKUPS);
 
         lines.add("");
+        lines.add("Target-selection diagnostics:");
+        lines.add("  Immediate filter skips: "
+                + formatCount(getCounter(Counter.NEXT_TARGET_IMMEDIATE_FILTER_SKIPS)));
+        lines.add("  Returned normal / cooldown-filter targets: "
+                + formatCount(getCounter(Counter.NEXT_TARGET_NORMAL_RETURNS)) + " / "
+                + formatCount(getCounter(Counter.NEXT_TARGET_FILTERED_RETURNS)));
+
+        long successfulScans = getCounter(Counter.NEXT_TARGET_SUCCESSFUL_SCANS);
+        long successfulScanLookups = getCounter(Counter.NEXT_TARGET_SUCCESSFUL_SCAN_LOOKUPS);
+        long exhaustedScans = getCounter(Counter.NEXT_TARGET_EXHAUSTED_SCANS);
+        long exhaustedScanLookups = getCounter(Counter.NEXT_TARGET_EXHAUSTED_SCAN_LOOKUPS);
+        lines.add("  Successful scans / positions inspected / avg positions: "
+                + formatCount(successfulScans) + " / "
+                + formatCount(successfulScanLookups) + " / "
+                + formatRatio(successfulScanLookups, successfulScans));
+        lines.add("  Exhausted scans / positions inspected / avg positions: "
+                + formatCount(exhaustedScans) + " / "
+                + formatCount(exhaustedScanLookups) + " / "
+                + formatRatio(exhaustedScanLookups, exhaustedScans));
+        lines.add("  Lookup work spent in exhausted scans: "
+                + formatPercent(exhaustedScanLookups, successfulScanLookups + exhaustedScanLookups));
+        lines.add("  NO_SURFACE scan inputs / private cursor upward regressions: "
+                + formatCount(getCounter(Counter.NEXT_TARGET_NO_SURFACE_INPUTS)) + " / "
+                + formatCount(getCounter(Counter.PRIVATE_CURSOR_UPWARD_REGRESSIONS)));
+
+        lines.add("");
         lines.add("Server / networking:");
         lines.add("  Server network debug mode: " + LaserExcavatorConfig.networkDebugMode().name()
                 + (LaserExcavatorConfig.hasNetworkDebugModeOverride() ? " (runtime override)" : " (server config)"));
@@ -544,17 +595,17 @@ public final class ExcavatorProfiler {
         lines.add("  Scan columns: " + formatCount(getCounter(Counter.SCAN_COLUMNS)));
         lines.add("  Scan lookups/sec while ticking: " + formatRate(scanLookups, context.serverActiveSeconds));
         lines.add("  Next-target lookups/block: " + formatRatio(nextLookups, blocks));
-        lines.add("  Shared-height columns created / unique column registrations: "
+        lines.add("  Overlap-shared columns created / owner memberships: "
                 + formatCount(getCounter(Counter.SHARED_HEIGHT_COLUMNS_CREATED)) + " / "
                 + formatCount(getCounter(Counter.SHARED_HEIGHT_REGISTRATIONS)));
-        lines.add("  Shared-height owner areas registered / duplicate registrations skipped: "
+        lines.add("  Share-eligible owner areas registered / duplicate registrations skipped: "
                 + formatCount(getCounter(Counter.SHARED_HEIGHT_OWNER_AREAS_REGISTERED)) + " / "
                 + formatCount(getCounter(Counter.SHARED_HEIGHT_DUPLICATE_AREA_REGISTRATIONS_SKIPPED)));
-        lines.add("  Shared-height owner areas unregistered / reference releases / columns released: "
+        lines.add("  Share-eligible owner areas unregistered / membership releases / columns demoted: "
                 + formatCount(getCounter(Counter.SHARED_HEIGHT_OWNER_AREAS_UNREGISTERED)) + " / "
                 + formatCount(getCounter(Counter.SHARED_HEIGHT_REFERENCE_RELEASES)) + " / "
                 + formatCount(getCounter(Counter.SHARED_HEIGHT_COLUMNS_RELEASED)));
-        lines.add("  Shared-height net column references registered during interval: "
+        lines.add("  Overlap-shared net owner memberships during interval: "
                 + formatCount(Math.max(0L,
                         getCounter(Counter.SHARED_HEIGHT_REGISTRATIONS)
                                 - getCounter(Counter.SHARED_HEIGHT_REFERENCE_RELEASES))));
