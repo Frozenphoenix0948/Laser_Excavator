@@ -72,7 +72,9 @@ public final class ConfigurableRecipes {
     }
 
     public static void onDatapackSync(OnDatapackSyncEvent event) {
-        ExcavatorLootCache.clear(event.getPlayerList().getServer());
+        if (event.getPlayer() == null) {
+            ExcavatorLootCache.clear(event.getPlayerList().getServer());
+        }
         apply(event.getPlayerList().getServer().getRecipeManager(), event.getPlayerList().getServer().registryAccess());
     }
 
