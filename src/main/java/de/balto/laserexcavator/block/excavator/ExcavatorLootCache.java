@@ -1,13 +1,9 @@
 package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -15,53 +11,17 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/**
- * Server-wide runtime cache for deterministic excavator block drops.
- *
- * Each cache entry is keyed by the canonical BlockState, Silk Touch
- * state and Fortune level. Unknown combinations are learned from real loot-table
- * results. A result must remain identical for CONFIRMATIONS_REQUIRED
- * observations before it is promoted to the fast cache; any mismatch marks that
- * exact state/tool combination permanently uncacheable for the current server
- * session. This keeps randomized drops such as gravel/leaves out of the fast
- * path without maintaining a block-ID list.
- *
- * Non-Silk ore states are conservatively rejected up front. Silk Touch uses
- * a separate key and can therefore still become cacheable when its result is
- * deterministic. Block-entity states are also rejected because their drops may
- * depend on NBT/inventory contents that are not represented by the cache key.
- */
+/** Runtime cache for deterministic excavator drops. */
 public final class ExcavatorLootCache {
-    /**
-     * Common terrain reaches this very quickly under hundreds of excavators,
-     * while chance-based loot is extremely unlikely to survive this many real
-     * observations without revealing a mismatch.
-     */
-    private static final int CONFIRMATIONS_REQUIRED = 256;
-    private static final int AUDIT_INTERVAL_HITS = 1_024;
-
-    private static final byte LEARNING = 0;
-    private static final byte CACHED = 1;
-    private static final byte UNCACHEABLE = 2;
-
-    private static final TagKey<Block> COMMON_ORES = TagKey.create(
-            Registries.BLOCK,
-            ResourceLocation.fromNamespaceAndPath("c", "ores")
-    );
-    private static final TagKey<Block> FORGE_ORES_COMPAT = TagKey.create(
-            Registries.BLOCK,
-            ResourceLocation.fromNamespaceAndPath("forge", "ores")
-    );
-
-    /** Weak server keys make integrated/dedicated-server restarts self-cleaning. */
-    private static final Map<MinecraftServer, ServerCache> SERVER_CACHES =
-            Collections.synchronizedMap(new WeakHashMap<>());
+    private static final int CONFIRMATIONS_REQUIRED = 512;
+    private static final Object UNCACHEABLE = new Object();
+    private static final Map<ServerLevel, LevelCache> LEVEL_CACHES = new WeakHashMap<>();
 
     private ExcavatorLootCache() {}
 
@@ -85,204 +45,118 @@ public final class ExcavatorLootCache {
             representativePrototype = representative;
         }
 
-        public List<ItemStack> reservationView() {
-            return reservationView;
-        }
-
-        public ItemStack representativePrototype() {
-            return representativePrototype;
-        }
-
+        public List<ItemStack> reservationView() { return reservationView; }
+        public ItemStack representativePrototype() { return representativePrototype; }
     }
 
-    private static final class Entry {
-        private byte state = LEARNING;
-        private int confirmations;
-        private @Nullable CachedDrops candidate;
-        private @Nullable CachedDrops cached;
-        private int hitsSinceAudit;
-        private boolean auditPending;
+    private static final class LearningEntry {
+        private final CachedDrops drops;
+        private int observations = 1;
+
+        private LearningEntry(List<ItemStack> drops) { this.drops = new CachedDrops(drops); }
     }
 
-    private static final class ServerCache {
-        /** BlockStates are canonical StateHolder instances, so identity keys avoid hashing properties. */
-        private final IdentityHashMap<BlockState, Int2ObjectOpenHashMap<Entry>> byState = new IdentityHashMap<>();
-        /** Map specifically for blocks broken with silktouch, used only for the filter matching*/
-        private final IdentityHashMap<BlockState, Block> silkTouchFilterEquivalents = new IdentityHashMap<>();
+    /** One state-ID table per loot mode. */
+    public static final class Table {
+        private final Object[] entries;
 
-        private Entry entry(BlockState state, int toolKey) {
-            Int2ObjectOpenHashMap<Entry> byTool = byState.get(state);
-            if (byTool == null) {
-                byTool = new Int2ObjectOpenHashMap<>(2);
-                byState.put(state, byTool);
+        @SuppressWarnings("deprecation")
+        private Table() { entries = new Object[Block.BLOCK_STATE_REGISTRY.size()]; }
+
+        public @Nullable CachedDrops getCached(BlockState state) {
+            Object entry = entries[Block.getId(state)];
+            if (entry instanceof CachedDrops drops) {
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_HITS);
+                return drops;
             }
-            Entry entry = byTool.get(toolKey);
+            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_MISSES);
+            return null;
+        }
+
+        public @Nullable CachedDrops observe(BlockState state, List<ItemStack> observedDrops) {
+            int stateId = Block.getId(state);
+            Object entry = entries[stateId];
+            if (entry == UNCACHEABLE) return null;
+            if (entry instanceof CachedDrops drops) return drops;
+
             if (entry == null) {
-                entry = new Entry();
-                byTool.put(toolKey, entry);
-            }
-            return entry;
-        }
-    }
-
-    public static @Nullable CachedDrops get(
-            ServerLevel level,
-            BlockState state,
-            boolean silkTouch,
-            int fortuneLevel
-    ) {
-        ServerCache cache = serverCache(level.getServer());
-        int toolKey = toolKey(silkTouch, fortuneLevel);
-        Entry entry = cache.entry(state, toolKey);
-
-        if (entry.state == CACHED) {
-            if (++entry.hitsSinceAudit >= AUDIT_INTERVAL_HITS) {
-                entry.hitsSinceAudit = 0;
-                entry.auditPending = true;
-                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_AUDITS);
-                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_MISSES);
+                if (state.hasBlockEntity()) {
+                    entries[stateId] = UNCACHEABLE;
+                    ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_REJECTIONS);
+                    return null;
+                }
+                entries[stateId] = new LearningEntry(observedDrops);
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS);
                 return null;
             }
-            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_HITS);
-            return entry.cached;
-        }
 
-        ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_MISSES);
-        return null;
-    }
-
-    /**
-     * Feeds one real loot-table result into the learning state. The returned
-     * descriptor is non-null only when this observation promotes the combination
-     * to the deterministic cache.
-     */
-    public static @Nullable CachedDrops observe(
-            ServerLevel level,
-            BlockState state,
-            boolean silkTouch,
-            int fortuneLevel,
-            List<ItemStack> drops
-    ) {
-        ServerCache cache = serverCache(level.getServer());
-        int toolKey = toolKey(silkTouch, fortuneLevel);
-        Entry entry = cache.entry(state, toolKey);
-
-        if (entry.state == CACHED) {
-            if (!entry.auditPending) return entry.cached;
-            entry.auditPending = false;
-            if (entry.cached != null && sameDrops(entry.cached.reservationView(), drops)) {
-                return entry.cached;
+            LearningEntry learning = (LearningEntry) entry;
+            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS);
+            if (!sameDrops(learning.drops.reservationView(), observedDrops)) {
+                entries[stateId] = UNCACHEABLE;
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_REJECTIONS);
+                return null;
             }
-            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_AUDIT_FAILURES);
-            markUncacheable(entry);
-            return null;
-        }
-        if (entry.state == UNCACHEABLE) return null;
+            if (++learning.observations < CONFIRMATIONS_REQUIRED) return null;
 
-        if (!eligible(state, silkTouch)) {
-            markUncacheable(entry);
-            return null;
+            entries[stateId] = learning.drops;
+            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_PROMOTIONS);
+            return learning.drops;
         }
 
-        ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS);
-
-        if (entry.candidate == null) {
-            entry.candidate = new CachedDrops(drops);
-            entry.confirmations = 1;
-            return null;
-        }
-
-        if (!sameDrops(entry.candidate.reservationView(), drops)) {
-            markUncacheable(entry);
-            return null;
-        }
-
-        entry.confirmations++;
-        if (entry.confirmations < CONFIRMATIONS_REQUIRED) return null;
-
-        entry.cached = entry.candidate;
-        entry.candidate = null;
-        entry.state = CACHED;
-        entry.hitsSinceAudit = 0;
-        entry.auditPending = false;
-        ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_PROMOTIONS);
-        return entry.cached;
+        private void clear() { Arrays.fill(entries, null); }
     }
+
+    private static final class LevelCache {
+        private final Table[] tables = {new Table(), new Table(), new Table(), new Table(), new Table()};
+        private final IdentityHashMap<BlockState, Block> silkTouchFilterEquivalents = new IdentityHashMap<>();
+
+        private Table table(boolean silkTouch, int fortuneTier) {
+            int index = silkTouch ? 4 : switch (fortuneTier) { case 1 -> 1; case 2 -> 2; case 3 -> 3; default -> 0; };
+            return tables[index];
+        }
+
+        private void clear() {
+            for (Table table : tables) table.clear();
+            silkTouchFilterEquivalents.clear();
+        }
+    }
+
+    public static Table table(ServerLevel level, boolean silkTouch, int fortuneTier) { return levelCache(level).table(silkTouch, fortuneTier); }
 
     public static void clear(MinecraftServer server) {
-        SERVER_CACHES.remove(server);
-    }
-
-    private static ServerCache serverCache(MinecraftServer server) {
-        synchronized (SERVER_CACHES) {
-            return SERVER_CACHES.computeIfAbsent(server, ignored -> new ServerCache());
+        synchronized (LEVEL_CACHES) {
+            for (Map.Entry<ServerLevel, LevelCache> entry : LEVEL_CACHES.entrySet()) {
+                if (entry.getKey().getServer() == server) entry.getValue().clear();
+            }
         }
     }
 
-    private static int toolKey(boolean silkTouch, int fortuneLevel) {
-        int normalizedFortune = silkTouch ? 0 : Math.max(0, fortuneLevel);
-        return (normalizedFortune << 1) | (silkTouch ? 1 : 0);
-    }
-
-    private static boolean eligible(BlockState state, boolean silkTouch) {
-        if (state.hasBlockEntity()) return false;
-
-        // User-visible policy: normal ore drops keep using their loot table.
-        // Silk Touch is a separate cache key and may be learned independently.
-        if (!silkTouch && (state.is(COMMON_ORES) || state.is(FORGE_ORES_COMPAT))) {
-            return false;
-        }
-        return true;
+    private static LevelCache levelCache(ServerLevel level) {
+        synchronized (LEVEL_CACHES) { return LEVEL_CACHES.computeIfAbsent(level, ignored -> new LevelCache()); }
     }
 
     private static boolean sameDrops(List<ItemStack> cached, List<ItemStack> observed) {
         int observedNonEmpty = 0;
-        for (ItemStack stack : observed) {
-            if (!stack.isEmpty()) observedNonEmpty++;
-        }
+        for (ItemStack stack : observed) if (!stack.isEmpty()) observedNonEmpty++;
         if (cached.size() != observedNonEmpty) return false;
 
         int cachedIndex = 0;
         for (ItemStack observedStack : observed) {
             if (observedStack.isEmpty()) continue;
             ItemStack cachedStack = cached.get(cachedIndex++);
-            if (cachedStack.getCount() != observedStack.getCount()
-                    || !ItemStack.isSameItemSameComponents(cachedStack, observedStack)) {
-                return false;
-            }
+            if (cachedStack.getCount() != observedStack.getCount() || !ItemStack.isSameItemSameComponents(cachedStack, observedStack)) return false;
         }
         return true;
     }
 
-    private static void markUncacheable(Entry entry) {
-        entry.state = UNCACHEABLE;
-        entry.candidate = null;
-        entry.cached = null;
-        entry.confirmations = 0;
-        entry.hitsSinceAudit = 0;
-        entry.auditPending = false;
-        ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DETERMINISTIC_LOOT_CACHE_REJECTIONS);
-    }
-
-    /**
-     * Function to either cache a blocks silk touch loot or return what is in the cache.
-     */
-    public static @Nullable Block getSilkTouchFilterEquivalent(ServerLevel level, BlockPos pos, BlockState state, ItemStack silkTouchTool
-    ) {
-        ServerCache cache = serverCache(level.getServer());
-
-        if (cache.silkTouchFilterEquivalents.containsKey(state)) {
-            return cache.silkTouchFilterEquivalents.get(state);
-        }
+    /** Cached Silk Touch equivalent for filter matching. */
+    public static @Nullable Block getSilkTouchFilterEquivalent(ServerLevel level, BlockPos pos, BlockState state, ItemStack silkTouchTool) {
+        LevelCache cache = levelCache(level);
+        if (cache.silkTouchFilterEquivalents.containsKey(state)) return cache.silkTouchFilterEquivalents.get(state);
 
         List<ItemStack> drops = Block.getDrops(state, level, pos, state.hasBlockEntity() ? level.getBlockEntity(pos) : null, null, silkTouchTool);
-
-        Block equivalent = null;
-
-        if (drops.size() == 1 && drops.getFirst().getItem() instanceof BlockItem blockItem) {
-            equivalent = blockItem.getBlock();
-        }
-
+        Block equivalent = drops.size() == 1 && drops.getFirst().getItem() instanceof BlockItem blockItem ? blockItem.getBlock() : null;
         cache.silkTouchFilterEquivalents.put(state, equivalent);
         return equivalent;
     }

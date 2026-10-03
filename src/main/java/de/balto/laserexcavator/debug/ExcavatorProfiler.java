@@ -135,8 +135,6 @@ public final class ExcavatorProfiler {
         DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS("Deterministic loot learning observations"),
         DETERMINISTIC_LOOT_CACHE_PROMOTIONS("Deterministic loot cache promotions"),
         DETERMINISTIC_LOOT_CACHE_REJECTIONS("Deterministic loot cache rejections"),
-        DETERMINISTIC_LOOT_CACHE_AUDITS("Deterministic loot cache audits"),
-        DETERMINISTIC_LOOT_CACHE_AUDIT_FAILURES("Deterministic loot cache audit failures"),
         NORMAL_LOOT_TABLE_CALLS("Normal loot-table calls"),
         SINGLE_STACK_RESERVATION_CHECKS("Single-stack capacity checks"),
         DELIVERY_BATCHES_PROCESSED("Delivery batches processed"),
@@ -643,9 +641,6 @@ public final class ExcavatorProfiler {
                 + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS)) + " / "
                 + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_PROMOTIONS)) + " / "
                 + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_REJECTIONS)));
-        lines.add("  Deterministic loot periodic audits / failures: "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_AUDITS)) + " / "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_AUDIT_FAILURES)));
         lines.add("  Storage capacity checks: " + formatCount(getCounter(Counter.SINGLE_STACK_RESERVATION_CHECKS)));
         lines.add("  Delivery batches/stacks inserted: "
                 + formatCount(getCounter(Counter.DELIVERY_BATCHES_PROCESSED)) + " / "

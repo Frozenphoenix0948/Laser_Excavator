@@ -146,6 +146,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     private final ExcavatorUpgradeManager upgrades;
     private final ExcavatorTargetScanner targetScanner;
     private final ExcavatorFuelManager fuel;
+    private @Nullable ExcavatorLootCache.Table lootTableCache;
 
     /**
      * Development-only stress/grid bypass. While enabled the machine does not
@@ -248,7 +249,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 columns::isExcavationInitialized,
                 this::onConfigurationChanged,
                 this::clampSelectionToAreaUpgrade,
-                this::setChanged,
+                this::onUpgradeInventoryChanged,
                 this::setChangedAndSync
         );
         targetScanner = new ExcavatorTargetScanner(upgrades);
@@ -1025,11 +1026,11 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         } else {
             clearStorageWaitState();
             long lootProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.LOOT_GENERATION);
-            boolean silkTouch = hasSilkTouchUpgrade();
-            int fortuneLevel = silkTouch ? 0 : getLuckLevel();
-            cachedLoot = LaserExcavatorConfig.ENABLE_DETERMINISTIC_LOOT_CACHE.get()
-                    ? ExcavatorLootCache.get(level, state, silkTouch, fortuneLevel)
-                    : null;
+            ExcavatorLootCache.Table lootTable = null;
+            if (LaserExcavatorConfig.ENABLE_DETERMINISTIC_LOOT_CACHE.get()) {
+                lootTable = lootTableCache(level);
+                cachedLoot = lootTable.getCached(state);
+            }
 
             if (cachedLoot != null) {
                 drops = cachedLoot.reservationView();
@@ -1045,9 +1046,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 );
                 ExcavatorProfiler.increment(ExcavatorProfiler.Counter.NORMAL_LOOT_TABLE_CALLS);
 
-                if (LaserExcavatorConfig.ENABLE_DETERMINISTIC_LOOT_CACHE.get()) {
-                    cachedLoot = ExcavatorLootCache.observe(
-                            level, state, silkTouch, fortuneLevel, drops);
+                if (lootTable != null) {
+                    cachedLoot = lootTable.observe(state, drops);
                 }
             }
 
@@ -1291,6 +1291,18 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         if (nextY == ExcavationScanner.NO_SURFACE) {
             columns.removeActiveColumnByColumnIndex(columnIndex);
         }
+    }
+
+    private ExcavatorLootCache.Table lootTableCache(ServerLevel level) {
+        if (lootTableCache == null) {
+            lootTableCache = ExcavatorLootCache.table(level, hasSilkTouchUpgrade(), getLuckUpgradeTier());
+        }
+        return lootTableCache;
+    }
+
+    private void onUpgradeInventoryChanged() {
+        lootTableCache = null;
+        setChanged();
     }
 
     private void enqueuePendingCachedDelivery(
