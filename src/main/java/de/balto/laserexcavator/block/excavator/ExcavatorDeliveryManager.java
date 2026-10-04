@@ -11,182 +11,99 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
-import org.jetbrains.annotations.Nullable;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 
 /**
- * Schedules mined drops until their transport arrival time and inserts them through
- * an indexed output inventory. In-flight deliveries do not reserve slots; failed or
- * partial arrival insertions keep the inserted portion and requeue only the remainder.
+ * This Manager handles the deliveries so everything that happens between
+ * breaking a block and it being put into the inventory.
  */
 public final class ExcavatorDeliveryManager {
     private static final String NBT_DELIVERIES = "PendingDeliveries";
     private static final String NBT_ARRIVAL = "ArrivalGameTime";
-    private static final String NBT_STACKS = "Stacks";
+    private static final String NBT_STACK = "Stack";
+    private static final String NBT_STACKS = "Stacks"; // To support old version.
+
+    private static final IdentityHashMap<Item, ArrayList<WeakReference<ItemStack>>> STACK_CACHE = new IdentityHashMap<>();
+    private static int stackCacheMisses;
 
     private final ItemStackHandler outputInventory;
-
-    private final Long2ObjectOpenHashMap<DeliveryBucket> pendingDeliveriesByTick = new Long2ObjectOpenHashMap<>();
-    private final ArrayList<DeliveryBucket> catchUpBuckets = new ArrayList<>();
-    private int pendingDeliveryCount;
-    private long lastProcessedGameTime = Long.MIN_VALUE;
-    private boolean schedulerCatchUpRequired;
-
+    private final Long2ObjectOpenHashMap<ArrayList<Delivery>> pendingByTick = new Long2ObjectOpenHashMap<>();
+    private final ArrayList<Long> catchUpTicks = new ArrayList<>();
     private final Reference2IntOpenHashMap<Item> itemSlots = new Reference2IntOpenHashMap<>();
     private final Item[] indexedItemBySlot;
-    private int emptySlotsMask;
-    private boolean indexDirty = true;
-
-    private final ItemStack[] capacityScratchStacks;
-    private final int[] capacityScratchCounts;
-
-    private long storageRevision;
-
-    private boolean internalDeliveryInsertionInProgress;
+    private int emptySlotsMask, pendingDeliveryCount;
+    private boolean indexDirty = true, schedulerCatchUpRequired, internalDeliveryInsertionInProgress;
+    private long lastProcessedGameTime = Long.MIN_VALUE, storageRevision;
 
     public ExcavatorDeliveryManager(ItemStackHandler outputInventory) {
         this.outputInventory = outputInventory;
         int slots = outputInventory.getSlots();
-        if (slots <= 0 || slots >= Integer.SIZE) {
-            throw new IllegalArgumentException("Indexed excavator output inventory requires 1-31 slots, got " + slots);
-        }
-        this.indexedItemBySlot = new Item[slots];
-        this.capacityScratchStacks = new ItemStack[slots];
-        this.capacityScratchCounts = new int[slots];
+        if (slots <= 0 || slots >= Integer.SIZE) throw new IllegalArgumentException("Indexed excavator output inventory requires 1-31 slots, got " + slots);
+        indexedItemBySlot = new Item[slots];
         itemSlots.defaultReturnValue(0);
     }
 
     public record ProcessResult(boolean changed, boolean becameEmpty) {
         public static final ProcessResult NONE = new ProcessResult(false, false);
+        private static final ProcessResult CHANGED = new ProcessResult(true, false), EMPTY = new ProcessResult(true, true);
     }
 
-    private static final class PendingDelivery {
-        private final long arrivalGameTime;
-        private final @Nullable ExcavatorLootCache.CachedDrops cachedDrops;
-        private final @Nullable List<ItemStack> stacks;
-        private @Nullable PendingDelivery nextInBucket;
-
-        private PendingDelivery(
-                long arrivalGameTime,
-                @Nullable ExcavatorLootCache.CachedDrops cachedDrops,
-                @Nullable List<ItemStack> stacks
-        ) {
-            this.arrivalGameTime = arrivalGameTime;
-            this.cachedDrops = cachedDrops;
-            this.stacks = stacks;
-        }
+    private static final class Delivery {
+        private final ItemStack item;
+        private int count;
+        private Delivery(ItemStack item, int count) { this.item = item; this.count = count; }
     }
 
-    private static final class DeliveryBucket {
-        private final long arrivalGameTime;
-        private @Nullable PendingDelivery first;
-        private @Nullable PendingDelivery last;
-        private int size;
-
-        private DeliveryBucket(long arrivalGameTime) {
-            this.arrivalGameTime = arrivalGameTime;
-        }
-
-        private void add(PendingDelivery delivery) {
-            delivery.nextInBucket = null;
-            if (last == null) {
-                first = delivery;
-            } else {
-                last.nextInBucket = delivery;
-            }
-            last = delivery;
-            size++;
-        }
-    }
-
-    public int pendingCount() {
-        return pendingDeliveryCount;
-    }
-
-    public boolean hasPending() {
-        return pendingDeliveryCount != 0;
-    }
-
-    public long storageRevision() {
-        return storageRevision;
-    }
-
-    public boolean isInternalDeliveryInsertionInProgress() {
-        return internalDeliveryInsertionInProgress;
-    }
+    public int pendingCount() { return pendingDeliveryCount; }
+    public boolean hasPending() { return pendingDeliveryCount != 0; }
+    public long storageRevision() { return storageRevision; }
+    public boolean isInternalDeliveryInsertionInProgress() { return internalDeliveryInsertionInProgress; }
 
     public void onOutputSlotChanged(int slot) {
         storageRevision++;
         refreshChangedSlot(slot);
     }
 
-    public void onInternalDeliverySlotChanged(int slot) {
-        refreshChangedSlot(slot);
-    }
+    public void onInternalDeliverySlotChanged(int slot) { refreshChangedSlot(slot); }
 
     private void refreshChangedSlot(int slot) {
-        if (slot < 0 || slot >= indexedItemBySlot.length) {
-            indexDirty = true;
-            return;
-        }
-
-        if (!indexDirty) {
-            refreshSlotIndex(slot);
-        }
+        if (slot < 0 || slot >= indexedItemBySlot.length) indexDirty = true;
+        else if (!indexDirty) refreshSlotIndex(slot);
     }
 
-    /**
-     * In-flight transports do not reserve storage.
-     * The common single-stack case uses the index directly; multi-stack
-     * loot uses reusable scratch state so all stacks "compete" for the same
-     * capacity.
-     */
     public boolean canFitAll(List<ItemStack> stacks) {
         long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.STORAGE_RESERVATION);
         try {
-            ItemStack singleStack = null;
-            int nonEmptyStackCount = 0;
-            for (ItemStack stack : stacks) {
-                if (stack.isEmpty()) continue;
-                singleStack = stack;
-                if (++nonEmptyStackCount > 1) break;
-            }
-            if (nonEmptyStackCount == 0) return true;
-            if (nonEmptyStackCount == 1) {
-                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.SINGLE_STACK_RESERVATION_CHECKS);
-                return canFitUsingIndex(singleStack);
-            }
-            return canFitUsingVirtualInventory(stacks);
+            if (stacks.size() == 1 && !stacks.get(0).isEmpty()) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.SINGLE_STACK_RESERVATION_CHECKS);
+            ensureIndexFresh();
+            if (emptySlotsMask != 0) return true;
+            for (ItemStack stack : stacks) if (!stack.isEmpty() && !canMerge(stack)) return false;
+            return true;
         } finally {
             ExcavatorProfiler.end(ExcavatorProfiler.Section.STORAGE_RESERVATION, profile);
         }
     }
 
     public boolean enqueue(long arrivalGameTime, List<ItemStack> stacks) {
-        List<ItemStack> stored = null;
+        boolean added = false;
         for (ItemStack stack : stacks) {
             if (stack.isEmpty()) continue;
-            if (stored == null) stored = new ArrayList<>(Math.min(4, stacks.size()));
-            stored.add(stack.copy());
+            addNew(arrivalGameTime, stack);
+            added = true;
         }
-        if (stored == null || stored.isEmpty()) return false;
-
-        addPending(new PendingDelivery(
-                arrivalGameTime,
-                null,
-                List.copyOf(stored)
-        ));
-        return true;
+        return added;
     }
 
     public void enqueueCachedDrops(long arrivalGameTime, ExcavatorLootCache.CachedDrops drops) {
-        addPending(new PendingDelivery(
-                arrivalGameTime,
-                drops,
-                null
-        ));
+        for (ItemStack stack : drops.reservationView()) {
+            if (stack.isEmpty()) continue;
+            schedule(arrivalGameTime, new Delivery(stack, stack.getCount()));
+            pendingDeliveryCount++;
+        }
     }
 
     public ProcessResult processDue(long gameTime) {
@@ -195,290 +112,175 @@ public final class ExcavatorDeliveryManager {
             schedulerCatchUpRequired = false;
             return ProcessResult.NONE;
         }
-
-        if (lastProcessedGameTime != Long.MIN_VALUE
-                && gameTime != lastProcessedGameTime + 1L) {
-            // Normally the block entity is called every game tick. A gap means
-            // it was unloaded/not ticking, so buckets whose exact tick passed
-            // must be collected once instead of waiting for that tick forever.
-            schedulerCatchUpRequired = true;
-        }
+        if (lastProcessedGameTime != Long.MIN_VALUE && gameTime != lastProcessedGameTime + 1L) schedulerCatchUpRequired = true;
         lastProcessedGameTime = gameTime;
+        boolean changed = false;
 
-        DeliveryBucket exactBucket = pendingDeliveriesByTick.remove(gameTime);
-        catchUpBuckets.clear();
         if (schedulerCatchUpRequired) {
-            // After an unload or tick gap, process overdue buckets from oldest arrival
-            // tick to newest.
-            if (exactBucket != null) {
-                catchUpBuckets.add(exactBucket);
-                exactBucket = null;
-            }
-
-            var iterator = pendingDeliveriesByTick.long2ObjectEntrySet().fastIterator();
-            while (iterator.hasNext()) {
-                var entry = iterator.next();
-                if (entry.getLongKey() <= gameTime) {
-                    catchUpBuckets.add(entry.getValue());
-                    iterator.remove();
+            catchUpTicks.clear();
+            for (long tick : pendingByTick.keySet()) if (tick <= gameTime) catchUpTicks.add(tick);
+            catchUpTicks.sort(Long::compare);
+            for (long tick : catchUpTicks) {
+                ArrayList<Delivery> deliveries = pendingByTick.remove(tick);
+                if (deliveries != null) {
+                    process(deliveries, gameTime);
+                    changed = true;
                 }
             }
-            if (catchUpBuckets.size() > 1) {
-                catchUpBuckets.sort((a, b) -> Long.compare(a.arrivalGameTime, b.arrivalGameTime));
-            }
+            catchUpTicks.clear();
             schedulerCatchUpRequired = false;
+        } else {
+            ArrayList<Delivery> deliveries = pendingByTick.remove(gameTime);
+            if (deliveries != null) {
+                process(deliveries, gameTime);
+                changed = true;
+            }
         }
-
-        if (exactBucket == null && catchUpBuckets.isEmpty()) {
-            return ProcessResult.NONE;
-        }
-
-        int retryTicks = Math.max(1, LaserExcavatorConfig.DELIVERY_RETRY_TICKS.get());
-        if (exactBucket != null) {
-            processBucket(exactBucket, gameTime, retryTicks);
-        }
-        for (int i = 0; i < catchUpBuckets.size(); i++) {
-            processBucket(catchUpBuckets.get(i), gameTime, retryTicks);
-        }
-        catchUpBuckets.clear();
-
-        return new ProcessResult(true, pendingDeliveryCount == 0);
+        if (!changed) return ProcessResult.NONE;
+        return pendingDeliveryCount == 0 ? ProcessResult.EMPTY : ProcessResult.CHANGED;
     }
 
-    private void processBucket(DeliveryBucket bucket, long gameTime, int retryTicks) {
-        pendingDeliveryCount -= bucket.size;
-
-        PendingDelivery delivery = bucket.first;
-        while (delivery != null) {
-            PendingDelivery nextDelivery = delivery.nextInBucket;
-            delivery.nextInBucket = null;
+    private void process(ArrayList<Delivery> deliveries, long gameTime) {
+        int retryTicks = 0;
+        for (int i = 0; i < deliveries.size(); i++) {
+            Delivery delivery = deliveries.get(i);
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_BATCHES_PROCESSED);
-
-            List<ItemStack> failed = null;
-            if (delivery.cachedDrops != null) {
-                for (ItemStack prototype : delivery.cachedDrops.reservationView()) {
-                    if (prototype.isEmpty()) continue;
-                    ItemStack remainder = insertIndexed(prototype.copy());
-                    if (remainder.isEmpty()) {
-                        ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_STACKS_INSERTED);
-                    } else {
-                        if (failed == null) failed = new ArrayList<>();
-                        failed.add(remainder.copy());
-                    }
-                }
-            } else if (delivery.stacks != null) {
-                for (ItemStack stack : delivery.stacks) {
-                    if (stack.isEmpty()) continue;
-
-                    ItemStack remainder = insertIndexed(stack.copy());
-                    if (remainder.isEmpty()) {
-                        ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_STACKS_INSERTED);
-                    } else {
-                        if (failed == null) failed = new ArrayList<>();
-                        failed.add(remainder.copy());
-                    }
-                }
+            ItemStack remainder = insertIndexed(materialize(delivery));
+            if (remainder.isEmpty()) {
+                pendingDeliveryCount--;
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_STACKS_INSERTED);
+            } else {
+                if (retryTicks == 0) retryTicks = Math.max(1, LaserExcavatorConfig.DELIVERY_RETRY_TICKS.get());
+                delivery.count = remainder.getCount();
+                schedule(gameTime + retryTicks, delivery);
             }
-
-            if (failed != null && !failed.isEmpty()) {
-                addPending(new PendingDelivery(
-                        gameTime + retryTicks,
-                        null,
-                        List.copyOf(failed)
-                ));
-            }
-
-            delivery = nextDelivery;
         }
     }
 
-    private void addPending(PendingDelivery delivery) {
-        DeliveryBucket bucket = pendingDeliveriesByTick.get(delivery.arrivalGameTime);
-        if (bucket == null) {
-            bucket = new DeliveryBucket(delivery.arrivalGameTime);
-            pendingDeliveriesByTick.put(delivery.arrivalGameTime, bucket);
-        }
-        bucket.add(delivery);
+    private void addNew(long tick, ItemStack stack) {
+        schedule(tick, new Delivery(sharedStack(stack), stack.getCount()));
         pendingDeliveryCount++;
+    }
 
-        if (lastProcessedGameTime != Long.MIN_VALUE
-                && delivery.arrivalGameTime <= lastProcessedGameTime) {
-            schedulerCatchUpRequired = true;
+    private void schedule(long tick, Delivery delivery) {
+        ArrayList<Delivery> deliveries = pendingByTick.get(tick);
+        if (deliveries == null) {
+            deliveries = new ArrayList<>();
+            pendingByTick.put(tick, deliveries);
+        }
+        deliveries.add(delivery);
+        if (lastProcessedGameTime != Long.MIN_VALUE && tick <= lastProcessedGameTime) schedulerCatchUpRequired = true;
+    }
+
+    private static ItemStack materialize(Delivery delivery) {
+        ItemStack stack = delivery.item.copy();
+        stack.setCount(delivery.count);
+        return stack;
+    }
+
+    private static synchronized ItemStack sharedStack(ItemStack stack) {
+        ArrayList<WeakReference<ItemStack>> variants = STACK_CACHE.computeIfAbsent(stack.getItem(), ignored -> new ArrayList<>(1));
+        for (int i = variants.size() - 1; i >= 0; i--) {
+            ItemStack cached = variants.get(i).get();
+            if (cached == null) variants.remove(i);
+            else if (ItemStack.isSameItemSameComponents(cached, stack)) return cached;
+        }
+        ItemStack cached = stack.copy();
+        cached.setCount(1);
+        variants.add(new WeakReference<>(cached));
+        if ((++stackCacheMisses & 4095) == 0) cleanStackCache();
+        return cached;
+    }
+
+    private static void cleanStackCache() {
+        var iterator = STACK_CACHE.entrySet().iterator();
+        while (iterator.hasNext()) {
+            ArrayList<WeakReference<ItemStack>> variants = iterator.next().getValue();
+            variants.removeIf(ref -> ref.get() == null);
+            if (variants.isEmpty()) iterator.remove();
         }
     }
 
     public void save(CompoundTag tag, HolderLookup.Provider registries) {
         if (pendingDeliveryCount == 0) return;
-
         ListTag deliveriesTag = new ListTag();
-        for (DeliveryBucket bucket : pendingDeliveriesByTick.values()) {
-            for (PendingDelivery delivery = bucket.first; delivery != null; delivery = delivery.nextInBucket) {
+        for (var entry : pendingByTick.long2ObjectEntrySet()) {
+            for (Delivery delivery : entry.getValue()) {
                 CompoundTag deliveryTag = new CompoundTag();
-                deliveryTag.putLong(NBT_ARRIVAL, delivery.arrivalGameTime);
-
-                ListTag stacksTag = new ListTag();
-                if (delivery.cachedDrops != null) {
-                    for (ItemStack stack : delivery.cachedDrops.reservationView()) {
-                        addSavedStack(stacksTag, stack, registries);
-                    }
-                } else if (delivery.stacks != null) {
-                    for (ItemStack stack : delivery.stacks) {
-                        addSavedStack(stacksTag, stack, registries);
-                    }
-                }
-
-                if (!stacksTag.isEmpty()) {
-                    deliveryTag.put(NBT_STACKS, stacksTag);
+                deliveryTag.putLong(NBT_ARRIVAL, entry.getLongKey());
+                Tag saved = materialize(delivery).save(registries);
+                if (saved instanceof CompoundTag compound) {
+                    deliveryTag.put(NBT_STACK, compound);
                     deliveriesTag.add(deliveryTag);
                 }
             }
         }
-
-        if (!deliveriesTag.isEmpty()) {
-            tag.put(NBT_DELIVERIES, deliveriesTag);
-        }
+        if (!deliveriesTag.isEmpty()) tag.put(NBT_DELIVERIES, deliveriesTag);
     }
 
     public void load(CompoundTag tag, HolderLookup.Provider registries) {
-        pendingDeliveriesByTick.clear();
-        catchUpBuckets.clear();
+        pendingByTick.clear();
+        catchUpTicks.clear();
         pendingDeliveryCount = 0;
         lastProcessedGameTime = Long.MIN_VALUE;
         schedulerCatchUpRequired = true;
         indexDirty = true;
-
         if (!tag.contains(NBT_DELIVERIES, Tag.TAG_LIST)) return;
+
         ListTag deliveriesTag = tag.getList(NBT_DELIVERIES, Tag.TAG_COMPOUND);
         for (int i = 0; i < deliveriesTag.size(); i++) {
             CompoundTag deliveryTag = deliveriesTag.getCompound(i);
+            long tick = deliveryTag.getLong(NBT_ARRIVAL);
+            if (deliveryTag.contains(NBT_STACK, Tag.TAG_COMPOUND)) {
+                ItemStack stack = ItemStack.parseOptional(registries, deliveryTag.getCompound(NBT_STACK));
+                if (!stack.isEmpty()) addNew(tick, stack);
+                continue;
+            }
             if (!deliveryTag.contains(NBT_STACKS, Tag.TAG_LIST)) continue;
-
             ListTag stacksTag = deliveryTag.getList(NBT_STACKS, Tag.TAG_COMPOUND);
-            List<ItemStack> stacks = new ArrayList<>(stacksTag.size());
             for (int j = 0; j < stacksTag.size(); j++) {
                 ItemStack stack = ItemStack.parseOptional(registries, stacksTag.getCompound(j));
-                if (!stack.isEmpty()) stacks.add(stack);
+                if (!stack.isEmpty()) addNew(tick, stack);
             }
-            if (stacks.isEmpty()) continue;
-
-            addPending(new PendingDelivery(
-                    deliveryTag.getLong(NBT_ARRIVAL),
-                    null,
-                    List.copyOf(stacks)
-            ));
         }
     }
 
-    private static void addSavedStack(
-            ListTag stacksTag,
-            ItemStack stack,
-            HolderLookup.Provider registries
-    ) {
-        if (stack.isEmpty()) return;
-        Tag saved = stack.save(registries);
-        if (saved instanceof CompoundTag compound) stacksTag.add(compound);
-    }
-
-    private boolean canFitUsingIndex(ItemStack stack) {
-        ensureIndexFresh();
-        int remaining = stack.getCount();
-
+    private boolean canMerge(ItemStack stack) {
         int candidates = itemSlots.getInt(stack.getItem());
-        while (candidates != 0 && remaining > 0) {
+        while (candidates != 0) {
             int slot = Integer.numberOfTrailingZeros(candidates);
             candidates &= candidates - 1;
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_INDEX_ITEM_SLOT_CHECKS);
-
             ItemStack existing = outputInventory.getStackInSlot(slot);
-            remaining -= availableSpaceInSlot(slot, existing, existing.getCount(), stack);
+            if (ItemStack.isSameItemSameComponents(existing, stack)
+                    && existing.getCount() < Math.min(outputInventory.getSlotLimit(slot), existing.getMaxStackSize())) return true;
         }
-        if (remaining <= 0) return true;
-
-        int emptyCandidates = emptySlotsMask;
-        while (emptyCandidates != 0 && remaining > 0) {
-            int slot = Integer.numberOfTrailingZeros(emptyCandidates);
-            emptyCandidates &= emptyCandidates - 1;
-            remaining -= availableSpaceInSlot(slot, ItemStack.EMPTY, 0, stack);
-        }
-        return remaining <= 0;
-    }
-
-    private boolean canFitUsingVirtualInventory(List<ItemStack> incoming) {
-        int slots = outputInventory.getSlots();
-        for (int slot = 0; slot < slots; slot++) {
-            ItemStack existing = outputInventory.getStackInSlot(slot);
-            capacityScratchStacks[slot] = existing.isEmpty() ? ItemStack.EMPTY : existing;
-            capacityScratchCounts[slot] = existing.isEmpty() ? 0 : existing.getCount();
-        }
-
-        for (ItemStack stack : incoming) {
-            if (stack.isEmpty()) continue;
-            int remaining = stack.getCount();
-
-            for (int slot = 0; slot < slots && remaining > 0; slot++) {
-                if (capacityScratchCounts[slot] <= 0) continue;
-                ItemStack existing = capacityScratchStacks[slot];
-                int free = availableSpaceInSlot(slot, existing, capacityScratchCounts[slot], stack);
-                int moved = Math.min(remaining, free);
-                capacityScratchCounts[slot] += moved;
-                remaining -= moved;
-            }
-
-            for (int slot = 0; slot < slots && remaining > 0; slot++) {
-                if (capacityScratchCounts[slot] != 0) continue;
-                int free = availableSpaceInSlot(slot, ItemStack.EMPTY, 0, stack);
-                int moved = Math.min(remaining, free);
-                if (moved <= 0) continue;
-                capacityScratchStacks[slot] = stack;
-                capacityScratchCounts[slot] = moved;
-                remaining -= moved;
-            }
-
-            if (remaining > 0) return false;
-        }
-        return true;
-    }
-
-    private int availableSpaceInSlot(int slot, ItemStack existing, int existingCount, ItemStack incoming) {
-        if (existingCount > 0) {
-            if (!ItemStack.isSameItemSameComponents(existing, incoming)) return 0;
-            int limit = Math.min(outputInventory.getSlotLimit(slot), existing.getMaxStackSize());
-            return Math.max(0, limit - existingCount);
-        }
-
-        if (!outputInventory.isItemValid(slot, incoming)) return 0;
-        return Math.max(0, Math.min(outputInventory.getSlotLimit(slot), incoming.getMaxStackSize()));
+        return false;
     }
 
     private ItemStack insertIndexed(ItemStack stack) {
         if (stack.isEmpty()) return ItemStack.EMPTY;
         ensureIndexFresh();
         ItemStack remainder = stack;
-
         int candidates = itemSlots.getInt(stack.getItem());
         while (candidates != 0 && !remainder.isEmpty()) {
             int slot = Integer.numberOfTrailingZeros(candidates);
             candidates &= candidates - 1;
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_INDEX_ITEM_SLOT_CHECKS);
-
             ItemStack existing = outputInventory.getStackInSlot(slot);
             if (!ItemStack.isSameItemSameComponents(existing, remainder)) continue;
-            int limit = Math.min(outputInventory.getSlotLimit(slot), existing.getMaxStackSize());
-            if (existing.getCount() >= limit) continue;
+            if (existing.getCount() >= Math.min(outputInventory.getSlotLimit(slot), existing.getMaxStackSize())) continue;
             remainder = insertIntoKnownSlot(slot, remainder);
         }
 
-        int emptyCandidates = emptySlotsMask;
-        while (!remainder.isEmpty() && emptyCandidates != 0) {
-            int slot = Integer.numberOfTrailingZeros(emptyCandidates);
-            emptyCandidates &= emptyCandidates - 1;
+        int empty = emptySlotsMask;
+        while (!remainder.isEmpty() && empty != 0) {
+            int slot = Integer.numberOfTrailingZeros(empty);
+            empty &= empty - 1;
             if (!outputInventory.isItemValid(slot, remainder)) continue;
-
             int before = remainder.getCount();
             remainder = insertIntoKnownSlot(slot, remainder);
-            if (remainder.getCount() < before) {
-                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_INDEX_EMPTY_SLOT_USES);
-            }
+            if (remainder.getCount() < before) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_INDEX_EMPTY_SLOT_USES);
         }
         return remainder;
     }
@@ -493,8 +295,7 @@ public final class ExcavatorDeliveryManager {
     }
 
     private void ensureIndexFresh() {
-        if (!indexDirty) return;
-        rebuildIndex();
+        if (indexDirty) rebuildIndex();
     }
 
     private void rebuildIndex() {
@@ -516,24 +317,17 @@ public final class ExcavatorDeliveryManager {
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_INDEX_REBUILDS);
     }
 
-    /**
-     * Updates only structural slot state. Count-only mutations leave the item
-     * identity unchanged and return before touching either bitmask/map.
-     */
     private void refreshSlotIndex(int slot) {
         Item oldItem = indexedItemBySlot[slot];
         ItemStack current = outputInventory.getStackInSlot(slot);
         Item newItem = current.isEmpty() ? null : current.getItem();
-
         if (oldItem == newItem) return;
 
         int bit = 1 << slot;
         if (oldItem != null) {
-            int oldMask = itemSlots.getInt(oldItem) & ~bit;
-            if (oldMask == 0) itemSlots.removeInt(oldItem);
-            else itemSlots.put(oldItem, oldMask);
+            int mask = itemSlots.getInt(oldItem) & ~bit;
+            if (mask == 0) itemSlots.removeInt(oldItem); else itemSlots.put(oldItem, mask);
         }
-
         if (newItem == null) {
             indexedItemBySlot[slot] = null;
             emptySlotsMask |= bit;
@@ -542,7 +336,6 @@ public final class ExcavatorDeliveryManager {
             emptySlotsMask &= ~bit;
             itemSlots.put(newItem, itemSlots.getInt(newItem) | bit);
         }
-
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_INDEX_SLOT_UPDATES);
     }
 }
