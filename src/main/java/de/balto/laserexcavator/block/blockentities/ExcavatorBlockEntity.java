@@ -258,38 +258,37 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     public static void serverTick(Level level, BlockPos pos, BlockState state, ExcavatorBlockEntity blockEntity) {
         if (!(level instanceof ServerLevel serverLevel)) return;
 
-        // Profiler heartbeat. This increments for every loaded excavator tick,
-        // independent of scanning/excavation state, so a running profiler can
-        // never silently look completely dead while this block entity is ticking.
-        ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_SERVER_TICKS);
+        long blockEntityProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.BLOCK_ENTITY_TICK);
+        try {
+            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_SERVER_TICKS);
+            if (!blockEntity.developmentBenchmarkResourceBypass) {
+                long fuelProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.FUEL_PROCESSING);
+                blockEntity.fuel.tick();
+                ExcavatorProfiler.end(ExcavatorProfiler.Section.FUEL_PROCESSING, fuelProfile);
 
-        if (!blockEntity.developmentBenchmarkResourceBypass) {
-            blockEntity.fuel.tick();
-
-            // Delivery processing is independent from excavation state. A completed
-            // quarry may still have material physically travelling toward the machine.
-            long deliveryProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.DELIVERY_PROCESSING);
-            blockEntity.processDueDeliveries(serverLevel);
-            ExcavatorProfiler.end(ExcavatorProfiler.Section.DELIVERY_PROCESSING, deliveryProfile);
-        }
-
-        // The base machine is not rated for Nether ambient heat. Keep fuel charging,
-        // deliveries and visual cleanup alive, but freeze scanning/excavation work until
-        // the Nether Cooling upgrade is installed.
-        if (blockEntity.isOverheating()) return;
-
-        switch (blockEntity.scanState) {
-            case SCANNING -> blockEntity.scanColumnsBatch(serverLevel);
-            case EXCAVATING -> {
-                long excavationProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.EXCAVATION_TICK);
-                blockEntity.tickExcavation(serverLevel);
-                ExcavatorProfiler.end(ExcavatorProfiler.Section.EXCAVATION_TICK, excavationProfile);
+                long deliveryProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.DELIVERY_PROCESSING);
+                blockEntity.processDueDeliveries(serverLevel);
+                ExcavatorProfiler.end(ExcavatorProfiler.Section.DELIVERY_PROCESSING, deliveryProfile);
             }
-            case STORAGE_FULL -> {
-                long excavationProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.EXCAVATION_TICK);
-                blockEntity.retryStorageBlockedTarget(serverLevel);
-                ExcavatorProfiler.end(ExcavatorProfiler.Section.EXCAVATION_TICK, excavationProfile);
+
+            if (blockEntity.isOverheating()) return;
+
+            switch (blockEntity.scanState) {
+                case SCANNING -> blockEntity.scanColumnsBatch(serverLevel);
+                case EXCAVATING -> {
+                    long excavationProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.EXCAVATION_TICK);
+                    blockEntity.tickExcavation(serverLevel);
+                    ExcavatorProfiler.end(ExcavatorProfiler.Section.EXCAVATION_TICK, excavationProfile);
+                }
+                case STORAGE_FULL -> {
+                    long excavationProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.EXCAVATION_TICK);
+                    blockEntity.retryStorageBlockedTarget(serverLevel);
+                    ExcavatorProfiler.end(ExcavatorProfiler.Section.EXCAVATION_TICK, excavationProfile);
+                }
             }
+        } finally {
+            blockEntity.energyStorage.flushInternalChanges();
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.BLOCK_ENTITY_TICK, blockEntityProfile);
         }
     }
 

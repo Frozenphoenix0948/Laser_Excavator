@@ -8,10 +8,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
-/**
- * Owns the optional furnace-fuel slot and converts vanilla/modded furnace burn
- * time into internal FE. Burning pauses while the internal energy buffer is full.
- */
+/** Furnace-fuel slot and fuel-to-FE conversion. */
 public final class ExcavatorFuelManager {
     private static final String TAG_FUEL_INVENTORY = "FuelInventory";
     private static final String TAG_BURN_TICKS_REMAINING = "FuelBurnTicksRemaining";
@@ -41,52 +38,26 @@ public final class ExcavatorFuelManager {
         this.changeListener = changeListener;
     }
 
-    public ItemStackHandler inventory() {
-        return inventory;
-    }
+    public ItemStackHandler inventory() { return inventory; }
+    public boolean isEnabled() { return LaserExcavatorConfig.fuelSlotEnabled(); }
+    public int burnTicksRemaining() { return Math.max(0, burnTicksRemaining); }
+    public int burnTicksTotal() { return Math.max(0, burnTicksTotal); }
 
-    public boolean isEnabled() {
-        return LaserExcavatorConfig.fuelSlotEnabled();
-    }
-
-    public int burnTicksRemaining() {
-        return Math.max(0, burnTicksRemaining);
-    }
-
-    public int burnTicksTotal() {
-        return Math.max(0, burnTicksTotal);
-    }
-
-    public static boolean isFuel(ItemStack stack) {
-        return !stack.isEmpty() && stack.getBurnTime(RecipeType.SMELTING) > 0;
-    }
+    public static boolean isFuel(ItemStack stack) { return !stack.isEmpty() && stack.getBurnTime(RecipeType.SMELTING) > 0; }
 
     public void tick() {
-        if (!isEnabled()) return;
-        if (energyStorage.getEnergyStored() >= energyStorage.getMaxEnergyStored()) return;
+        if (!isEnabled() || burnTicksRemaining <= 0 && inventory.getStackInSlot(0).isEmpty()) return;
+        int budget = Math.max(1, LaserExcavatorConfig.FUEL_BURN_TICKS_PER_SERVER_TICK.get());
+        int energyPerTick = Math.max(1, LaserExcavatorConfig.FUEL_ENERGY_PER_BURN_TICK.get());
 
-        int burnTicksBudget = Math.max(1, LaserExcavatorConfig.FUEL_BURN_TICKS_PER_SERVER_TICK.get());
-        int energyPerBurnTick = Math.max(1, LaserExcavatorConfig.FUEL_ENERGY_PER_BURN_TICK.get());
-
-        while (burnTicksBudget > 0) {
-            int freeEnergy = energyStorage.getMaxEnergyStored() - energyStorage.getEnergyStored();
-            int ticksThatFit = freeEnergy / energyPerBurnTick;
-            if (ticksThatFit <= 0) return;
-
-            if (burnTicksRemaining <= 0) {
-                if (inventory.getStackInSlot(0).isEmpty() || !consumeFuelItem()) return;
-            }
-
-            int ticksToConsume = Math.min(burnTicksBudget, Math.min(burnTicksRemaining, ticksThatFit));
-            if (ticksToConsume <= 0) return;
-
-            long requestedEnergy = (long) ticksToConsume * (long) energyPerBurnTick;
-            int generated = energyStorage.addInternal((int) Math.min(Integer.MAX_VALUE, requestedEnergy));
-            int consumedTicks = generated / energyPerBurnTick;
-            if (consumedTicks <= 0) return;
-
-            burnTicksRemaining -= consumedTicks;
-            burnTicksBudget -= consumedTicks;
+        while (budget > 0) {
+            if (burnTicksRemaining <= 0 && (energyStorage.remainingCapacity() < energyPerTick || !consumeFuelItem())) return;
+            int requested = Math.min(budget, burnTicksRemaining);
+            int consumed = energyStorage.addInternalUnits(energyPerTick, requested);
+            if (consumed <= 0) return;
+            burnTicksRemaining -= consumed;
+            budget -= consumed;
+            if (consumed < requested) return;
         }
     }
 
@@ -95,17 +66,33 @@ public final class ExcavatorFuelManager {
         int burnTime = stack.getBurnTime(RecipeType.SMELTING);
         if (burnTime <= 0) return false;
 
+        ItemStack remainder = stack.copyWithCount(1).getCraftingRemainingItem();
+        if (!canStoreRemainderAfterConsumption(stack, remainder)) return false;
+
         ItemStack consumed = inventory.extractItem(0, 1, false);
         if (consumed.isEmpty()) return false;
 
-        ItemStack remainder = consumed.getCraftingRemainingItem();
-        if (!remainder.isEmpty() && inventory.getStackInSlot(0).isEmpty()) {
-            inventory.setStackInSlot(0, remainder);
+        if (!remainder.isEmpty()) {
+            ItemStack current = inventory.getStackInSlot(0);
+            if (current.isEmpty()) inventory.setStackInSlot(0, remainder);
+            else {
+                ItemStack merged = current.copy();
+                merged.grow(remainder.getCount());
+                inventory.setStackInSlot(0, merged);
+            }
         }
 
         burnTicksRemaining = burnTime;
         burnTicksTotal = burnTime;
         return true;
+    }
+
+    private boolean canStoreRemainderAfterConsumption(ItemStack fuel, ItemStack remainder) {
+        if (remainder.isEmpty()) return true;
+        int limit = inventory.getSlotLimit(0);
+        if (fuel.getCount() == 1) return remainder.getCount() <= Math.min(limit, remainder.getMaxStackSize());
+        return ItemStack.isSameItemSameComponents(fuel, remainder)
+                && fuel.getCount() - 1 + remainder.getCount() <= Math.min(limit, fuel.getMaxStackSize());
     }
 
     public void save(CompoundTag tag, HolderLookup.Provider registries) {
@@ -119,8 +106,6 @@ public final class ExcavatorFuelManager {
     public void load(CompoundTag tag, HolderLookup.Provider registries) {
         burnTicksRemaining = Math.max(0, tag.getInt(TAG_BURN_TICKS_REMAINING));
         burnTicksTotal = Math.max(burnTicksRemaining, tag.getInt(TAG_BURN_TICKS_TOTAL));
-        if (tag.contains(TAG_FUEL_INVENTORY, Tag.TAG_COMPOUND)) {
-            inventory.deserializeNBT(registries, tag.getCompound(TAG_FUEL_INVENTORY));
-        }
+        if (tag.contains(TAG_FUEL_INVENTORY, Tag.TAG_COMPOUND)) inventory.deserializeNBT(registries, tag.getCompound(TAG_FUEL_INVENTORY));
     }
 }

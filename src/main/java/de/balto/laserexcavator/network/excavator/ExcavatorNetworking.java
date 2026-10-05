@@ -56,9 +56,19 @@ public final class ExcavatorNetworking {
     }
 
     public static void onServerTickPost(ServerTickEvent.Post event) {
-        MinecraftServer server = event.getServer();
-        ExcavatorBlockSyncBatcher.flushDueSections(server);
-        flushQueuedVisuals(server);
+        long postProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.SERVER_POST_TICK);
+        try {
+            MinecraftServer server = event.getServer();
+            long blockSyncProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.BLOCK_SYNC_FLUSH);
+            ExcavatorBlockSyncBatcher.flushDueSections(server);
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.BLOCK_SYNC_FLUSH, blockSyncProfile);
+
+            long visualFlushProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.VISUAL_BATCH_FLUSH);
+            flushQueuedVisuals(server);
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.VISUAL_BATCH_FLUSH, visualFlushProfile);
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.SERVER_POST_TICK, postProfile);
+        }
     }
 
     public static void clearPendingVisuals() {
@@ -229,6 +239,7 @@ public final class ExcavatorNetworking {
     ) {
         if (eventCount <= 0 || slices.isEmpty()) return;
 
+        long buildProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.VISUAL_PAYLOAD_BUILD);
         int groupCount = slices.size();
         int totalLasers = 0;
         int totalTransports = 0;
@@ -315,6 +326,7 @@ public final class ExcavatorNetworking {
                 transportForceFieldYOffset,
                 transportAge
         );
+        ExcavatorProfiler.end(ExcavatorProfiler.Section.VISUAL_PAYLOAD_BUILD, buildProfile);
 
         long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.VISUAL_PACKET_SEND);
         PacketDistributor.sendToPlayersTrackingChunk(level, chunkPos, payload);

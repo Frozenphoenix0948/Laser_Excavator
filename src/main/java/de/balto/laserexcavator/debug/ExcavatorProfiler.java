@@ -22,6 +22,9 @@ public final class ExcavatorProfiler {
     private static final double SERVER_TICKS_PER_SECOND = 20.0;
 
     public enum Section {
+        SERVER_TICK_SPAN("00 Whole server tick span", Side.SERVER),
+        BLOCK_ENTITY_TICK("00a Excavator BE serverTick", Side.SERVER),
+        FUEL_PROCESSING("00b Fuel processing", Side.SERVER),
         SCANNER("01 Scanner total", Side.SERVER),
         EXCAVATION_TICK("02 Excavation tick total", Side.SERVER),
         TARGET_SELECTION("03 Target selection", Side.SERVER),
@@ -36,6 +39,13 @@ public final class ExcavatorProfiler {
         BLOCK_REMOVAL_DIRECT_CHUNK("06b Direct LevelChunk removal", Side.SERVER),
         NEXT_TARGET_LOOKUP("07 Next-target lookup", Side.SERVER),
         DELIVERY_PROCESSING("08 Delivery queue processing", Side.SERVER),
+        SERVER_POST_TICK("08a Server post-tick total", Side.SERVER),
+        BLOCK_SYNC_FLUSH("08b Block-sync flush total", Side.SERVER),
+        VISUAL_BATCH_FLUSH("08c Visual-batch flush total", Side.SERVER),
+        VISUAL_PAYLOAD_BUILD("08d Visual payload construction", Side.SERVER),
+        EXTERNAL_ITEM_HANDLER("08e External item handler", Side.SERVER),
+        EXTERNAL_FE_RECEIVE("08f External FE receive", Side.SERVER),
+        TEST_GRID_MAINTENANCE("08g Test-grid maintenance", Side.SERVER),
         VISUAL_PACKET_SEND("09a Visual batch packet sending", Side.SERVER),
         BLOCK_UPDATE_PACKET_SEND("09b Block section-payload batching", Side.SERVER),
         CLIENT_BLOCK_UPDATE_APPLY("09c Client silent block apply", Side.CLIENT),
@@ -308,6 +318,7 @@ public final class ExcavatorProfiler {
     private static volatile boolean enabled;
     private static volatile long startedAtNanos;
     private static volatile long stoppedAtNanos;
+    private static volatile long serverTickStartNanos;
 
     private ExcavatorProfiler() {}
 
@@ -426,9 +437,22 @@ public final class ExcavatorProfiler {
         return false;
     }
 
+    public static void beginServerTick() {
+        serverTickStartNanos = enabled ? System.nanoTime() : 0L;
+    }
+
+    public static void endServerTick() {
+        long start = serverTickStartNanos;
+        serverTickStartNanos = 0L;
+        if (!enabled || start == 0L) return;
+        end(Section.SERVER_TICK_SPAN, start);
+        increment(Counter.GLOBAL_SERVER_TICKS);
+    }
+
     public static synchronized void start() {
         enabled = false;
         clearStats();
+        serverTickStartNanos = 0L;
         startedAtNanos = System.nanoTime();
         stoppedAtNanos = 0L;
         enabled = true;
@@ -444,6 +468,7 @@ public final class ExcavatorProfiler {
         boolean wasEnabled = enabled;
         enabled = false;
         clearStats();
+        serverTickStartNanos = 0L;
 
         long now = System.nanoTime();
         startedAtNanos = now;
@@ -471,6 +496,12 @@ public final class ExcavatorProfiler {
         lines.add("  Active server time: " + formatSeconds(context.serverActiveSeconds)
                 + " (" + formatCount(globalTicks) + " ticks)");
         lines.add("  Excavation rate while ticking: " + formatRate(blocks, context.serverActiveSeconds) + " blocks/s");
+        lines.add("  Observed server tick span avg / max: "
+                + formatPerTickNanos(totalNanos(Section.SERVER_TICK_SPAN), globalTicks) + " / "
+                + formatNanos(maxNanos(Section.SERVER_TICK_SPAN)));
+        lines.add("  Measured Excavator-owned CPU/tick: "
+                + formatPerTickNanos(measuredExcavatorServerNanos(), globalTicks));
+        addSummaryTiming(lines, "BE server tick", Section.BLOCK_ENTITY_TICK);
         addSummaryTiming(lines, "Excavation tick", Section.EXCAVATION_TICK);
         addSummaryTiming(lines, "Target selection", Section.TARGET_SELECTION);
         addSummaryTiming(lines, "Block removal", Section.BLOCK_REMOVAL);
@@ -590,6 +621,47 @@ public final class ExcavatorProfiler {
         lines.add("  Active server time: " + formatSeconds(context.serverActiveSeconds)
                 + " (" + formatCount(globalTicks) + " ticks)");
         lines.add("  Blocks/sec while ticking: " + formatRate(blocks, context.serverActiveSeconds));
+
+        long beTotal = totalNanos(Section.BLOCK_ENTITY_TICK);
+        long scannerTotal = totalNanos(Section.SCANNER);
+        long excavationTotal = totalNanos(Section.EXCAVATION_TICK);
+        long deliveryTotal = totalNanos(Section.DELIVERY_PROCESSING);
+        long fuelTotal = totalNanos(Section.FUEL_PROCESSING);
+        long beRemainder = Math.max(0L, beTotal - scannerTotal - excavationTotal - deliveryTotal - fuelTotal);
+        long postTotal = totalNanos(Section.SERVER_POST_TICK);
+        long blockSyncTotal = totalNanos(Section.BLOCK_SYNC_FLUSH);
+        long visualFlushTotal = totalNanos(Section.VISUAL_BATCH_FLUSH);
+        long postRemainder = Math.max(0L, postTotal - blockSyncTotal - visualFlushTotal);
+
+        lines.add("  Server CPU coverage:");
+        lines.add("    Observed whole server tick span avg / max: "
+                + formatPerTickNanos(totalNanos(Section.SERVER_TICK_SPAN), globalTicks) + " / "
+                + formatNanos(maxNanos(Section.SERVER_TICK_SPAN)));
+        lines.add("    Excavator BE CPU/server tick: " + formatPerTickNanos(beTotal, globalTicks));
+        lines.add("      Scanner / excavation / delivery / fuel / remainder: "
+                + formatPerTickNanos(scannerTotal, globalTicks) + " / "
+                + formatPerTickNanos(excavationTotal, globalTicks) + " / "
+                + formatPerTickNanos(deliveryTotal, globalTicks) + " / "
+                + formatPerTickNanos(fuelTotal, globalTicks) + " / "
+                + formatPerTickNanos(beRemainder, globalTicks));
+        lines.add("    Server post-tick CPU/server tick: " + formatPerTickNanos(postTotal, globalTicks));
+        lines.add("      Block-sync / visual flush / remainder: "
+                + formatPerTickNanos(blockSyncTotal, globalTicks) + " / "
+                + formatPerTickNanos(visualFlushTotal, globalTicks) + " / "
+                + formatPerTickNanos(postRemainder, globalTicks));
+        lines.add("      Visual payload build / packet send: "
+                + formatPerTickNanos(totalNanos(Section.VISUAL_PAYLOAD_BUILD), globalTicks) + " / "
+                + formatPerTickNanos(totalNanos(Section.VISUAL_PACKET_SEND), globalTicks));
+        lines.add("    External item / FE handler CPU/server tick: "
+                + formatPerTickNanos(totalNanos(Section.EXTERNAL_ITEM_HANDLER), globalTicks) + " / "
+                + formatPerTickNanos(totalNanos(Section.EXTERNAL_FE_RECEIVE), globalTicks));
+        lines.add("    Measured Excavator-owned CPU/server tick: "
+                + formatPerTickNanos(measuredExcavatorServerNanos(), globalTicks));
+        lines.add("    Test-grid maintenance CPU/server tick: "
+                + formatPerTickNanos(totalNanos(Section.TEST_GRID_MAINTENANCE), globalTicks));
+        lines.add("    Excavator-owned share of observed server span: " + formatPercent(
+                measuredExcavatorServerNanos(), totalNanos(Section.SERVER_TICK_SPAN)));
+
         lines.add("  Scan columns: " + formatCount(getCounter(Counter.SCAN_COLUMNS)));
         lines.add("  Scan lookups/sec while ticking: " + formatRate(scanLookups, context.serverActiveSeconds));
         lines.add("  Next-target lookups/block: " + formatRatio(nextLookups, blocks));
@@ -1007,6 +1079,25 @@ public final class ExcavatorProfiler {
                 section.side().shortName(), section.label(), formatNanos(total),
                 formatNanos(avg), formatNanos(MAX_NANOS[index].get()), calls
         ));
+    }
+
+    private static long totalNanos(Section section) {
+        return TOTAL_NANOS[section.ordinal()].sum();
+    }
+
+    private static long maxNanos(Section section) {
+        return MAX_NANOS[section.ordinal()].get();
+    }
+
+    private static long measuredExcavatorServerNanos() {
+        return totalNanos(Section.BLOCK_ENTITY_TICK)
+                + totalNanos(Section.SERVER_POST_TICK)
+                + totalNanos(Section.EXTERNAL_ITEM_HANDLER)
+                + totalNanos(Section.EXTERNAL_FE_RECEIVE);
+    }
+
+    private static String formatPerTickNanos(long totalNanos, long ticks) {
+        return ticks <= 0L ? "n/a" : formatNanos(totalNanos / ticks);
     }
 
     private static long transportSubAverageNanos(TransportSubsection subsection) {

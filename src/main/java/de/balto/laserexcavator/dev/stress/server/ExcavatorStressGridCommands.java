@@ -8,6 +8,7 @@ import de.balto.laserexcavator.block.excavator.ExcavatorBlock;
 import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
 import de.balto.laserexcavator.item.ModItems;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
+import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
@@ -170,50 +171,55 @@ public final class ExcavatorStressGridCommands {
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         if (activeBuild == null && activeRun == null) return;
-        if (!LaserExcavatorConfig.stressTestCommandsEnabled()) {
-            if (activeRun != null) activeRun.disableIsolatedResourceBypass();
-            activeBuild = null;
-            activeRun = null;
-            return;
-        }
-
-        MinecraftServer server = event.getServer();
-
-        BuildTask build = activeBuild;
-        if (build != null) {
-            if (build.level.getServer() != server) {
+        long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.TEST_GRID_MAINTENANCE);
+        try {
+            if (!LaserExcavatorConfig.stressTestCommandsEnabled()) {
+                if (activeRun != null) activeRun.disableIsolatedResourceBypass();
                 activeBuild = null;
-            } else {
-                build.tick();
-                if (build.isDone()) {
+                activeRun = null;
+                return;
+            }
+
+            MinecraftServer server = event.getServer();
+
+            BuildTask build = activeBuild;
+            if (build != null) {
+                if (build.level.getServer() != server) {
                     activeBuild = null;
-                    build.run.activate();
-                    ServerPlayer player = server.getPlayerList().getPlayer(build.owner);
-                    if (player != null) {
-                        String completion = "Excavator stress grid finished: "
-                                + build.changedBlocks + " stone blocks changed, "
-                                + build.placedExcavators + " excavators, "
-                                + build.completedNetworkPlacements + " network placements";
-                        if (build.run.mode == StressMode.ISOLATED) {
-                            completion += ". Isolated benchmark bypass is active: FE consumption, storage-capacity checks, and real item deliveries are disabled while transport visuals remain enabled.";
-                        } else {
-                            completion += build.networkFailures == 0
-                                    ? ". Machines are scanning/starting; use /excavatorstressgrid power on to energize all ten isolated Oritech lines."
-                                    : ", " + build.networkFailures + " network placement failures. Check latest.log.";
+                } else {
+                    build.tick();
+                    if (build.isDone()) {
+                        activeBuild = null;
+                        build.run.activate();
+                        ServerPlayer player = server.getPlayerList().getPlayer(build.owner);
+                        if (player != null) {
+                            String completion = "Excavator stress grid finished: "
+                                    + build.changedBlocks + " stone blocks changed, "
+                                    + build.placedExcavators + " excavators, "
+                                    + build.completedNetworkPlacements + " network placements";
+                            if (build.run.mode == StressMode.ISOLATED) {
+                                completion += ". Isolated benchmark bypass is active: FE consumption, storage-capacity checks, and real item deliveries are disabled while transport visuals remain enabled.";
+                            } else {
+                                completion += build.networkFailures == 0
+                                        ? ". Machines are scanning/starting; use /excavatorstressgrid power on to energize all ten isolated Oritech lines."
+                                        : ", " + build.networkFailures + " network placement failures. Check latest.log.";
+                            }
+                            player.sendSystemMessage(Component.literal(completion));
                         }
-                        player.sendSystemMessage(Component.literal(completion));
                     }
                 }
             }
-        }
 
-        StressRun run = activeRun;
-        if (run != null) {
-            if (run.level.getServer() != server) {
-                activeRun = null;
-            } else {
-                run.tick();
+            StressRun run = activeRun;
+            if (run != null) {
+                if (run.level.getServer() != server) {
+                    activeRun = null;
+                } else {
+                    run.tick();
+                }
             }
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.TEST_GRID_MAINTENANCE, profile);
         }
     }
 

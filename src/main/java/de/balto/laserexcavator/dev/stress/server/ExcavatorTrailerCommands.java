@@ -7,6 +7,7 @@ import de.balto.laserexcavator.block.blockentities.ExcavatorBlockEntity;
 import de.balto.laserexcavator.block.excavator.ExcavatorBlock;
 import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
+import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.item.ModItems;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -75,40 +76,45 @@ public final class ExcavatorTrailerCommands {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        MinecraftServer server = event.getServer();
+        if (activeBuild == null && activeRun == null) return;
+        long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.TEST_GRID_MAINTENANCE);
+        try {
+            MinecraftServer server = event.getServer();
 
-        TrailerBuild build = activeBuild;
-        if (build != null) {
-            if (!LaserExcavatorConfig.stressTestCommandsEnabled() || build.level.getServer() != server) {
-                activeBuild = null;
-            } else {
-                build.tick();
-                if (build.isDone()) {
+            TrailerBuild build = activeBuild;
+            if (build != null) {
+                if (!LaserExcavatorConfig.stressTestCommandsEnabled() || build.level.getServer() != server) {
                     activeBuild = null;
-                    activeRun = build.run;
-                    activeSetup = build.setup;
-                    build.run.activate();
+                } else {
+                    build.tick();
+                    if (build.isDone()) {
+                        activeBuild = null;
+                        activeRun = build.run;
+                        activeSetup = build.setup;
+                        build.run.activate();
 
-                    ServerPlayer owner = server.getPlayerList().getPlayer(build.owner);
-                    if (owner != null) {
-                        owner.sendSystemMessage(Component.literal(
-                                "Grid setup ready: " + build.setup.count + " excavator"
-                                        + (build.setup.count == 1 ? "" : "s")
-                                        + " (" + build.setup.columns + "x" + build.setup.rows + ")."
-                        ));
+                        ServerPlayer owner = server.getPlayerList().getPlayer(build.owner);
+                        if (owner != null) {
+                            owner.sendSystemMessage(Component.literal(
+                                    "Grid setup ready: " + build.setup.count + " excavator"
+                                            + (build.setup.count == 1 ? "" : "s")
+                                            + " (" + build.setup.columns + "x" + build.setup.rows + ")."
+                            ));
+                        }
                     }
                 }
             }
-        }
 
-        TrailerRun run = activeRun;
-        if (run != null) {
-            if (!LaserExcavatorConfig.stressTestCommandsEnabled() || run.level.getServer() != server) {
-                run.disableResourceBypass();
-                activeRun = null;
-            } else {
-                run.tick();
+            TrailerRun run = activeRun;
+            if (run != null) {
+                if (!LaserExcavatorConfig.stressTestCommandsEnabled() || run.level.getServer() != server) {
+                    activeRun = null;
+                } else {
+                    run.tick();
+                }
             }
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.TEST_GRID_MAINTENANCE, profile);
         }
     }
 
@@ -120,6 +126,10 @@ public final class ExcavatorTrailerCommands {
     }
 
     private static int startSetup(CommandSourceStack source, Layout layout) throws CommandSyntaxException {
+        if (!LaserExcavatorConfig.fuelSlotEnabled()) {
+            source.sendFailure(Component.literal("Trailer test grids require the internal fuel generator to be enabled."));
+            return 0;
+        }
         if (activeBuild != null) {
             source.sendFailure(Component.literal(
                     "A grid setup is still being built. Use /excavatortrailer status or cancel first."
@@ -150,8 +160,8 @@ public final class ExcavatorTrailerCommands {
                 () -> Component.literal(
                         "Building grid setup " + layout.count + " (" + layout.columns + "x" + layout.rows + ") "
                                 + "around " + setup.centerX + ", " + setup.centerZ + ". "
-                                + "Machines use the isolated stress-test configuration: 32x256x32, Speed V, "
-                                + "Efficiency V and Area III."
+                                + "Machines use the stress-test configuration: 32x256x32, Speed V, "
+                                + "Efficiency V and Area III with real fuel and output delivery."
                 ),
                 true
         );
@@ -477,15 +487,10 @@ public final class ExcavatorTrailerCommands {
         }
 
         private void serviceMachine(ExcavatorBlockEntity excavator) {
-            excavator.debugSetBenchmarkResourceBypass(true);
-        }
-
-        private void disableResourceBypass() {
-            for (BlockPos pos : machines) {
-                if (!level.hasChunkAt(pos)) continue;
-                if (level.getBlockEntity(pos) instanceof ExcavatorBlockEntity excavator) {
-                    excavator.debugSetBenchmarkResourceBypass(false);
-                }
+            clearInventory(excavator.getOutputInventory());
+            ItemStackHandler fuel = excavator.getFuelInventory();
+            if (fuel.getStackInSlot(0).isEmpty()) {
+                fuel.insertItem(0, new ItemStack(Blocks.COAL_BLOCK), false);
             }
         }
 

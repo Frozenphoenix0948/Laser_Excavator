@@ -1,5 +1,6 @@
 package de.balto.laserexcavator.block.excavator;
 
+import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
 
@@ -29,13 +30,22 @@ public final class ExtractOnlyItemHandler implements IItemHandler {
 
     @Override
     public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-        // Returning the complete original stack means nothing was accepted.
-        return stack;
+        long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.EXTERNAL_ITEM_HANDLER);
+        try {
+            return stack;
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.EXTERNAL_ITEM_HANDLER, profile);
+        }
     }
 
     @Override
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        return delegate.extractItem(slot, amount, simulate);
+        long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.EXTERNAL_ITEM_HANDLER);
+        try {
+            return delegate.extractItem(slot, amount, simulate);
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.EXTERNAL_ITEM_HANDLER, profile);
+        }
     }
 
     @Override

@@ -1,5 +1,6 @@
 package de.balto.laserexcavator.block.excavator;
 
+import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
 
@@ -36,19 +37,24 @@ public final class ExcavatorAutomationItemHandler implements IItemHandler {
 
     @Override
     public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-        if (isOutputSlot(slot)) {
-            return stack;
+        long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.EXTERNAL_ITEM_HANDLER);
+        try {
+            if (isOutputSlot(slot)) return stack;
+            int fuelSlot = toFuelSlot(slot);
+            return fuelSlot >= 0 ? fuel.insertItem(fuelSlot, stack, simulate) : stack;
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.EXTERNAL_ITEM_HANDLER, profile);
         }
-        int fuelSlot = toFuelSlot(slot);
-        return fuelSlot >= 0 ? fuel.insertItem(fuelSlot, stack, simulate) : stack;
     }
 
     @Override
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        if (isOutputSlot(slot)) {
-            return output.extractItem(slot, amount, simulate);
+        long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.EXTERNAL_ITEM_HANDLER);
+        try {
+            return isOutputSlot(slot) ? output.extractItem(slot, amount, simulate) : ItemStack.EMPTY;
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.EXTERNAL_ITEM_HANDLER, profile);
         }
-        return ItemStack.EMPTY;
     }
 
     @Override

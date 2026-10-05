@@ -4,6 +4,7 @@ import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -53,9 +54,14 @@ public final class ExcavatorProfilerCommands {
         );
     }
 
-    @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
-        ExcavatorProfiler.increment(ExcavatorProfiler.Counter.GLOBAL_SERVER_TICKS);
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onServerTickPre(ServerTickEvent.Pre event) {
+        ExcavatorProfiler.beginServerTick();
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onServerTickPost(ServerTickEvent.Post event) {
+        ExcavatorProfiler.endServerTick();
     }
 
     private static int report(net.minecraft.commands.CommandSourceStack source) {
