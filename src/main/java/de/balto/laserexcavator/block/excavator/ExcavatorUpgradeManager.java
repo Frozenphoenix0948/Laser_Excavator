@@ -36,6 +36,7 @@ import java.util.function.BooleanSupplier;
 public final class ExcavatorUpgradeManager {
     private static final String TAG_BLOCK_FILTER = "BlockFilter";
     private static final String TAG_FILTER_SLOT_PREFIX = "Slot";
+    private static final String TAG_FILTER_WHITELIST = "Whitelist";
 
     /** An eighth compatibility storage slot preserves an item stored in that slot when loading save data. */
     public static final int STORED_UPGRADE_SLOTS = 8;
@@ -58,6 +59,7 @@ public final class ExcavatorUpgradeManager {
 
     private final int[] cachedUpgradeTiers = new int[ExcavatorUpgradeType.values().length];
     private final Block[] filteredBlocks = new Block[MAX_FILTER_SLOTS];
+    private boolean filterWhitelist;
 
     /**
      * Hot-path block lookup for the filter. Blocks are registry singletons, so identity
@@ -253,15 +255,25 @@ public final class ExcavatorUpgradeManager {
     public boolean setFilterBlock(int slot, @Nullable Block block) {
         if (slot < 0 || slot >= filterCapacity() || busySupplier.getAsBoolean()) return false;
         if (filteredBlocks[slot] == block) return true;
-
         filteredBlocks[slot] = block;
         rebuildFilterLookup();
-        if (excavationInitializedSupplier.getAsBoolean()) {
-            configurationChanged.run();
-        } else {
-            syncChangeListener.run();
-        }
+        filterChanged();
         return true;
+    }
+
+    public boolean isFilterWhitelist() { return filterWhitelist; }
+
+    public boolean setFilterWhitelist(boolean whitelist) {
+        if (busySupplier.getAsBoolean()) return false;
+        if (filterWhitelist == whitelist) return true;
+        filterWhitelist = whitelist;
+        filterChanged();
+        return true;
+    }
+
+    private void filterChanged() {
+        if (excavationInitializedSupplier.getAsBoolean()) configurationChanged.run();
+        else syncChangeListener.run();
     }
 
     private void rebuildFilterLookup() {
@@ -274,40 +286,33 @@ public final class ExcavatorUpgradeManager {
     }
 
     private boolean isFilteredBlock(ServerLevel level, BlockPos pos, BlockState state) {
-        if (filteredBlockLookup.isEmpty()) {return false;}
-
+        if (filteredBlockLookup.isEmpty()) return filterWhitelist;
         long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.FILTER_MATCHING);
-
         try {
             Block block = state.getBlock();
-
-            if (filteredBlockLookup.contains(block)) {return true;}
-
-            if (DYNAMIC_TREES_LOADED) {
+            boolean match = filteredBlockLookup.contains(block);
+            if (!match && DYNAMIC_TREES_LOADED) {
                 Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
-
-                if (primitiveLog != null && filteredBlockLookup.contains(primitiveLog)) {return true;}
+                match = primitiveLog != null && filteredBlockLookup.contains(primitiveLog);
             }
-
-            Block equivalent = ExcavatorLootCache.getSilkTouchFilterEquivalent(level, pos, state, silkTouchTool(level));
-
-            return equivalent != null && filteredBlockLookup.contains(equivalent);
+            if (!match) {
+                Block equivalent = ExcavatorLootCache.getSilkTouchFilterEquivalent(level, pos, state, silkTouchTool(level));
+                match = equivalent != null && filteredBlockLookup.contains(equivalent);
+            }
+            return filterWhitelist != match;
         } finally {
             ExcavatorProfiler.end(ExcavatorProfiler.Section.FILTER_MATCHING, profile);
         }
     }
 
     public boolean isDefinitelyFilteredPaletteState(BlockState state) {
-        if (filteredBlockLookup.isEmpty()) return false;
-
+        if (filteredBlockLookup.isEmpty()) return filterWhitelist;
+        if (filterWhitelist) return false;
         Block block = state.getBlock();
         if (filteredBlockLookup.contains(block)) return true;
-
-        if (DYNAMIC_TREES_LOADED) {
-            Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
-            return primitiveLog != null && filteredBlockLookup.contains(primitiveLog);
-        }
-        return false;
+        if (!DYNAMIC_TREES_LOADED) return false;
+        Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
+        return primitiveLog != null && filteredBlockLookup.contains(primitiveLog);
     }
 
     public boolean isFilteredBlockForTargetScan(ServerLevel level, BlockPos pos, BlockState state) {
@@ -376,13 +381,16 @@ public final class ExcavatorUpgradeManager {
                 filterTag.putString(TAG_FILTER_SLOT_PREFIX + i, BuiltInRegistries.BLOCK.getKey(block).toString());
             }
         }
+        filterTag.putBoolean(TAG_FILTER_WHITELIST, filterWhitelist);
         tag.put(TAG_BLOCK_FILTER, filterTag);
     }
 
     public void loadFilter(CompoundTag tag) {
         Arrays.fill(filteredBlocks, null);
+        filterWhitelist = false;
         if (tag.contains(TAG_BLOCK_FILTER, Tag.TAG_COMPOUND)) {
             CompoundTag filterTag = tag.getCompound(TAG_BLOCK_FILTER);
+            filterWhitelist = filterTag.getBoolean(TAG_FILTER_WHITELIST);
             for (int i = 0; i < MAX_FILTER_SLOTS; i++) {
                 String raw = filterTag.getString(TAG_FILTER_SLOT_PREFIX + i);
                 if (raw.isBlank()) continue;

@@ -113,7 +113,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private Button scanButton;
     private Button excavationButton;
     private Button filterButton;
-    private boolean filterPanelOpen = false;
+    private boolean filterPanelOpen;
 
     private static final int FILTER_BUTTON_MARGIN = 2;
     private static final int FILTER_BUTTON_W = 44;
@@ -122,13 +122,11 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int FILTER_BUTTON_Y = TITLE_BAR_Y + FILTER_BUTTON_MARGIN;
 
     private static final int FILTER_PANEL_W = 146;
-    private static final int FILTER_PANEL_H = 112;
+    private static final int FILTER_PANEL_H = 118;
     private static final int FILTER_GRID_X = 10;
     private static final int FILTER_GRID_Y = 32;
     private static final int FILTER_GRID_STEP = 19;
     private static final int FILTER_ACTION_X = 95;
-    // The filter editor reuses the main screen palette so it reads as a modal
-    // extension of the excavator UI rather than a visually separate interface.
     private static final int FILTER_ACCENT = 0xFF4FA9CC;
     private static final int FILTER_SLOT_HOVER = 0xFF3A4857;
     private static final int FILTER_DISABLED_SLOT = 0xFF202832;
@@ -143,9 +141,14 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int FILTER_PASTE_BUTTON_Y = 54;
     private static final int FILTER_PASTE_BUTTON_W = 41;
     private static final int FILTER_PASTE_BUTTON_H = 14;
+    private static final int FILTER_MODE_BUTTON_X = FILTER_ACTION_X;
+    private static final int FILTER_MODE_BUTTON_Y = 74;
+    private static final int FILTER_MODE_BUTTON_W = 41;
+    private static final int FILTER_MODE_BUTTON_H = 14;
 
     private static final Block[] COPIED_FILTER = new Block[ExcavatorBlockEntity.MAX_FILTER_SLOTS];
-    private static int copiedFilterCapacity = 0;
+    private static int copiedFilterCapacity;
+    private static boolean copiedFilterWhitelist;
 
     public ExcavatorScreen(ExcavatorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -581,11 +584,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         return leftPos + (imageWidth - FILTER_PANEL_W) / 2;
     }
 
-    private int filterPanelY() {
-        // The editor ends just above the player inventory. While open it behaves
-        // as a modal screen and blocks interaction with the underlying UI.
-        return topPos + 52;
-    }
+    private int filterPanelY() { return topPos + 52; }
 
     private void renderFilterPanel(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!filterPanelOpen || menu.getFilterCapacity() <= 0) return;
@@ -597,8 +596,6 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         graphics.pose().pushPose();
         graphics.pose().translate(0, 0, 500);
 
-        // Match the main OUTPUT / MOD / INVENTORY panel hierarchy: dark frame,
-        // lighter inner panel and the same header tone. Cyan is only an accent.
         graphics.fill(x + 4, y + 4, x + FILTER_PANEL_W + 4, y + FILTER_PANEL_H + 4, FILTER_SHADOW);
         drawPanel(graphics, x, y, x + FILTER_PANEL_W, y + FILTER_PANEL_H);
         drawPanelHeader(graphics, x, y, x + FILTER_PANEL_W, y + 20);
@@ -612,7 +609,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
                 x + FILTER_GRID_X + 34.5F, y + 24, TEXT, 0.62F);
         drawCenteredScaledString(graphics, "ACTIONS",
                 x + FILTER_ACTION_X + FILTER_COPY_BUTTON_W / 2.0F, y + 24, TEXT, 0.62F);
-        graphics.fill(x + 89, y + 26, x + 90, y + FILTER_PANEL_H - 7, FILTER_DIVIDER);
+        graphics.fill(x + 89, y + 26, x + 90, y + 106, FILTER_DIVIDER);
 
         for (int slot = 0; slot < ExcavatorBlockEntity.MAX_FILTER_SLOTS; slot++) {
             int sx = x + FILTER_GRID_X + (slot % 4) * FILTER_GRID_STEP;
@@ -637,42 +634,20 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
 
         boolean canEdit = !menu.isUpgradeConfigurationLocked();
-        boolean copyHovered = isInside(mouseX, mouseY,
-                x + FILTER_COPY_BUTTON_X, y + FILTER_COPY_BUTTON_Y,
-                FILTER_COPY_BUTTON_W, FILTER_COPY_BUTTON_H);
-        boolean pasteHovered = isInside(mouseX, mouseY,
-                x + FILTER_PASTE_BUTTON_X, y + FILTER_PASTE_BUTTON_Y,
-                FILTER_PASTE_BUTTON_W, FILTER_PASTE_BUTTON_H);
+        boolean copyHovered = isInside(mouseX, mouseY, x + FILTER_COPY_BUTTON_X, y + FILTER_COPY_BUTTON_Y, FILTER_COPY_BUTTON_W, FILTER_COPY_BUTTON_H);
+        boolean pasteHovered = isInside(mouseX, mouseY, x + FILTER_PASTE_BUTTON_X, y + FILTER_PASTE_BUTTON_Y, FILTER_PASTE_BUTTON_W, FILTER_PASTE_BUTTON_H);
+        boolean modeHovered = isInside(mouseX, mouseY, x + FILTER_MODE_BUTTON_X, y + FILTER_MODE_BUTTON_Y, FILTER_MODE_BUTTON_W, FILTER_MODE_BUTTON_H);
 
-        drawFilterActionButton(
-                graphics,
-                x + FILTER_COPY_BUTTON_X,
-                y + FILTER_COPY_BUTTON_Y,
-                FILTER_COPY_BUTTON_W,
-                FILTER_COPY_BUTTON_H,
-                "Copy",
-                true,
-                copyHovered
-        );
-        drawFilterActionButton(
-                graphics,
-                x + FILTER_PASTE_BUTTON_X,
-                y + FILTER_PASTE_BUTTON_Y,
-                FILTER_PASTE_BUTTON_W,
-                FILTER_PASTE_BUTTON_H,
-                "Paste",
-                canEdit && copiedFilterCapacity > 0,
-                pasteHovered
-        );
-
-        drawCenteredScaledString(graphics, "Hold a block",
-                x + FILTER_ACTION_X + FILTER_COPY_BUTTON_W / 2.0F, y + 78, MUTED, 0.58F);
-        drawCenteredScaledString(graphics, "and click a slot",
-                x + FILTER_ACTION_X + FILTER_COPY_BUTTON_W / 2.0F, y + 86, MUTED, 0.58F);
+        drawFilterActionButton(graphics, x + FILTER_COPY_BUTTON_X, y + FILTER_COPY_BUTTON_Y, FILTER_COPY_BUTTON_W, FILTER_COPY_BUTTON_H, "Copy", true, copyHovered);
+        drawFilterActionButton(graphics, x + FILTER_PASTE_BUTTON_X, y + FILTER_PASTE_BUTTON_Y, FILTER_PASTE_BUTTON_W, FILTER_PASTE_BUTTON_H, "Paste", canEdit && copiedFilterCapacity > 0, pasteHovered);
+        boolean whitelist = menu.isFilterWhitelist();
+        drawFilterModeButton(graphics, x + FILTER_MODE_BUTTON_X, y + FILTER_MODE_BUTTON_Y, FILTER_MODE_BUTTON_W, FILTER_MODE_BUTTON_H, whitelist, canEdit, modeHovered);
 
         if (!canEdit) {
-            drawCenteredScaledString(graphics, "Locked while running",
-                    x + FILTER_PANEL_W / 2.0F, y + FILTER_PANEL_H - 7, WARNING, 0.58F);
+            drawCenteredScaledString(graphics, "Locked while running", x + FILTER_PANEL_W / 2.0F, y + 109, WARNING, 0.58F);
+        } else {
+            drawCenteredScaledString(graphics, whitelist ? "Only listed blocks are mined" : "Listed blocks are skipped",
+                    x + FILTER_PANEL_W / 2.0F, y + 109, TEXT, 0.50F);
         }
 
         graphics.pose().popPose();
@@ -713,28 +688,25 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
     }
 
-    private void drawFilterActionButton(
-            GuiGraphics graphics,
-            int x,
-            int y,
-            int width,
-            int height,
-            String label,
-            boolean active,
-            boolean hovered
-    ) {
+    private void drawFilterActionButton(GuiGraphics graphics, int x, int y, int width, int height, String label, boolean active, boolean hovered) {
         int border = active && hovered ? GOLD : FRAME;
-        int background = active
-                ? (hovered ? FILTER_SLOT_HOVER : PANEL_HEADER)
-                : FILTER_DISABLED_SLOT;
+        int background = active ? (hovered ? FILTER_SLOT_HOVER : PANEL_HEADER) : FILTER_DISABLED_SLOT;
         int textColor = active ? TEXT : 0xFF69727D;
 
         graphics.fill(x - 1, y - 1, x + width + 1, y + height + 1, border);
         graphics.fill(x, y, x + width, y + height, background);
-        if (active && !hovered) {
-            graphics.fill(x, y, x + width, y + 1, FILTER_ACCENT);
-        }
+        if (active && !hovered) graphics.fill(x, y, x + width, y + 1, FILTER_ACCENT);
         drawCenteredScaledString(graphics, label, x + width / 2.0F, y + 4.0F, textColor, 0.68F);
+    }
+
+    private void drawFilterModeButton(GuiGraphics graphics, int x, int y, int width, int height, boolean whitelist, boolean enabled, boolean hovered) {
+        int background = whitelist ? 0xFFE7E7E7 : 0xFF090B0E;
+        int foreground = whitelist ? 0xFF090B0E : 0xFFE7E7E7;
+        if (!enabled) { background = whitelist ? 0xFF8B8B8B : 0xFF202329; foreground = whitelist ? 0xFF303030 : 0xFF8B8B8B; }
+        graphics.fill(x - 1, y - 1, x + width + 1, y + height + 1, enabled && hovered ? GOLD : foreground);
+        graphics.fill(x, y, x + width, y + height, background);
+        graphics.fill(x, y, x + 3, y + height, foreground);
+        drawCenteredScaledString(graphics, whitelist ? "Whitelist" : "Blacklist", x + width / 2.0F + 1, y + 4.0F, foreground, 0.66F);
     }
 
     private void drawFilterSlot(GuiGraphics graphics, int x, int y, boolean hovered) {
@@ -763,6 +735,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             COPIED_FILTER[slot] = slot < capacity ? menu.getFilterBlock(slot) : null;
         }
         copiedFilterCapacity = capacity;
+        copiedFilterWhitelist = menu.isFilterWhitelist();
     }
 
     private void pasteCopiedFilter() {
@@ -772,6 +745,12 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         if (minecraft.player == null || minecraft.gameMode == null) return;
 
         commitFocusedField();
+
+        if (menu.isFilterWhitelist() != copiedFilterWhitelist) {
+            int modeButton = ExcavatorMenu.BUTTON_TOGGLE_FILTER_MODE;
+            menu.clickMenuButton(minecraft.player, modeButton);
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, modeButton);
+        }
 
         int targetCapacity = menu.getFilterCapacity();
         for (int slot = 0; slot < targetCapacity; slot++) {
@@ -788,13 +767,8 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         if (!filterPanelOpen) return false;
         int x = filterPanelX();
         int y = filterPanelY();
-        // Keep the filter editor modal for the machine controls, but leave the
-        // player's inventory slots interactive. Picking up a block from the
-        // inventory is required to configure a filter slot.
         if (mouseX < x || mouseX >= x + FILTER_PANEL_W || mouseY < y || mouseY >= y + FILTER_PANEL_H) {
-            if (isOverPlayerInventorySlot(mouseX, mouseY)) {
-                return false;
-            }
+            if (isOverPlayerInventorySlot(mouseX, mouseY)) return false;
             if (isInside(mouseX, mouseY,
                     leftPos + FILTER_BUTTON_X, topPos + FILTER_BUTTON_Y,
                     FILTER_BUTTON_W, FILTER_BUTTON_H)) {
@@ -811,10 +785,12 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             return true;
         }
 
-        if (isInside(mouseX, mouseY,
-                x + FILTER_PASTE_BUTTON_X, y + FILTER_PASTE_BUTTON_Y,
-                FILTER_PASTE_BUTTON_W, FILTER_PASTE_BUTTON_H)) {
+        if (isInside(mouseX, mouseY, x + FILTER_PASTE_BUTTON_X, y + FILTER_PASTE_BUTTON_Y, FILTER_PASTE_BUTTON_W, FILTER_PASTE_BUTTON_H)) {
             pasteCopiedFilter();
+            return true;
+        }
+        if (isInside(mouseX, mouseY, x + FILTER_MODE_BUTTON_X, y + FILTER_MODE_BUTTON_Y, FILTER_MODE_BUTTON_W, FILTER_MODE_BUTTON_H)) {
+            if (!menu.isUpgradeConfigurationLocked()) pressMenuButton(ExcavatorMenu.BUTTON_TOGGLE_FILTER_MODE);
             return true;
         }
 
@@ -910,8 +886,6 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         } else {
             renderFilterPanel(graphics, mouseX, mouseY);
 
-            // Base-screen tooltips are rendered only outside the modal itself and
-            // after it, so they cannot be covered by the filter screen.
             if (!isInside(mouseX, mouseY, filterPanelX(), filterPanelY(), FILTER_PANEL_W, FILTER_PANEL_H)) {
                 graphics.pose().pushPose();
                 graphics.pose().translate(0.0F, 0.0F, 900.0F);

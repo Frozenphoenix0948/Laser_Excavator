@@ -210,6 +210,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 case ExcavatorMenu.DATA_FUEL_BURN_REMAINING -> fuel.burnTicksRemaining();
                 case ExcavatorMenu.DATA_FUEL_BURN_TOTAL -> fuel.burnTicksTotal();
                 case ExcavatorMenu.DATA_OVERHEATING -> isOverheating() ? 1 : 0;
+                case ExcavatorMenu.DATA_FILTER_WHITELIST -> isFilterWhitelist() ? 1 : 0;
                 default -> {
                     int filterSlot = index - ExcavatorMenu.DATA_FILTER_START;
                     yield filterSlot >= 0 && filterSlot < MAX_FILTER_SLOTS
@@ -390,9 +391,9 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         return upgrades.filterBlockRegistryId(slot);
     }
 
-    public boolean setFilterBlock(int slot, @Nullable Block block) {
-        return upgrades.setFilterBlock(slot, block);
-    }
+    public boolean setFilterBlock(int slot, @Nullable Block block) { return upgrades.setFilterBlock(slot, block); }
+    public boolean isFilterWhitelist() { return upgrades.isFilterWhitelist(); }
+    public boolean setFilterWhitelist(boolean whitelist) { return upgrades.setFilterWhitelist(whitelist); }
 
     private boolean canShareColumnHeights() {
         return upgrades.usesSharedColumnHeights();

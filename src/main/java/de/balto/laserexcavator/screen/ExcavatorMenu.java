@@ -45,12 +45,14 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     public static final int DATA_FUEL_BURN_REMAINING = DATA_ENERGY_PER_BLOCK + 1;
     public static final int DATA_FUEL_BURN_TOTAL = DATA_FUEL_BURN_REMAINING + 1;
     public static final int DATA_OVERHEATING = DATA_FUEL_BURN_TOTAL + 1;
-    public static final int DATA_COUNT = DATA_OVERHEATING + 1;
+    public static final int DATA_FILTER_WHITELIST = DATA_OVERHEATING + 1;
+    public static final int DATA_COUNT = DATA_FILTER_WHITELIST + 1;
 
     private static final int SLOT_STEP = 17;
 
     public static final int BUTTON_START_SCAN = 12;
     public static final int BUTTON_TOGGLE_EXCAVATION = 13;
+    public static final int BUTTON_TOGGLE_FILTER_MODE = 14;
 
     public static final int BUTTON_SET_WIDTH_BASE = 1000;
     public static final int BUTTON_SET_HEIGHT_BASE = 2000;
@@ -312,9 +314,8 @@ public class ExcavatorMenu extends AbstractContainerMenu {
         return Math.max(1, data.get(DATA_MAX_AREA_SIZE));
     }
 
-    public int getFilterCapacity() {
-        return Mth.clamp(data.get(DATA_FILTER_CAPACITY), 0, ExcavatorBlockEntity.MAX_FILTER_SLOTS);
-    }
+    public int getFilterCapacity() { return Mth.clamp(data.get(DATA_FILTER_CAPACITY), 0, ExcavatorBlockEntity.MAX_FILTER_SLOTS); }
+    public boolean isFilterWhitelist() { return data.get(DATA_FILTER_WHITELIST) != 0; }
 
     public int getEnergyStored() {
         return Math.max(0, data.get(DATA_ENERGY_STORED));
@@ -466,8 +467,19 @@ public class ExcavatorMenu extends AbstractContainerMenu {
         return switch (id) {
             case BUTTON_START_SCAN -> startScan(player);
             case BUTTON_TOGGLE_EXCAVATION -> toggleExcavation(player);
+            case BUTTON_TOGGLE_FILTER_MODE -> toggleFilterMode(player);
             default -> false;
         };
+    }
+
+    private boolean toggleFilterMode(Player player) {
+        if (getFilterCapacity() <= 0 || isUpgradeConfigurationLocked()) return false;
+        boolean whitelist = !isFilterWhitelist();
+        if (player.level().isClientSide) {
+            data.set(DATA_FILTER_WHITELIST, whitelist ? 1 : 0);
+            return true;
+        }
+        return blockEntity != null && blockEntity.setFilterWhitelist(whitelist);
     }
 
     private boolean configureFilterSlot(Player player, int filterSlot) {
