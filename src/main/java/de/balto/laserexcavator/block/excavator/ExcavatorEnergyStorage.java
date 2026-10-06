@@ -59,6 +59,16 @@ public final class ExcavatorEnergyStorage implements IEnergyStorage {
         return capacity - Math.min(energy, capacity);
     }
 
+    public int addInternal(int amount) {
+        if (amount <= 0) return 0;
+        int capacity = capacity(), stored = Math.min(energy, capacity);
+        int accepted = Math.min(amount, capacity - stored);
+        if (accepted <= 0) return 0;
+        energy = stored + accepted;
+        internalChangePending = true;
+        return accepted;
+    }
+
     /** Adds as many complete internal energy units as fit. */
     public int addInternalUnits(int energyPerUnit, int maxUnits) {
         if (energyPerUnit <= 0 || maxUnits <= 0) return 0;

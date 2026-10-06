@@ -55,6 +55,10 @@ public final class ModItems {
             "nether_cooling_upgrade", ExcavatorUpgradeType.NETHER_COOLING, 1, 1
     );
 
+    public static final DeferredItem<ExcavatorUpgradeItem> SOLAR_UPGRADE_TIER_1 = upgrade("solar_upgrade_tier_1", ExcavatorUpgradeType.SOLAR, 1, 3);
+    public static final DeferredItem<ExcavatorUpgradeItem> SOLAR_UPGRADE_TIER_2 = upgrade("solar_upgrade_tier_2", ExcavatorUpgradeType.SOLAR, 2, 3);
+    public static final DeferredItem<ExcavatorUpgradeItem> SOLAR_UPGRADE_TIER_3 = upgrade("solar_upgrade_tier_3", ExcavatorUpgradeType.SOLAR, 3, 3);
+
     public static final DeferredItem<ExcavatorUpgradeItem> ENERGY_EFFICIENCY_UPGRADE_TIER_1 = upgrade("energy_efficiency_upgrade_tier_1", ExcavatorUpgradeType.ENERGY_EFFICIENCY, 1, 5);
     public static final DeferredItem<ExcavatorUpgradeItem> ENERGY_EFFICIENCY_UPGRADE_TIER_2 = upgrade("energy_efficiency_upgrade_tier_2", ExcavatorUpgradeType.ENERGY_EFFICIENCY, 2, 5);
     public static final DeferredItem<ExcavatorUpgradeItem> ENERGY_EFFICIENCY_UPGRADE_TIER_3 = upgrade("energy_efficiency_upgrade_tier_3", ExcavatorUpgradeType.ENERGY_EFFICIENCY, 3, 5);

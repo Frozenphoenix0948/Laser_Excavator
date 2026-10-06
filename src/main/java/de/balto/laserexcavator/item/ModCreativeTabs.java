@@ -48,6 +48,10 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.FLUID_IGNORE_UPGRADE.get());
                         output.accept(ModItems.NETHER_COOLING_UPGRADE.get());
 
+                        output.accept(ModItems.SOLAR_UPGRADE_TIER_1.get());
+                        output.accept(ModItems.SOLAR_UPGRADE_TIER_2.get());
+                        output.accept(ModItems.SOLAR_UPGRADE_TIER_3.get());
+
                         output.accept(ModItems.ENERGY_EFFICIENCY_UPGRADE_TIER_1.get());
                         output.accept(ModItems.ENERGY_EFFICIENCY_UPGRADE_TIER_2.get());
                         output.accept(ModItems.ENERGY_EFFICIENCY_UPGRADE_TIER_3.get());

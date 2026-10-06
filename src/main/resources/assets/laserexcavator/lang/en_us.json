@@ -25,5 +25,8 @@
   "item.laserexcavator.energy_efficiency_upgrade_tier_3": "Energy Efficiency Upgrade III",
   "item.laserexcavator.energy_efficiency_upgrade_tier_4": "Energy Efficiency Upgrade IV",
   "item.laserexcavator.energy_efficiency_upgrade_tier_5": "Energy Efficiency Upgrade V",
-  "item.laserexcavator.nether_cooling_upgrade": "Nether Cooling Upgrade"
+  "item.laserexcavator.nether_cooling_upgrade": "Nether Cooling Upgrade",
+  "item.laserexcavator.solar_upgrade_tier_1": "Solar Upgrade I",
+  "item.laserexcavator.solar_upgrade_tier_2": "Solar Upgrade II",
+  "item.laserexcavator.solar_upgrade_tier_3": "Solar Upgrade III"
 }

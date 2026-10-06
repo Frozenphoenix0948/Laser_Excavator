@@ -74,6 +74,11 @@ public final class LaserExcavatorConfig {
     public static final ModConfigSpec.IntValue FILTER_TIER_4_COOLDOWN_REDUCTION;
     public static final ModConfigSpec.IntValue FILTER_TIER_5_COOLDOWN_REDUCTION;
     public static final ModConfigSpec.BooleanValue SILK_TOUCH_ENABLED;
+    public static final ModConfigSpec.IntValue SOLAR_TIER_1_ENERGY_PER_TICK;
+    public static final ModConfigSpec.IntValue SOLAR_TIER_2_ENERGY_PER_TICK;
+    public static final ModConfigSpec.IntValue SOLAR_TIER_3_ENERGY_PER_TICK;
+    public static final ModConfigSpec.IntValue SOLAR_SKY_CHECK_INTERVAL;
+    public static final ModConfigSpec.IntValue SOLAR_MAX_WATER_BLOCKS;
 
 
     public static final RecipeConfig EXCAVATOR_RECIPE;
@@ -97,6 +102,9 @@ public final class LaserExcavatorConfig {
     public static final RecipeConfig SILK_TOUCH_RECIPE;
     public static final RecipeConfig FLUID_IGNORE_RECIPE;
     public static final RecipeConfig NETHER_COOLING_RECIPE;
+    public static final RecipeConfig SOLAR_TIER_1_RECIPE;
+    public static final RecipeConfig SOLAR_TIER_2_RECIPE;
+    public static final RecipeConfig SOLAR_TIER_3_RECIPE;
     public static final RecipeConfig ENERGY_EFFICIENCY_TIER_1_RECIPE;
     public static final RecipeConfig ENERGY_EFFICIENCY_TIER_2_RECIPE;
     public static final RecipeConfig ENERGY_EFFICIENCY_TIER_3_RECIPE;
@@ -297,6 +305,21 @@ public final class LaserExcavatorConfig {
 
         SILK_TOUCH_ENABLED = builder.comment(" Master switch for Silk Touch upgrade behavior.")
                 .define("silkTouchEnabled", true);
+
+        builder.comment(
+                " Solar upgrade generation and sky-access checks.",
+                " Generation is all-or-nothing: full configured output during daytime with valid sky access, zero at night.",
+                " Effective generation is monotonic so a higher tier can never generate less than a lower tier."
+        ).push("solar");
+        SOLAR_TIER_1_ENERGY_PER_TICK = builder.defineInRange("tier1EnergyPerTick", 80, 0, Integer.MAX_VALUE);
+        SOLAR_TIER_2_ENERGY_PER_TICK = builder.defineInRange("tier2EnergyPerTick", 160, 0, Integer.MAX_VALUE);
+        SOLAR_TIER_3_ENERGY_PER_TICK = builder.comment(" Default matches the internal fuel generator's maximum 320 FE/t output.")
+                .defineInRange("tier3EnergyPerTick", 320, 0, Integer.MAX_VALUE);
+        SOLAR_SKY_CHECK_INTERVAL = builder.comment(" Server ticks between checks for blocks/water above a solar-equipped excavator.")
+                .defineInRange("skyCheckIntervalTicks", 20, 1, 1200);
+        SOLAR_MAX_WATER_BLOCKS = builder.comment(" Maximum consecutive water blocks directly above the excavator that still allow solar generation.")
+                .defineInRange("maxWaterBlocks", 3, 0, 64);
+        builder.pop();
         builder.pop();
 
         builder.comment(
@@ -410,6 +433,21 @@ public final class LaserExcavatorConfig {
                 "minecraft:blaze_powder", "minecraft:blue_ice", "minecraft:blaze_powder",
                 "minecraft:netherite_ingot", "minecraft:magma_cream", "minecraft:netherite_ingot"
         ));
+        SOLAR_TIER_1_RECIPE = recipe(builder, "solarTier1", false, List.of(
+                "minecraft:glass", "minecraft:copper_ingot", "minecraft:glass",
+                "minecraft:redstone", "minecraft:paper", "minecraft:redstone",
+                "minecraft:copper_ingot", "minecraft:daylight_detector", "minecraft:copper_ingot"
+        ));
+        SOLAR_TIER_2_RECIPE = recipe(builder, "solarTier2", false, List.of(
+                "minecraft:glass", "minecraft:gold_block", "minecraft:glass",
+                "minecraft:diamond", "laserexcavator:solar_upgrade_tier_1", "minecraft:diamond",
+                "minecraft:gold_block", "minecraft:daylight_detector", "minecraft:gold_block"
+        ));
+        SOLAR_TIER_3_RECIPE = recipe(builder, "solarTier3", false, List.of(
+                "minecraft:netherite_ingot", "minecraft:daylight_detector", "minecraft:diamond_block",
+                "minecraft:redstone_block", "laserexcavator:solar_upgrade_tier_2", "minecraft:redstone_block",
+                "minecraft:diamond_block", "minecraft:daylight_detector", "minecraft:netherite_ingot"
+        ));
         ENERGY_EFFICIENCY_TIER_1_RECIPE = recipe(builder, "energyEfficiencyTier1", false, List.of(
                 "minecraft:copper_ingot", "minecraft:quartz", "minecraft:copper_ingot",
                 "minecraft:redstone", "minecraft:paper", "minecraft:redstone",
@@ -521,6 +559,21 @@ public final class LaserExcavatorConfig {
         long perTick = (energyPerBlock + interval - 1L) / interval;
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, perTick));
     }
+
+    public static int solarEnergyPerTick(int tier) {
+        int tier1 = SOLAR_TIER_1_ENERGY_PER_TICK.get();
+        int tier2 = Math.max(tier1, SOLAR_TIER_2_ENERGY_PER_TICK.get());
+        int tier3 = Math.max(tier2, SOLAR_TIER_3_ENERGY_PER_TICK.get());
+        return switch (tier) {
+            case 1 -> tier1;
+            case 2 -> tier2;
+            case 3 -> tier3;
+            default -> 0;
+        };
+    }
+
+    public static int solarSkyCheckInterval() { return Math.max(1, SOLAR_SKY_CHECK_INTERVAL.get()); }
+    public static int solarMaxWaterBlocks() { return Math.max(0, SOLAR_MAX_WATER_BLOCKS.get()); }
 
     public static int luckLevel(int tier) {
         return switch (tier) {

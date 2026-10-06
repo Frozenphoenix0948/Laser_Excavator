@@ -9,5 +9,6 @@ public enum ExcavatorUpgradeType {
     SILK_TOUCH,
     FLUID_IGNORE,
     ENERGY_EFFICIENCY,
-    NETHER_COOLING
+    NETHER_COOLING,
+    SOLAR
 }

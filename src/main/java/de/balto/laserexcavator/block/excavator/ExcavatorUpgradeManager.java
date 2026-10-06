@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.function.IntConsumer;
 
 /**
  * Owns the upgrade inventory, cached upgrade tiers, block filter and cached loot
@@ -38,7 +39,7 @@ public final class ExcavatorUpgradeManager {
     private static final String TAG_FILTER_SLOT_PREFIX = "Slot";
     private static final String TAG_FILTER_WHITELIST = "Whitelist";
 
-    /** An eighth compatibility storage slot preserves an item stored in that slot when loading save data. */
+    /** Legacy 8th Item slot */
     public static final int STORED_UPGRADE_SLOTS = 8;
     public static final int MAX_UPGRADE_SLOTS = 7;
     public static final int MAX_FILTER_SLOTS = 16;
@@ -54,6 +55,7 @@ public final class ExcavatorUpgradeManager {
     private final BooleanSupplier excavationInitializedSupplier;
     private final Runnable configurationChanged;
     private final Runnable clampSelectionToAreaUpgrade;
+    private final IntConsumer solarTierChanged;
     private final Runnable changeListener;
     private final Runnable syncChangeListener;
 
@@ -117,6 +119,7 @@ public final class ExcavatorUpgradeManager {
             BooleanSupplier excavationInitializedSupplier,
             Runnable configurationChanged,
             Runnable clampSelectionToAreaUpgrade,
+            IntConsumer solarTierChanged,
             Runnable changeListener,
             Runnable syncChangeListener
     ) {
@@ -125,6 +128,7 @@ public final class ExcavatorUpgradeManager {
         this.excavationInitializedSupplier = excavationInitializedSupplier;
         this.configurationChanged = configurationChanged;
         this.clampSelectionToAreaUpgrade = clampSelectionToAreaUpgrade;
+        this.solarTierChanged = solarTierChanged;
         this.changeListener = changeListener;
         this.syncChangeListener = syncChangeListener;
     }
@@ -151,7 +155,7 @@ public final class ExcavatorUpgradeManager {
     public static boolean isHotSwappable(@Nullable ExcavatorUpgradeType type) {
         if (type == null) return false;
         return switch (type) {
-            case SPEED, AUTO_SMELTING, LUCK, SILK_TOUCH, ENERGY_EFFICIENCY, NETHER_COOLING -> true;
+            case SPEED, AUTO_SMELTING, LUCK, SILK_TOUCH, ENERGY_EFFICIENCY, NETHER_COOLING, SOLAR -> true;
             case AREA, FILTER, FLUID_IGNORE -> false;
         };
     }
@@ -222,6 +226,7 @@ public final class ExcavatorUpgradeManager {
     }
 
     public void refreshCache() {
+        int previousSolarTier = cachedUpgradeTiers[ExcavatorUpgradeType.SOLAR.ordinal()];
         Arrays.fill(cachedUpgradeTiers, 0);
 
         int activeSlots = activeSlotCount();
@@ -232,6 +237,8 @@ public final class ExcavatorUpgradeManager {
             cachedUpgradeTiers[index] = Math.max(cachedUpgradeTiers[index], upgrade.getTier());
         }
 
+        int solarTier = cachedUpgradeTiers[ExcavatorUpgradeType.SOLAR.ordinal()];
+        if (solarTier != previousSolarTier) solarTierChanged.accept(solarTier);
         cachedFilterCapacity = LaserExcavatorConfig.filterCapacity(tier(ExcavatorUpgradeType.FILTER));
         rebuildFilterLookup();
         cachedLootTool = ItemStack.EMPTY;

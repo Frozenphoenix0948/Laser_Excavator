@@ -14,6 +14,7 @@ import de.balto.laserexcavator.block.excavator.ExcavatorUpgradeManager;
 import de.balto.laserexcavator.block.excavator.ExcavatorBlock;
 import de.balto.laserexcavator.block.excavator.ExcavatorBlockSyncBatcher;
 import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
+import de.balto.laserexcavator.block.excavator.ExcavatorSolarManager;
 import de.balto.laserexcavator.block.excavator.ExcavatorSharedColumnHeights;
 import de.balto.laserexcavator.block.excavator.ExcavatorWorkPhase;
 import de.balto.laserexcavator.block.excavator.ExtractOnlyItemHandler;
@@ -146,11 +147,12 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     private final ExcavatorUpgradeManager upgrades;
     private final ExcavatorTargetScanner targetScanner;
     private final ExcavatorFuelManager fuel;
+    private final ExcavatorSolarManager solar;
     private @Nullable ExcavatorLootCache.Table lootTableCache;
 
     /**
      * Development-only stress/grid bypass. While enabled the machine does not
-     * consume FE, run the fuel generator, perform storage-capacity checks, or
+     * consume FE, run internal generators, perform storage-capacity checks, or
      * enqueue real item deliveries. Loot is still generated so transport visuals
      * keep their normal representative item/block. This flag is intentionally
      * transient and is never persisted.
@@ -211,6 +213,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 case ExcavatorMenu.DATA_FUEL_BURN_TOTAL -> fuel.burnTicksTotal();
                 case ExcavatorMenu.DATA_OVERHEATING -> isOverheating() ? 1 : 0;
                 case ExcavatorMenu.DATA_FILTER_WHITELIST -> isFilterWhitelist() ? 1 : 0;
+                case ExcavatorMenu.DATA_SOLAR_STATUS -> solar.status();
                 default -> {
                     int filterSlot = index - ExcavatorMenu.DATA_FILTER_START;
                     yield filterSlot >= 0 && filterSlot < MAX_FILTER_SLOTS
@@ -243,6 +246,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 this::setChanged
         );
         fuel = new ExcavatorFuelManager(energyStorage, this::setChanged);
+        solar = new ExcavatorSolarManager(energyStorage);
         externalAutomationHandler = new ExcavatorAutomationItemHandler(outputInventory, fuel.inventory());
         upgrades = new ExcavatorUpgradeManager(
                 () -> level != null,
@@ -250,6 +254,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 columns::isExcavationInitialized,
                 this::onConfigurationChanged,
                 this::clampSelectionToAreaUpgrade,
+                solar::setTier,
                 this::onUpgradeInventoryChanged,
                 this::setChangedAndSync
         );
@@ -263,8 +268,10 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         try {
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_SERVER_TICKS);
             if (!blockEntity.developmentBenchmarkResourceBypass) {
+                int solarGeneration = blockEntity.solar.isInstalled() ? blockEntity.solar.tick(serverLevel, pos) : 0;
+
                 long fuelProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.FUEL_PROCESSING);
-                blockEntity.fuel.tick();
+                blockEntity.fuel.tick(solarGeneration);
                 ExcavatorProfiler.end(ExcavatorProfiler.Section.FUEL_PROCESSING, fuelProfile);
 
                 long deliveryProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.DELIVERY_PROCESSING);

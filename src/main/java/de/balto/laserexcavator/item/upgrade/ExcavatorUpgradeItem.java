@@ -98,6 +98,11 @@ public final class ExcavatorUpgradeItem extends Item {
                 tooltipComponents.add(description("Protects the excavator from extreme Nether heat."));
                 tooltipComponents.add(Component.literal("Allows scanning and excavation in the Nether").withStyle(ChatFormatting.AQUA));
             }
+            case SOLAR -> {
+                tooltipComponents.add(description("Generates FE from 06:00-18:00."));
+                tooltipComponents.add(value("Generation", LaserExcavatorConfig.solarEnergyPerTick(tier) + " FE/t"));
+                tooltipComponents.add(Component.literal("Allows glass blocks/panes and up to " + LaserExcavatorConfig.solarMaxWaterBlocks() + " blocks of water above").withStyle(ChatFormatting.AQUA));
+            }
         }
     }
 

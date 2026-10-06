@@ -2,6 +2,7 @@ package de.balto.laserexcavator.screen;
 
 import de.balto.laserexcavator.block.blockentities.ExcavatorBlockEntity;
 import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
+import de.balto.laserexcavator.block.excavator.ExcavatorSolarManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -36,6 +37,9 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int FUEL_BAR_EMPTY = 0xFF2A3038;
     private static final int FUEL_BAR_FILL = 0xFFE28A35;
     private static final int FUEL_BAR_HIGHLIGHT = 0xFFFFB45C;
+    private static final int SOLAR_ACTIVE = 0xFFFFD45C;
+    private static final int SOLAR_NIGHT = 0xFFC6D1E3;
+    private static final int SOLAR_BLOCKED = 0xFFFF6B6B;
 
     private static final int GUI_WIDTH = 205;
     private static final int GUI_HEIGHT = 269;
@@ -421,6 +425,26 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             graphics.fill(x + 1, y + 1, x + 1 + fill, y + FUEL_BAR_H - 1, FUEL_BAR_FILL);
             graphics.fill(x + 1, y + 1, x + 1 + fill, y + 2, FUEL_BAR_HIGHLIGHT);
         }
+        drawSolarStatusIcon(graphics, x + FUEL_BAR_W - 5, y, menu.getSolarStatus());
+    }
+
+    private void drawSolarStatusIcon(GuiGraphics graphics, int x, int y, int status) {
+        if (status == ExcavatorSolarManager.STATUS_NONE) return;
+        graphics.fill(x, y, x + 5, y + 5, 0xDD111820);
+        if (status == ExcavatorSolarManager.STATUS_NIGHT) {
+            graphics.fill(x + 1, y, x + 4, y + 1, SOLAR_NIGHT);
+            graphics.fill(x, y + 1, x + 2, y + 4, SOLAR_NIGHT);
+            graphics.fill(x + 1, y + 4, x + 4, y + 5, SOLAR_NIGHT);
+            return;
+        }
+
+        int color = status == ExcavatorSolarManager.STATUS_ACTIVE ? SOLAR_ACTIVE : 0xFFB89A55;
+        graphics.fill(x + 1, y + 1, x + 4, y + 4, color);
+        graphics.fill(x + 2, y, x + 3, y + 5, color);
+        graphics.fill(x, y + 2, x + 5, y + 3, color);
+        if (status == ExcavatorSolarManager.STATUS_BLOCKED) {
+            for (int i = 0; i < 5; i++) graphics.fill(x + i, y + i, x + i + 1, y + i + 1, SOLAR_BLOCKED);
+        }
     }
 
     private void drawSlotGrid(GuiGraphics graphics, int x, int y, int columns, int rows) {
@@ -538,6 +562,19 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
                 mouseX,
                 mouseY
         );
+    }
+
+    private void renderSolarTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        int status = menu.getSolarStatus();
+        if (!menu.isFuelSlotEnabled() || status == ExcavatorSolarManager.STATUS_NONE) return;
+        int x = leftPos + FUEL_X - 1 + FUEL_BAR_W - 5, y = topPos + FUEL_BAR_Y;
+        if (!isInside(mouseX, mouseY, x, y, 5, 5)) return;
+        String text = switch (status) {
+            case ExcavatorSolarManager.STATUS_ACTIVE -> "Solar: Active";
+            case ExcavatorSolarManager.STATUS_NIGHT -> "Solar: Night";
+            default -> "Solar: Blocked";
+        };
+        graphics.renderTooltip(font, Component.literal(text), mouseX, mouseY);
     }
 
     private void renderEmptySlotTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -883,6 +920,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             renderTooltip(graphics, mouseX, mouseY);
             renderEmptySlotTooltip(graphics, mouseX, mouseY);
             renderEnergyTooltip(graphics, mouseX, mouseY);
+            renderSolarTooltip(graphics, mouseX, mouseY);
         } else {
             renderFilterPanel(graphics, mouseX, mouseY);
 

@@ -45,10 +45,13 @@ public final class ExcavatorFuelManager {
 
     public static boolean isFuel(ItemStack stack) { return !stack.isEmpty() && stack.getBurnTime(RecipeType.SMELTING) > 0; }
 
-    public void tick() {
+    public void tick(int priorInternalGeneration) {
         if (!isEnabled() || burnTicksRemaining <= 0 && inventory.getStackInSlot(0).isEmpty()) return;
-        int budget = Math.max(1, LaserExcavatorConfig.FUEL_BURN_TICKS_PER_SERVER_TICK.get());
         int energyPerTick = Math.max(1, LaserExcavatorConfig.FUEL_ENERGY_PER_BURN_TICK.get());
+        int maxBudget = Math.max(1, LaserExcavatorConfig.FUEL_BURN_TICKS_PER_SERVER_TICK.get());
+        int covered = (int) Math.min(maxBudget, ((long) Math.max(0, priorInternalGeneration) + energyPerTick - 1L) / energyPerTick);
+        int budget = maxBudget - covered;
+        if (budget <= 0) return;
 
         while (budget > 0) {
             if (burnTicksRemaining <= 0 && (energyStorage.remainingCapacity() < energyPerTick || !consumeFuelItem())) return;
