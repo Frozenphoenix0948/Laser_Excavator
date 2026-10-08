@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:solar_upgrades",
+  "pattern": [
+    "NHD",
+    "RSR",
+    "DHN"
+  ],
+  "key": {
+    "N": "minecraft:netherite_ingot",
+    "H": "minecraft:daylight_detector",
+    "D": "minecraft:diamond_block",
+    "R": "minecraft:redstone_block",
+    "S": "laserexcavator:solar_upgrade_tier_2"
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:solar_upgrade_tier_3"
+  }
+}

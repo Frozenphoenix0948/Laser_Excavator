@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:solar_upgrades",
+  "pattern": [
+    "GCG",
+    "RPR",
+    "CDC"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "C": "minecraft:copper_ingot",
+    "R": "minecraft:redstone",
+    "P": "minecraft:paper",
+    "D": "minecraft:daylight_detector"
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:solar_upgrade_tier_1"
+  }
+}

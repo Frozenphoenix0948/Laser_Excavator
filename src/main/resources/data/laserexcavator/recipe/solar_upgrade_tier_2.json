@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "group": "laserexcavator:solar_upgrades",
+  "pattern": [
+    "GAG",
+    "DSD",
+    "AHA"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "A": "minecraft:gold_block",
+    "D": "minecraft:diamond",
+    "S": "laserexcavator:solar_upgrade_tier_1",
+    "H": "minecraft:daylight_detector"
+  },
+  "result": {
+    "count": 1,
+    "id": "laserexcavator:solar_upgrade_tier_2"
+  }
+}
