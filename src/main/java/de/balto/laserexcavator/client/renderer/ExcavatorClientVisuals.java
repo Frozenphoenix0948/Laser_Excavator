@@ -68,6 +68,7 @@ public final class ExcavatorClientVisuals {
     private static final VisualSet EMPTY = new VisualSet(false);
     private static final int MAX_RECYCLED_LASERS = 32_768;
     private static final int MAX_RECYCLED_TRANSPORTS = 32_768;
+    private static final int MAX_PENDING_VISUAL_BATCHES = 1024;
     private static final ArrayDeque<LaserVisual> LASER_POOL = new ArrayDeque<>();
     private static final ArrayDeque<TransportVisual> TRANSPORT_POOL = new ArrayDeque<>();
     private static final AtomicInteger PENDING_VISUAL_BATCH_COUNT = new AtomicInteger();
@@ -359,8 +360,14 @@ public final class ExcavatorClientVisuals {
      * is touched here, so this is safe on the networking thread.
      */
     public static void enqueueVisualBatch(ExcavatorVisualBatchPayload payload) {
-        PENDING_VISUAL_BATCHES.add(payload);
-        PENDING_VISUAL_BATCH_COUNT.incrementAndGet();
+        synchronized (PENDING_VISUAL_BATCHES) {
+            if (PENDING_VISUAL_BATCH_COUNT.get() == MAX_PENDING_VISUAL_BATCHES) {
+                PENDING_VISUAL_BATCHES.poll();
+                PENDING_VISUAL_BATCH_COUNT.decrementAndGet();
+            }
+            PENDING_VISUAL_BATCHES.add(payload);
+            PENDING_VISUAL_BATCH_COUNT.incrementAndGet();
+        }
 
         if (ExcavatorProfiler.isEnabled()) {
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.CLIENT_VISUAL_PAYLOADS_RECEIVED);
@@ -533,8 +540,12 @@ public final class ExcavatorClientVisuals {
                 : System.nanoTime() + (long) budgetMicros * 1_000L;
 
         ExcavatorVisualBatchPayload payload;
-        while ((payload = PENDING_VISUAL_BATCHES.poll()) != null) {
-            PENDING_VISUAL_BATCH_COUNT.updateAndGet(value -> Math.max(0, value - 1));
+        while (true) {
+            synchronized (PENDING_VISUAL_BATCHES) {
+                payload = PENDING_VISUAL_BATCHES.poll();
+                if (payload == null) break;
+                PENDING_VISUAL_BATCH_COUNT.decrementAndGet();
+            }
             stats.payloadsDrained++;
 
             long payloadServerGameTime = payload.serverGameTime();
@@ -875,8 +886,10 @@ public final class ExcavatorClientVisuals {
     }
 
     private static void clearPendingNetworkVisuals() {
-        PENDING_VISUAL_BATCHES.clear();
-        PENDING_VISUAL_BATCH_COUNT.set(0);
+        synchronized (PENDING_VISUAL_BATCHES) {
+            PENDING_VISUAL_BATCHES.clear();
+            PENDING_VISUAL_BATCH_COUNT.set(0);
+        }
     }
 
     /** Atlas rebuilds invalidate cached UV coordinates. */
