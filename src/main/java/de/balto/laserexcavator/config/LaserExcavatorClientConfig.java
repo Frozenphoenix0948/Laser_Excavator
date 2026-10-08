@@ -3,28 +3,35 @@ package de.balto.laserexcavator.config;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 public final class LaserExcavatorClientConfig {
-    public enum TransportDebugMode {
-        NORMAL,
-        DISABLED,
-        PROCESS_ONLY,
-        MARKERS_ONLY
+    public enum RenderPreset {
+        MINIMAL("Minimal"), REDUCED("Performance"), NORMAL("Balanced"), ENHANCED("Quality"), MAXIMUM("Extreme"), CUSTOM("Custom");
+
+        private final String label;
+
+        RenderPreset(String label) { this.label = label; }
+        public String label() { return label; }
     }
 
-    public enum BlockUpdateDebugMode {
-        NORMAL,
-        NO_REMESH,
-        NO_BLOCK_SYNC
+    public enum TransportRenderMode {
+        NORMAL("Normal"), DOTS("Dots"), OFF("Off");
+
+        private final String label;
+
+        TransportRenderMode(String label) { this.label = label; }
+        public String label() { return label; }
     }
 
-    public enum RenderingDebugMode {
-        NORMAL,
-        ALL_DISABLED
-    }
+    public enum TransportDebugMode { NORMAL, DISABLED, PROCESS_ONLY, MARKERS_ONLY }
+    public enum BlockUpdateDebugMode { NORMAL, NO_REMESH, NO_BLOCK_SYNC }
+    public enum RenderingDebugMode { NORMAL, ALL_DISABLED }
 
     public static final ModConfigSpec SPEC;
 
+    public static final ModConfigSpec.EnumValue<RenderPreset> RENDER_PRESET;
     public static final ModConfigSpec.IntValue LASER_VISUAL_DURATION_TICKS;
     public static final ModConfigSpec.BooleanValue EMIT_VANILLA_BREAK_EFFECTS;
+    public static final ModConfigSpec.BooleanValue TRANSPORTS_ENABLED;
+    public static final ModConfigSpec.BooleanValue TRANSPORT_MARKERS_ONLY;
     public static final ModConfigSpec.IntValue MAX_LASERS_PER_EXCAVATOR;
     public static final ModConfigSpec.IntValue MAX_TRANSPORTS_PER_EXCAVATOR;
     public static final ModConfigSpec.IntValue MIN_TRANSPORT_BLOCK_LIGHT;
@@ -51,10 +58,6 @@ public final class LaserExcavatorClientConfig {
     public static final ModConfigSpec.EnumValue<RenderingDebugMode> RENDERING_DEBUG_MODE;
     public static final ModConfigSpec.IntValue VISUAL_INGESTION_BUDGET_MICROS;
 
-    /**
-     * Session-only command override. Null means the value from laserexcavator-client.toml is used.
-     * Volatile because config/UI changes and render reads can happen through different client callbacks.
-     */
     private static volatile TransportDebugMode transportDebugModeOverride;
     private static volatile BlockUpdateDebugMode blockUpdateDebugModeOverride;
     private static volatile RenderingDebugMode renderingDebugModeOverride;
@@ -66,43 +69,36 @@ public final class LaserExcavatorClientConfig {
                 " Client-local excavator rendering limits and visual tuning.",
                 " These values are chosen independently by each client and are never synchronized from a server."
         ).push("rendering");
-        LASER_VISUAL_DURATION_TICKS = builder.comment(
-                        " Cosmetic excavation-laser lifetime in ticks. This does not change mining speed or FE use."
-                )
+        RENDER_PRESET = builder.defineEnum("preset", RenderPreset.NORMAL);
+        LASER_VISUAL_DURATION_TICKS = builder.comment(" Cosmetic excavation-laser lifetime in ticks. This does not change mining speed or FE use.")
                 .defineInRange("laserVisualDurationTicks", 20, 1, 200);
-        EMIT_VANILLA_BREAK_EFFECTS = builder.comment(
-                        " Play vanilla block-break sounds and particles locally when excavator block removals reach this client."
-                )
+        EMIT_VANILLA_BREAK_EFFECTS = builder.comment(" Play vanilla block-break sounds and particles locally when excavator block removals reach this client.")
                 .define("emitVanillaBreakEffects", false);
-        MAX_LASERS_PER_EXCAVATOR = builder.comment(
-                        " Maximum number of laser visuals kept per excavator on this client."
+        TRANSPORTS_ENABLED = builder.comment(" Render transported block/item visuals. Disabling this keeps transport/network state but emits no transport geometry.")
+                .define("transportsEnabled", true);
+        TRANSPORT_MARKERS_ONLY = builder.comment(
+                        " When transport rendering is enabled, render transports as the cheapest opaque markers instead of cubes and billboards."
                 )
+                .define("transportMarkersOnly", false);
+        MAX_LASERS_PER_EXCAVATOR = builder.comment(" Maximum number of laser visuals kept per excavator on this client.")
                 .defineInRange("maxLasersPerExcavator", 32, 1, 4096);
         MAX_TRANSPORTS_PER_EXCAVATOR = builder.comment(
                         " Maximum number of active transport visual records kept per excavator on this client.",
                         " New transport visuals are skipped while the limit is full; active transports are never evicted early."
                 )
                 .defineInRange("maxTransportsPerExcavator", 1024, 16, 65536);
-        MIN_TRANSPORT_BLOCK_LIGHT = builder.comment(
-                        " Minimum block-light level used for transport lighting; sampled sky light is preserved."
-                )
+        MIN_TRANSPORT_BLOCK_LIGHT = builder.comment(" Minimum block-light level used for transport lighting; sampled sky light is preserved.")
                 .defineInRange("minimumTransportBlockLight", 8, 0, 15);
-        BLOCK_VISUAL_HALF_SIZE = builder.comment(
-                        " Half-size of close transported block visuals; larger values make textured cubes and billboards appear bigger."
-                )
+        BLOCK_VISUAL_HALF_SIZE = builder.comment(" Half-size of close transported block visuals; larger values make textured cubes and billboards appear bigger.")
                 .defineInRange("blockVisualHalfSize", 0.16D, 0.01D, 2.0D);
-        ITEM_VISUAL_HALF_SIZE = builder.comment(
-                        " Half-size of close non-block item billboards; larger values make transported items appear bigger."
-                )
+        ITEM_VISUAL_HALF_SIZE = builder.comment(" Half-size of close non-block item billboards; larger values make transported items appear bigger.")
                 .defineInRange("itemVisualHalfSize", 0.22D, 0.01D, 2.0D);
         TRANSPORT_MARKER_HALF_SIZE = builder.comment(
                         " Half-size of the large untextured transport marker used after the textured billboard range.",
                         " Smaller transport markers derive their size from this value as well."
                 )
                 .defineInRange("transportDotHalfSize", 0.10D, 0.01D, 1.0D);
-        BILLBOARD_DISTANCE = builder.comment(
-                        " Distance where transported blocks switch from full textured cubes to cheaper textured billboards."
-                )
+        BILLBOARD_DISTANCE = builder.comment(" Distance where transported blocks switch from full textured cubes to cheaper textured billboards.")
                 .defineInRange("billboardDistance", 20.0D, 1.0D, 512.0D);
         LASER_MID_LOD_DISTANCE = builder.comment(
                         " Camera distance where excavation lasers switch from full 3D geometry to a camera-facing three-line beam.",
@@ -129,9 +125,7 @@ public final class LaserExcavatorClientConfig {
                         " Below this distance every transport remains individually represented; cube, billboard, and marker changes are visual-only."
                 )
                 .defineInRange("transportBatchDistance", 100.0D, 16.0D, 2048.0D);
-        TRANSPORT_BATCH_MAX_MARKERS = builder.comment(
-                        " Maximum representative transport markers per excavator at the start of the continuous batching range."
-                )
+        TRANSPORT_BATCH_MAX_MARKERS = builder.comment(" Maximum representative transport markers per excavator at the start of the continuous batching range.")
                 .defineInRange("transportBatchMaxDots", 192, 1, 2048);
         TRANSPORT_BATCH_MIN_MARKERS = builder.comment(
                         " Minimum representative transport markers kept just before transportMaxRenderDistance.",
@@ -149,17 +143,11 @@ public final class LaserExcavatorClientConfig {
                         " This affects transports only; force fields and lasers keep their normal LOD behavior."
                 )
                 .defineInRange("transportMaxRenderDistance", 156.0D, 16.0D, 4096.0D);
-        FORCE_FIELD_GRID_SPACING = builder.comment(
-                        " Base spacing in blocks between force-field grid lines; medium and far LODs increase this spacing automatically."
-                )
+        FORCE_FIELD_GRID_SPACING = builder.comment(" Base spacing in blocks between force-field grid lines; medium and far LODs increase this spacing automatically.")
                 .defineInRange("forceFieldGridSpacing", 4, 1, 64);
-        PILLAR_OUTER_RADIUS = builder.comment(
-                        " Base offset of the four outer lines that form each force-field corner pillar; the renderer adds a small pulse animation."
-                )
+        PILLAR_OUTER_RADIUS = builder.comment(" Base offset of the four outer lines that form each force-field corner pillar; the renderer adds a small pulse animation.")
                 .defineInRange("pillarOuterRadius", 0.105D, 0.005D, 2.0D);
-        PILLAR_CORE_RADIUS = builder.comment(
-                        " Base offset of the bright inner lines of full-detail force-field corner pillars; the renderer adds a small pulse animation."
-                )
+        PILLAR_CORE_RADIUS = builder.comment(" Base offset of the bright inner lines of full-detail force-field corner pillars; the renderer adds a small pulse animation.")
                 .defineInRange("pillarCoreRadius", 0.035D, 0.001D, 1.0D);
         RENDER_DISTANCE = builder.comment(" Block-entity renderer view distance in blocks.")
                 .defineInRange("renderDistance", 512, 16, 2048);
@@ -209,70 +197,100 @@ public final class LaserExcavatorClientConfig {
 
     private LaserExcavatorClientConfig() {}
 
+    public static RenderPreset renderPreset() { return RENDER_PRESET.get(); }
+
+    public static void applyRenderPreset(RenderPreset preset) {
+        if (preset == RenderPreset.CUSTOM) return;
+        RENDER_PRESET.set(preset);
+        resetPresetValues();
+        TRANSPORT_MARKERS_ONLY.set(preset == RenderPreset.MINIMAL);
+        switch (preset) {
+            case MINIMAL -> setQuality(16, 512, 1, 24, 48, 16, 32, 48, 64, 4, 3.5, 96, 8, 256);
+            case REDUCED -> setQuality(24, 768, 10, 36, 68, 28, 48, 72, 128, 6, 3.0, 128, 6, 384);
+            case NORMAL -> setQuality(32, 1024, 20, 48, 92, 40, 64, 100, 192, 8, 2.5, 156, 4, 512);
+            case ENHANCED -> setQuality(48, 2048, 40, 72, 144, 80, 112, 176, 320, 12, 2.0, 280, 4, 768);
+            case MAXIMUM -> setQuality(64, 4096, 96, 128, 256, 256, 320, 384, 512, 24, 1.5, 512, 2, 1024);
+            default -> {}
+        }
+    }
+
+    private static void resetPresetValues() {
+        LASER_VISUAL_DURATION_TICKS.set(20);
+        EMIT_VANILLA_BREAK_EFFECTS.set(false);
+        TRANSPORTS_ENABLED.set(true);
+        TRANSPORT_MARKERS_ONLY.set(false);
+        MIN_TRANSPORT_BLOCK_LIGHT.set(8);
+        BLOCK_VISUAL_HALF_SIZE.set(0.16D);
+        ITEM_VISUAL_HALF_SIZE.set(0.22D);
+        TRANSPORT_MARKER_HALF_SIZE.set(0.10D);
+        PILLAR_OUTER_RADIUS.set(0.105D);
+        PILLAR_CORE_RADIUS.set(0.035D);
+        VISUAL_INGESTION_BUDGET_MICROS.set(3000);
+    }
+
+    private static void setQuality(int lasers, int transports, double billboard, double laserMid, double laserFar,
+                                   double largeMarker, double smallMarker, double batch, int batchMax, int batchMin,
+                                   double falloff, double maxDistance, int gridSpacing, int renderDistance) {
+        MAX_LASERS_PER_EXCAVATOR.set(lasers);
+        MAX_TRANSPORTS_PER_EXCAVATOR.set(transports);
+        BILLBOARD_DISTANCE.set(billboard);
+        LASER_MID_LOD_DISTANCE.set(laserMid);
+        LASER_FAR_LOD_DISTANCE.set(laserFar);
+        TRANSPORT_LARGE_MARKER_DISTANCE.set(largeMarker);
+        TRANSPORT_SMALL_MARKER_DISTANCE.set(smallMarker);
+        TRANSPORT_BATCH_DISTANCE.set(batch);
+        TRANSPORT_BATCH_MAX_MARKERS.set(batchMax);
+        TRANSPORT_BATCH_MIN_MARKERS.set(batchMin);
+        TRANSPORT_BATCH_FALLOFF_EXPONENT.set(falloff);
+        TRANSPORT_MAX_RENDER_DISTANCE.set(maxDistance);
+        FORCE_FIELD_GRID_SPACING.set(gridSpacing);
+        RENDER_DISTANCE.set(renderDistance);
+    }
+
+    public static void saveRendering() { SPEC.save(); }
+
+    public static TransportRenderMode transportRenderMode() {
+        if (!TRANSPORTS_ENABLED.get()) return TransportRenderMode.OFF;
+        return TRANSPORT_MARKERS_ONLY.get() ? TransportRenderMode.DOTS : TransportRenderMode.NORMAL;
+    }
+
+    public static void setTransportRenderMode(TransportRenderMode mode) {
+        TRANSPORTS_ENABLED.set(mode != TransportRenderMode.OFF);
+        TRANSPORT_MARKERS_ONLY.set(mode == TransportRenderMode.DOTS);
+    }
+
     public static TransportDebugMode transportDebugMode() {
         TransportDebugMode override = transportDebugModeOverride;
-        return override != null ? override : TRANSPORT_DEBUG_MODE.get();
+        if (override != null) return override;
+        if (!TRANSPORTS_ENABLED.get()) return TransportDebugMode.DISABLED;
+        TransportDebugMode mode = TRANSPORT_DEBUG_MODE.get();
+        return mode == TransportDebugMode.NORMAL && TRANSPORT_MARKERS_ONLY.get()
+                ? TransportDebugMode.MARKERS_ONLY : mode;
     }
 
-    public static void setTransportDebugModeOverride(TransportDebugMode mode) {
-        transportDebugModeOverride = mode;
-    }
-
-    public static void clearTransportDebugModeOverride() {
-        transportDebugModeOverride = null;
-    }
-
-    public static boolean hasTransportDebugModeOverride() {
-        return transportDebugModeOverride != null;
-    }
-
-    public static TransportDebugMode configuredTransportDebugMode() {
-        return TRANSPORT_DEBUG_MODE.get();
-    }
+    public static void setTransportDebugModeOverride(TransportDebugMode mode) { transportDebugModeOverride = mode; }
+    public static void clearTransportDebugModeOverride() { transportDebugModeOverride = null; }
+    public static boolean hasTransportDebugModeOverride() { return transportDebugModeOverride != null; }
+    public static TransportDebugMode configuredTransportDebugMode() { return TRANSPORT_DEBUG_MODE.get(); }
 
     public static BlockUpdateDebugMode blockUpdateDebugMode() {
         BlockUpdateDebugMode override = blockUpdateDebugModeOverride;
         return override != null ? override : BLOCK_UPDATE_DEBUG_MODE.get();
     }
 
-    public static void setBlockUpdateDebugModeOverride(BlockUpdateDebugMode mode) {
-        blockUpdateDebugModeOverride = mode;
-    }
-
-    public static void clearBlockUpdateDebugModeOverride() {
-        blockUpdateDebugModeOverride = null;
-    }
-
-    public static boolean hasBlockUpdateDebugModeOverride() {
-        return blockUpdateDebugModeOverride != null;
-    }
-
-    public static BlockUpdateDebugMode configuredBlockUpdateDebugMode() {
-        return BLOCK_UPDATE_DEBUG_MODE.get();
-    }
+    public static void setBlockUpdateDebugModeOverride(BlockUpdateDebugMode mode) { blockUpdateDebugModeOverride = mode; }
+    public static void clearBlockUpdateDebugModeOverride() { blockUpdateDebugModeOverride = null; }
+    public static boolean hasBlockUpdateDebugModeOverride() { return blockUpdateDebugModeOverride != null; }
+    public static BlockUpdateDebugMode configuredBlockUpdateDebugMode() { return BLOCK_UPDATE_DEBUG_MODE.get(); }
 
     public static RenderingDebugMode renderingDebugMode() {
         RenderingDebugMode override = renderingDebugModeOverride;
         return override != null ? override : RENDERING_DEBUG_MODE.get();
     }
 
-    public static boolean isAllRenderingDisabled() {
-        return renderingDebugMode() == RenderingDebugMode.ALL_DISABLED;
-    }
-
-    public static void setRenderingDebugModeOverride(RenderingDebugMode mode) {
-        renderingDebugModeOverride = mode;
-    }
-
-    public static void clearRenderingDebugModeOverride() {
-        renderingDebugModeOverride = null;
-    }
-
-    public static boolean hasRenderingDebugModeOverride() {
-        return renderingDebugModeOverride != null;
-    }
-
-    public static RenderingDebugMode configuredRenderingDebugMode() {
-        return RENDERING_DEBUG_MODE.get();
-    }
+    public static boolean isAllRenderingDisabled() { return renderingDebugMode() == RenderingDebugMode.ALL_DISABLED; }
+    public static void setRenderingDebugModeOverride(RenderingDebugMode mode) { renderingDebugModeOverride = mode; }
+    public static void clearRenderingDebugModeOverride() { renderingDebugModeOverride = null; }
+    public static boolean hasRenderingDebugModeOverride() { return renderingDebugModeOverride != null; }
+    public static RenderingDebugMode configuredRenderingDebugMode() { return RENDERING_DEBUG_MODE.get(); }
 }

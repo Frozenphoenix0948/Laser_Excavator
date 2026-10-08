@@ -39,7 +39,7 @@ public final class ExcavatorUpgradeManager {
     private static final String TAG_FILTER_SLOT_PREFIX = "Slot";
     private static final String TAG_FILTER_WHITELIST = "Whitelist";
 
-    /** Legacy 8th Item slot */
+    /** An eighth compatibility storage slot preserves an item stored in that slot when loading save data. */
     public static final int STORED_UPGRADE_SLOTS = 8;
     public static final int MAX_UPGRADE_SLOTS = 7;
     public static final int MAX_FILTER_SLOTS = 16;
@@ -216,6 +216,10 @@ public final class ExcavatorUpgradeManager {
         return tier(ExcavatorUpgradeType.NETHER_COOLING) > 0;
     }
 
+    public int solarTier() {
+        return tier(ExcavatorUpgradeType.SOLAR);
+    }
+
     public int filterCapacity() {
         ensureActiveSlotCountCurrent();
         return cachedFilterCapacity;
@@ -260,8 +264,14 @@ public final class ExcavatorUpgradeManager {
     }
 
     public boolean setFilterBlock(int slot, @Nullable Block block) {
-        if (slot < 0 || slot >= filterCapacity() || busySupplier.getAsBoolean()) return false;
+        int capacity = filterCapacity();
+        if (slot < 0 || slot >= capacity || busySupplier.getAsBoolean()) return false;
         if (filteredBlocks[slot] == block) return true;
+        if (block != null) {
+            for (int i = 0; i < capacity; i++) {
+                if (i != slot && filteredBlocks[i] == block) return false;
+            }
+        }
         filteredBlocks[slot] = block;
         rebuildFilterLookup();
         filterChanged();

@@ -25,6 +25,11 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * This class contains the general menu of the Mod and takes care
+ * of the UI functionality
+ */
+
 public class ExcavatorMenu extends AbstractContainerMenu {
     public static final int DATA_WIDTH = 0;
     public static final int DATA_HEIGHT = 1;
@@ -241,7 +246,13 @@ public class ExcavatorMenu extends AbstractContainerMenu {
                 || getPendingItemCount() > 0;
     }
 
-    /** Running excavators only lock upgrades that can invalidate target/area configuration. */
+    public boolean isUpgradeSlotLocked(int slot) {
+        if (!isUpgradeConfigurationLocked() || slot < 0 || slot >= upgradeSlotCount) return false;
+        ItemStack stack = slots.get(upgradeSlotStart + slot).getItem();
+        return !stack.isEmpty()
+                && !ExcavatorBlockEntity.isUpgradeHotSwappable(ExcavatorBlockEntity.getUpgradeType(stack));
+    }
+
     private boolean isUpgradeChangeAllowed(ItemStack stack) {
         if (!isUpgradeConfigurationLocked()) return true;
         return ExcavatorBlockEntity.isUpgradeHotSwappable(ExcavatorBlockEntity.getUpgradeType(stack));
@@ -496,8 +507,15 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     }
 
     private boolean setFilterBlock(Player player, int filterSlot, @Nullable Block block) {
-        if (filterSlot < 0 || filterSlot >= getFilterCapacity() || isUpgradeConfigurationLocked()) return false;
+        int capacity = getFilterCapacity();
+        if (filterSlot < 0 || filterSlot >= capacity || isUpgradeConfigurationLocked()) return false;
         if (block != null && block.asItem().getDefaultInstance().isEmpty()) return false;
+        if (getFilterBlock(filterSlot) == block) return true;
+        if (block != null) {
+            for (int slot = 0; slot < capacity; slot++) {
+                if (slot != filterSlot && getFilterBlock(slot) == block) return false;
+            }
+        }
 
         if (player.level().isClientSide) {
             data.set(DATA_FILTER_START + filterSlot, block == null ? -1 : BuiltInRegistries.BLOCK.getId(block));

@@ -5,32 +5,26 @@ import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
 import de.balto.laserexcavator.block.excavator.ExcavatorSolarManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.level.block.Block;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
-    private static final int FRAME = 0xFF111820;
-    private static final int PANEL_BG = 0xEE1B2430;
-    private static final int PANEL_INNER = 0xEE27323F;
-    private static final int PANEL_HEADER = 0xFF303B49;
-    private static final int SLOT_INNER = 0xFF343F4D;
+import static de.balto.laserexcavator.screen.ExcavatorUiStyle.*;
 
-    private static final int TEXT = 0xFFF1EBDD;
-    private static final int MUTED = 0xFFADB5C1;
-    private static final int ACCENT = 0xFF76D7FF;
-    private static final int GOLD = 0xFFFFD47A;
-    private static final int GOOD = 0xFF7CFF9A;
-    private static final int WARNING = 0xFFFFC96B;
-    private static final int ERROR = 0xFFFF7A7A;
+/**
+ * This class contains the general screen of the Mod and takes care
+ * of the UI graphics.
+ */
+
+public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int ENERGY_EMPTY = 0xFF35171B;
     private static final int ENERGY_FILL = 0xFFE34F55;
     private static final int ENERGY_HIGHLIGHT = 0xFFFF8589;
@@ -44,16 +38,12 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int GUI_WIDTH = 205;
     private static final int GUI_HEIGHT = 269;
 
-    private static final float TITLE_SCALE = 0.85F;
-    private static final float LABEL_SCALE = 0.80F;
-    private static final float STATUS_SCALE = 0.82F;
-
     private static final int GAP = 5;
-    private static final int SLOT_STEP = 17;
+    static final int SLOT_STEP = 17;
 
     private static final int TITLE_BAR_Y = GAP;
-    private static final int TITLE_BAR_HEIGHT = 13;
-    private static final int TITLE_Y = 8;
+    private static final int TITLE_BAR_HEIGHT = 15;
+    private static final int TITLE_Y = 9;
     private static final int CONTROL_Y = 27;
     private static final int AXIS_LABEL_Y = 32;
     private static final int CONTROL_GROUP_WIDTH = 61;
@@ -84,12 +74,12 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int ENERGY_BAR_H = 5;
 
     private static final int PLAYER_PANEL_X = GAP;
-    private static final int PLAYER_PANEL_Y = 167;
+    static final int PLAYER_PANEL_Y = 167;
     private static final int PLAYER_PANEL_RIGHT = OUTPUT_PANEL_RIGHT;
-    private static final int PLAYER_PANEL_BOTTOM = GUI_HEIGHT - GAP;
-    private static final int PLAYER_GRID_X = OUTPUT_GRID_X;
-    private static final int PLAYER_GRID_Y = 183;
-    private static final int PLAYER_HOTBAR_Y = 240;
+    static final int PLAYER_PANEL_BOTTOM = GUI_HEIGHT - GAP;
+    static final int PLAYER_GRID_X = OUTPUT_GRID_X;
+    static final int PLAYER_GRID_Y = 183;
+    static final int PLAYER_HOTBAR_Y = 240;
 
     private static final int MOD_PANEL_X = OUTPUT_PANEL_RIGHT + GAP;
     private static final int MOD_PANEL_RIGHT = GUI_WIDTH - GAP;
@@ -114,45 +104,20 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private EditBox widthField;
     private EditBox heightField;
     private EditBox lengthField;
-    private Button scanButton;
-    private Button excavationButton;
-    private Button filterButton;
-    private boolean filterPanelOpen;
+    private ExcavatorStyledButton scanButton;
+    private ExcavatorStyledButton excavationButton;
+    private ExcavatorStyledButton filterButton;
+    private final ExcavatorFilterPanel filterPanel;
 
     private static final int FILTER_BUTTON_MARGIN = 2;
-    private static final int FILTER_BUTTON_W = 44;
+    private static final int FILTER_BUTTON_W = 11;
     private static final int FILTER_BUTTON_H = TITLE_BAR_HEIGHT - FILTER_BUTTON_MARGIN * 2;
-    private static final int FILTER_BUTTON_X = GUI_WIDTH - GAP - FILTER_BUTTON_MARGIN - FILTER_BUTTON_W;
     private static final int FILTER_BUTTON_Y = TITLE_BAR_Y + FILTER_BUTTON_MARGIN;
+    private static final int SETTINGS_BUTTON_W = 11;
+    private static final int SETTINGS_BUTTON_X = GUI_WIDTH - GAP - FILTER_BUTTON_MARGIN - SETTINGS_BUTTON_W;
+    private static final int FILTER_BUTTON_X = SETTINGS_BUTTON_X - FILTER_BUTTON_W - 3;
 
-    private static final int FILTER_PANEL_W = 146;
-    private static final int FILTER_PANEL_H = 118;
-    private static final int FILTER_GRID_X = 10;
-    private static final int FILTER_GRID_Y = 32;
-    private static final int FILTER_GRID_STEP = 19;
-    private static final int FILTER_ACTION_X = 95;
-    private static final int FILTER_ACCENT = 0xFF4FA9CC;
-    private static final int FILTER_SLOT_HOVER = 0xFF3A4857;
-    private static final int FILTER_DISABLED_SLOT = 0xFF202832;
-    private static final int FILTER_DIVIDER = 0xFF3A4654;
-    private static final int FILTER_SHADOW = 0x88000000;
 
-    private static final int FILTER_COPY_BUTTON_X = FILTER_ACTION_X;
-    private static final int FILTER_COPY_BUTTON_Y = 34;
-    private static final int FILTER_COPY_BUTTON_W = 41;
-    private static final int FILTER_COPY_BUTTON_H = 14;
-    private static final int FILTER_PASTE_BUTTON_X = FILTER_ACTION_X;
-    private static final int FILTER_PASTE_BUTTON_Y = 54;
-    private static final int FILTER_PASTE_BUTTON_W = 41;
-    private static final int FILTER_PASTE_BUTTON_H = 14;
-    private static final int FILTER_MODE_BUTTON_X = FILTER_ACTION_X;
-    private static final int FILTER_MODE_BUTTON_Y = 74;
-    private static final int FILTER_MODE_BUTTON_W = 41;
-    private static final int FILTER_MODE_BUTTON_H = 14;
-
-    private static final Block[] COPIED_FILTER = new Block[ExcavatorBlockEntity.MAX_FILTER_SLOTS];
-    private static int copiedFilterCapacity;
-    private static boolean copiedFilterWhitelist;
 
     public ExcavatorScreen(ExcavatorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -161,6 +126,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         titleLabelX = 10;
         titleLabelY = 8;
         inventoryLabelY = 1000;
+        filterPanel = new ExcavatorFilterPanel(this);
     }
 
     public ExcavatorMenu getExcavatorMenu() {
@@ -178,23 +144,25 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         heightField = addDimensionField(CONTROL_START_X + CONTROL_GROUP_WIDTH + CONTROL_GROUP_GAP, menu.getSelectionHeight());
         lengthField = addDimensionField(CONTROL_START_X + (CONTROL_GROUP_WIDTH + CONTROL_GROUP_GAP) * 2, menu.getSelectionLength());
 
-        scanButton = addRenderableWidget(
-                Button.builder(Component.literal("Scan Area"), button -> pressMenuButton(ExcavatorMenu.BUTTON_START_SCAN))
-                        .bounds(leftPos + ACTION_X, topPos + ACTION_Y, ACTION_BUTTON_WIDTH, ACTION_HEIGHT)
-                        .build()
-        );
+        scanButton = addRenderableWidget(ExcavatorStyledButton.text(
+                leftPos + ACTION_X, topPos + ACTION_Y, ACTION_BUTTON_WIDTH, ACTION_HEIGHT,
+                Component.literal("Scan Area"), button -> pressMenuButton(ExcavatorMenu.BUTTON_START_SCAN)
+        ));
 
-        excavationButton = addRenderableWidget(
-                Button.builder(Component.literal("Start Excavation"), button -> pressMenuButton(ExcavatorMenu.BUTTON_TOGGLE_EXCAVATION))
-                        .bounds(leftPos + ACTION_X + ACTION_BUTTON_WIDTH + GAP, topPos + ACTION_Y, ACTION_BUTTON_WIDTH, ACTION_HEIGHT)
-                        .build()
-        );
+        excavationButton = addRenderableWidget(ExcavatorStyledButton.text(
+                leftPos + ACTION_X + ACTION_BUTTON_WIDTH + GAP, topPos + ACTION_Y, ACTION_BUTTON_WIDTH, ACTION_HEIGHT,
+                Component.literal("Start Excavation"), button -> pressMenuButton(ExcavatorMenu.BUTTON_TOGGLE_EXCAVATION)
+        ));
 
-        filterButton = addRenderableWidget(
-                Button.builder(Component.literal("Filter"), button -> filterPanelOpen = !filterPanelOpen)
-                        .bounds(leftPos + FILTER_BUTTON_X, topPos + FILTER_BUTTON_Y, FILTER_BUTTON_W, FILTER_BUTTON_H)
-                        .build()
-        );
+        filterButton = addRenderableWidget(ExcavatorStyledButton.filter(
+                leftPos + FILTER_BUTTON_X, topPos + FILTER_BUTTON_Y, FILTER_BUTTON_W, FILTER_BUTTON_H,
+                Component.literal("Filter"), button -> filterPanel.toggle(), filterPanel::isOpen,
+                menu::isUpgradeConfigurationLocked
+        ));
+        addRenderableWidget(ExcavatorStyledButton.gear(
+                leftPos + SETTINGS_BUTTON_X, topPos + FILTER_BUTTON_Y, SETTINGS_BUTTON_W, FILTER_BUTTON_H,
+                Component.literal("Rendering settings"), button -> minecraft.setScreen(new ExcavatorRenderSettingsScreen(this))
+        ));
 
         updateControls();
     }
@@ -224,6 +192,19 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         return !value.isBlank() && value.chars().allMatch(Character::isDigit);
     }
 
+    private boolean hasUnsavedSelection(EditBox field) {
+        if (!isParsableNumber(field.getValue())) return false;
+        try {
+            return Integer.parseInt(field.getValue()) != selectionValue(field);
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private int selectionValue(EditBox field) {
+        return field == widthField ? menu.getSelectionWidth() : field == heightField ? menu.getSelectionHeight() : menu.getSelectionLength();
+    }
+
     private void sendSelectionValue(EditBox field, String text) {
         int dataIndex = field == widthField ? ExcavatorMenu.DATA_WIDTH
                 : field == heightField ? ExcavatorMenu.DATA_HEIGHT
@@ -236,9 +217,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             return;
         }
 
-        int currentValue = dataIndex == ExcavatorMenu.DATA_WIDTH ? menu.getSelectionWidth()
-                : dataIndex == ExcavatorMenu.DATA_HEIGHT ? menu.getSelectionHeight()
-                : menu.getSelectionLength();
+        int currentValue = selectionValue(field);
         if (requested == currentValue) {
             return;
         }
@@ -253,17 +232,20 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         updateControls();
     }
 
-    private void pressMenuButton(int id) {
+    void pressMenuButton(int id) {
+        commitFocusedField();
+        sendMenuButton(id);
+    }
+
+    void sendMenuButton(int id) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.gameMode == null) return;
-
-        commitFocusedField();
         menu.clickMenuButton(minecraft.player, id);
         minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
         updateControls();
     }
 
-    private void commitFocusedField() {
+    void commitFocusedField() {
         for (EditBox field : configurationFields) {
             if (field.isFocused() && isParsableNumber(field.getValue())) {
                 sendSelectionValue(field, field.getValue());
@@ -323,18 +305,13 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
 
         filterButton.visible = menu.getFilterCapacity() > 0;
         filterButton.active = filterButton.visible && !busy;
-        if (!filterButton.visible) filterPanelOpen = false;
+        if (!filterButton.visible) filterPanel.close();
 
-        excavationButton.active = state == ExcavatorScanState.EXCAVATING
-                || state == ExcavatorScanState.STORAGE_FULL
-                || (state == ExcavatorScanState.READY && !overheating);
-        excavationButton.setMessage(Component.literal(
-                overheating && state != ExcavatorScanState.EXCAVATING && state != ExcavatorScanState.STORAGE_FULL
-                        ? "Overheated"
-                        : switch (state) {
-                            case EXCAVATING, STORAGE_FULL -> "Pause";
-                            default -> "Excavate";
-                        }
+        excavationButton.active = state == ExcavatorScanState.EXCAVATING || state == ExcavatorScanState.STORAGE_FULL || (state == ExcavatorScanState.READY && !overheating);
+        excavationButton.setMessage(Component.literal(overheating && state != ExcavatorScanState.EXCAVATING && state != ExcavatorScanState.STORAGE_FULL ? "Overheated" : switch (state) {
+                    case EXCAVATING, STORAGE_FULL -> "Pause";
+                    default -> "Excavate";
+                }
         ));
     }
 
@@ -353,7 +330,8 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         graphics.fill(x, y, x + imageWidth, y + imageHeight, FRAME);
         graphics.fill(x + 2, y + 2, x + imageWidth - 2, y + imageHeight - 2, PANEL_BG);
 
-        graphics.fill(x + GAP, y + TITLE_BAR_Y, x + imageWidth - GAP, y + TITLE_BAR_Y + TITLE_BAR_HEIGHT, PANEL_HEADER);
+        graphics.fill(x + GAP, y + TITLE_BAR_Y, x + imageWidth - GAP, y + TITLE_BAR_Y + TITLE_BAR_HEIGHT, FRAME);
+        graphics.fill(x + GAP + 1, y + TITLE_BAR_Y + 1, x + imageWidth - GAP - 1, y + TITLE_BAR_Y + TITLE_BAR_HEIGHT - 1, PANEL_HEADER);
 
         drawProgress(graphics, x + ACTION_X, y + PROGRESS_Y, ACTION_WIDTH, 5, menu.getScanProgress());
 
@@ -409,10 +387,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     }
 
     private void drawSlot(GuiGraphics graphics, int x, int y) {
-        int drawX = x - 1;
-        int drawY = y - 1;
-        graphics.fill(drawX, drawY, drawX + 18, drawY + 18, FRAME);
-        graphics.fill(drawX + 1, drawY + 1, drawX + 17, drawY + 17, SLOT_INNER);
+        ExcavatorUiStyle.drawSlot(graphics, x, y);
     }
 
     private void drawFuelProgressBar(GuiGraphics graphics, int x, int y) {
@@ -516,31 +491,91 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         return pending > 0 ? "  |  " + pending + " transit" : "";
     }
 
-    private void drawScaledString(
-            GuiGraphics graphics,
-            String text,
-            float x,
-            float y,
-            int color,
-            float scale
-    ) {
-        graphics.pose().pushPose();
-        graphics.pose().translate(x, y, 0);
-        graphics.pose().scale(scale, scale, 1.0F);
-        graphics.drawString(font, text, 0, 0, color, false);
-        graphics.pose().popPose();
+    private void drawScaledString(GuiGraphics graphics, String text, float x, float y, int color, float scale) {
+        ExcavatorUiStyle.drawScaledString(graphics, font, text, x, y, color, scale);
     }
 
-    private void drawCenteredScaledString(
-            GuiGraphics graphics,
-            String text,
-            float centerX,
-            float y,
-            int color,
-            float scale
-    ) {
-        float x = centerX - font.width(text) * scale * 0.5F;
-        drawScaledString(graphics, text, x, y, color, scale);
+    private void drawCenteredScaledString(GuiGraphics graphics, String text, float centerX, float y, int color, float scale) {
+        ExcavatorUiStyle.drawCenteredScaledString(graphics, font, text, centerX, y, color, scale);
+    }
+
+    private void renderLockedUpgradeIndicators(GuiGraphics graphics) {
+        graphics.flush();
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 500);
+
+        int y = topPos + (menu.isFuelSlotEnabled() ? UPGRADE_Y_WITH_FUEL : UPGRADE_Y_NO_FUEL);
+        for (int slot = 0; slot < menu.getUpgradeSlotCount(); slot++) {
+            if (!menu.isUpgradeSlotLocked(slot)) continue;
+            int x = leftPos + UPGRADE_X, sy = y + slot * SLOT_STEP;
+            graphics.fill(x, sy, x + 16, sy + 16, LOCKED_OVERLAY);
+            ExcavatorUiStyle.drawLock(graphics, x + 9, sy + 8, WARNING);
+        }
+
+        graphics.pose().popPose();
+        graphics.flush();
+    }
+
+    private boolean isOverLockedUpgradeLock(double mouseX, double mouseY) {
+        if (!menu.isUpgradeConfigurationLocked()) return false;
+        int y = topPos + (menu.isFuelSlotEnabled() ? UPGRADE_Y_WITH_FUEL : UPGRADE_Y_NO_FUEL);
+        for (int slot = 0; slot < menu.getUpgradeSlotCount(); slot++) {
+            if (!menu.isUpgradeSlotLocked(slot)) continue;
+            int x = leftPos + UPGRADE_X, sy = y + slot * SLOT_STEP;
+            if (isInside(mouseX, mouseY, x + 8, sy + 7, 8, 9)) return true;
+        }
+        return false;
+    }
+
+    private void renderConfigurationLockTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!menu.isUpgradeConfigurationLocked()) return;
+
+        if (filterButton.visible && isInside(mouseX, mouseY, filterButton.getX(), filterButton.getY(),
+                filterButton.getWidth(), filterButton.getHeight())) {
+            renderLockTooltip(graphics, mouseX, mouseY, "filter");
+            return;
+        }
+
+        if (isOverLockedUpgradeLock(mouseX, mouseY)) {
+            renderLockTooltip(graphics, mouseX, mouseY, "upgrade");
+        }
+    }
+
+    private void renderLockTooltip(GuiGraphics graphics, int mouseX, int mouseY, String target) {
+        graphics.renderComponentTooltip(font, List.of(
+                Component.literal("Locked while active").withStyle(ChatFormatting.GOLD),
+                Component.literal("Pause the excavator and wait for all transports").withStyle(ChatFormatting.GRAY),
+                Component.literal("to finish before changing this " + target + ".").withStyle(ChatFormatting.GRAY)
+        ), mouseX, mouseY);
+    }
+
+    private void renderUnsavedSelectionIcons(GuiGraphics graphics) {
+        for (EditBox field : configurationFields) {
+            if (!hasUnsavedSelection(field)) continue;
+            int x = field.getX() + field.getWidth() - 12;
+            int y = field.getY() + 5;
+            graphics.fill(x + 3, y, x + 4, y + 1, WARNING);
+            graphics.fill(x + 2, y + 1, x + 5, y + 3, WARNING);
+            graphics.fill(x + 1, y + 3, x + 6, y + 5, WARNING);
+            graphics.fill(x, y + 5, x + 7, y + 7, WARNING);
+            graphics.fill(x, y + 7, x + 7, y + 8, WARNING);
+            graphics.fill(x + 3, y + 2, x + 4, y + 5, FRAME);
+            graphics.fill(x + 3, y + 6, x + 4, y + 7, FRAME);
+        }
+    }
+
+    private void renderUnsavedSelectionTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        for (EditBox field : configurationFields) {
+            if (!hasUnsavedSelection(field)) continue;
+            int x = field.getX() + field.getWidth() - 12;
+            int y = field.getY() + 5;
+            if (!isInside(mouseX, mouseY, x, y, 7, 8)) continue;
+            graphics.renderComponentTooltip(font, List.of(
+                    Component.literal("Unsaved change").withStyle(ChatFormatting.GOLD),
+                    Component.literal("Click outside to save it.").withStyle(ChatFormatting.GRAY)
+            ), mouseX, mouseY);
+            return;
+        }
     }
 
     private void renderEnergyTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -613,258 +648,61 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
     }
 
+    private static boolean isInside(double mouseX, double mouseY, int x, int y, int w, int h) {
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+    }
+
     private static String formatEnergy(int value) {
         return String.format(java.util.Locale.ROOT, "%,d", Math.max(0, value));
     }
 
-    private int filterPanelX() {
-        return leftPos + (imageWidth - FILTER_PANEL_W) / 2;
+    int guiLeft() { return leftPos; }
+    int guiTop() { return topPos; }
+    void clearFilterButtonFocus() {
+        if (filterButton != null) filterButton.setFocused(false);
     }
 
-    private int filterPanelY() { return topPos + 52; }
-
-    private void renderFilterPanel(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!filterPanelOpen || menu.getFilterCapacity() <= 0) return;
-
-        int x = filterPanelX();
-        int y = filterPanelY();
-        int capacity = menu.getFilterCapacity();
-
+    void renderFilterInventory(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        hoveredSlot = null;
         graphics.pose().pushPose();
-        graphics.pose().translate(0, 0, 500);
-
-        graphics.fill(x + 4, y + 4, x + FILTER_PANEL_W + 4, y + FILTER_PANEL_H + 4, FILTER_SHADOW);
-        drawPanel(graphics, x, y, x + FILTER_PANEL_W, y + FILTER_PANEL_H);
-        drawPanelHeader(graphics, x, y, x + FILTER_PANEL_W, y + 20);
-        graphics.fill(x + 2, y + 20, x + FILTER_PANEL_W - 2, y + 21, FILTER_ACCENT);
-
-        graphics.drawString(font, "Block Filter", x + 8, y + 7, TEXT, false);
-        drawScaledString(graphics, capacity + "/" + ExcavatorBlockEntity.MAX_FILTER_SLOTS,
-                x + FILTER_PANEL_W - 28, y + 7, MUTED, 0.68F);
-
-        drawCenteredScaledString(graphics, "FILTER SLOTS",
-                x + FILTER_GRID_X + 34.5F, y + 24, TEXT, 0.62F);
-        drawCenteredScaledString(graphics, "ACTIONS",
-                x + FILTER_ACTION_X + FILTER_COPY_BUTTON_W / 2.0F, y + 24, TEXT, 0.62F);
-        graphics.fill(x + 89, y + 26, x + 90, y + 106, FILTER_DIVIDER);
-
-        for (int slot = 0; slot < ExcavatorBlockEntity.MAX_FILTER_SLOTS; slot++) {
-            int sx = x + FILTER_GRID_X + (slot % 4) * FILTER_GRID_STEP;
-            int sy = y + FILTER_GRID_Y + (slot / 4) * FILTER_GRID_STEP;
-            boolean active = slot < capacity;
-            boolean hovered = active && isInside(mouseX, mouseY, sx, sy, 16, 16);
-
-            if (active) {
-                drawFilterSlot(graphics, sx, sy, hovered);
-            } else {
-                graphics.fill(sx - 1, sy - 1, sx + 17, sy + 17, FRAME);
-                graphics.fill(sx, sy, sx + 16, sy + 16, FILTER_DISABLED_SLOT);
-                graphics.fill(sx + 3, sy + 7, sx + 13, sy + 9, FRAME);
-                continue;
-            }
-
-            Block block = menu.getFilterBlock(slot);
-            if (block != null) {
-                ItemStack stack = block.asItem().getDefaultInstance();
-                if (!stack.isEmpty()) graphics.renderItem(stack, sx, sy);
-            }
+        graphics.pose().translate(leftPos, topPos, 0);
+        for (Slot slot : menu.slots) {
+            if (!isPlayerInventorySlot(slot) || !slot.isActive()) continue;
+            renderSlot(graphics, slot);
+            if (mouseX >= leftPos + slot.x && mouseX < leftPos + slot.x + 16
+                    && mouseY >= topPos + slot.y && mouseY < topPos + slot.y + 16) hoveredSlot = slot;
         }
-
-        boolean canEdit = !menu.isUpgradeConfigurationLocked();
-        boolean copyHovered = isInside(mouseX, mouseY, x + FILTER_COPY_BUTTON_X, y + FILTER_COPY_BUTTON_Y, FILTER_COPY_BUTTON_W, FILTER_COPY_BUTTON_H);
-        boolean pasteHovered = isInside(mouseX, mouseY, x + FILTER_PASTE_BUTTON_X, y + FILTER_PASTE_BUTTON_Y, FILTER_PASTE_BUTTON_W, FILTER_PASTE_BUTTON_H);
-        boolean modeHovered = isInside(mouseX, mouseY, x + FILTER_MODE_BUTTON_X, y + FILTER_MODE_BUTTON_Y, FILTER_MODE_BUTTON_W, FILTER_MODE_BUTTON_H);
-
-        drawFilterActionButton(graphics, x + FILTER_COPY_BUTTON_X, y + FILTER_COPY_BUTTON_Y, FILTER_COPY_BUTTON_W, FILTER_COPY_BUTTON_H, "Copy", true, copyHovered);
-        drawFilterActionButton(graphics, x + FILTER_PASTE_BUTTON_X, y + FILTER_PASTE_BUTTON_Y, FILTER_PASTE_BUTTON_W, FILTER_PASTE_BUTTON_H, "Paste", canEdit && copiedFilterCapacity > 0, pasteHovered);
-        boolean whitelist = menu.isFilterWhitelist();
-        drawFilterModeButton(graphics, x + FILTER_MODE_BUTTON_X, y + FILTER_MODE_BUTTON_Y, FILTER_MODE_BUTTON_W, FILTER_MODE_BUTTON_H, whitelist, canEdit, modeHovered);
-
-        if (!canEdit) {
-            drawCenteredScaledString(graphics, "Locked while running", x + FILTER_PANEL_W / 2.0F, y + 109, WARNING, 0.58F);
-        } else {
-            drawCenteredScaledString(graphics, whitelist ? "Only listed blocks are mined" : "Listed blocks are skipped",
-                    x + FILTER_PANEL_W / 2.0F, y + 109, TEXT, 0.50F);
-        }
-
+        if (hoveredSlot != null) renderSlotHighlight(graphics, hoveredSlot, mouseX, mouseY, partialTick);
         graphics.pose().popPose();
     }
 
-    private void renderFilterPanelTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!filterPanelOpen) return;
-
-        int x = filterPanelX();
-        int y = filterPanelY();
-        int capacity = menu.getFilterCapacity();
-        for (int slot = 0; slot < capacity; slot++) {
-            int sx = x + FILTER_GRID_X + (slot % 4) * FILTER_GRID_STEP;
-            int sy = y + FILTER_GRID_Y + (slot / 4) * FILTER_GRID_STEP;
-            if (!isInside(mouseX, mouseY, sx, sy, 16, 16)) continue;
-
-            Block block = menu.getFilterBlock(slot);
-            graphics.pose().pushPose();
-            graphics.pose().translate(0.0F, 0.0F, 900.0F);
-            if (block == null) {
-                graphics.renderComponentTooltip(
-                        font,
-                        List.of(
-                                Component.literal("Filter slot").withStyle(ChatFormatting.GOLD),
-                                Component.literal("Hold a block and click to filter it.").withStyle(ChatFormatting.GRAY)
-                        ),
-                        mouseX,
-                        mouseY
-                );
-            } else {
-                ItemStack stack = block.asItem().getDefaultInstance();
-                if (!stack.isEmpty()) {
-                    graphics.renderTooltip(font, stack, mouseX, mouseY);
-                }
-            }
-            graphics.pose().popPose();
-            return;
-        }
+    void renderFilterInventoryTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (hoveredSlot != null) renderTooltip(graphics, mouseX, mouseY);
     }
 
-    private void drawFilterActionButton(GuiGraphics graphics, int x, int y, int width, int height, String label, boolean active, boolean hovered) {
-        int border = active && hovered ? GOLD : FRAME;
-        int background = active ? (hovered ? FILTER_SLOT_HOVER : PANEL_HEADER) : FILTER_DISABLED_SLOT;
-        int textColor = active ? TEXT : 0xFF69727D;
-
-        graphics.fill(x - 1, y - 1, x + width + 1, y + height + 1, border);
-        graphics.fill(x, y, x + width, y + height, background);
-        if (active && !hovered) graphics.fill(x, y, x + width, y + 1, FILTER_ACCENT);
-        drawCenteredScaledString(graphics, label, x + width / 2.0F, y + 4.0F, textColor, 0.68F);
-    }
-
-    private void drawFilterModeButton(GuiGraphics graphics, int x, int y, int width, int height, boolean whitelist, boolean enabled, boolean hovered) {
-        int background = whitelist ? 0xFFE7E7E7 : 0xFF090B0E;
-        int foreground = whitelist ? 0xFF090B0E : 0xFFE7E7E7;
-        if (!enabled) { background = whitelist ? 0xFF8B8B8B : 0xFF202329; foreground = whitelist ? 0xFF303030 : 0xFF8B8B8B; }
-        graphics.fill(x - 1, y - 1, x + width + 1, y + height + 1, enabled && hovered ? GOLD : foreground);
-        graphics.fill(x, y, x + width, y + height, background);
-        graphics.fill(x, y, x + 3, y + height, foreground);
-        drawCenteredScaledString(graphics, whitelist ? "Whitelist" : "Blacklist", x + width / 2.0F + 1, y + 4.0F, foreground, 0.66F);
-    }
-
-    private void drawFilterSlot(GuiGraphics graphics, int x, int y, boolean hovered) {
-        int border = hovered ? GOLD : FRAME;
-        int background = hovered ? FILTER_SLOT_HOVER : SLOT_INNER;
-        graphics.fill(x - 1, y - 1, x + 17, y + 17, border);
-        graphics.fill(x, y, x + 16, y + 16, background);
-    }
-
-    private void drawPanel(GuiGraphics graphics, int left, int top, int right, int bottom) {
-        graphics.fill(left, top, right, bottom, FRAME);
-        graphics.fill(left + 2, top + 2, right - 2, bottom - 2, PANEL_INNER);
-    }
-
-    private void drawPanelHeader(GuiGraphics graphics, int left, int top, int right, int bottom) {
-        graphics.fill(left + 2, top + 2, right - 2, bottom, PANEL_HEADER);
-    }
-
-    private static boolean isInside(double mouseX, double mouseY, int x, int y, int width, int height) {
-        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
-    }
-
-    private void copyCurrentFilter() {
-        int capacity = menu.getFilterCapacity();
-        for (int slot = 0; slot < ExcavatorBlockEntity.MAX_FILTER_SLOTS; slot++) {
-            COPIED_FILTER[slot] = slot < capacity ? menu.getFilterBlock(slot) : null;
-        }
-        copiedFilterCapacity = capacity;
-        copiedFilterWhitelist = menu.isFilterWhitelist();
-    }
-
-    private void pasteCopiedFilter() {
-        if (copiedFilterCapacity <= 0 || menu.isUpgradeConfigurationLocked()) return;
-
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || minecraft.gameMode == null) return;
-
-        commitFocusedField();
-
-        if (menu.isFilterWhitelist() != copiedFilterWhitelist) {
-            int modeButton = ExcavatorMenu.BUTTON_TOGGLE_FILTER_MODE;
-            menu.clickMenuButton(minecraft.player, modeButton);
-            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, modeButton);
-        }
-
-        int targetCapacity = menu.getFilterCapacity();
-        for (int slot = 0; slot < targetCapacity; slot++) {
-            Block block = slot < copiedFilterCapacity ? COPIED_FILTER[slot] : null;
-            int buttonId = ExcavatorMenu.encodeFilterBlockButton(slot, block);
-            menu.clickMenuButton(minecraft.player, buttonId);
-            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, buttonId);
-        }
-
-        updateControls();
-    }
-
-    private boolean handleFilterPanelClick(double mouseX, double mouseY, int button) {
-        if (!filterPanelOpen) return false;
-        int x = filterPanelX();
-        int y = filterPanelY();
-        if (mouseX < x || mouseX >= x + FILTER_PANEL_W || mouseY < y || mouseY >= y + FILTER_PANEL_H) {
-            if (isOverPlayerInventorySlot(mouseX, mouseY)) return false;
-            if (isInside(mouseX, mouseY,
-                    leftPos + FILTER_BUTTON_X, topPos + FILTER_BUTTON_Y,
-                    FILTER_BUTTON_W, FILTER_BUTTON_H)) {
-                filterPanelOpen = false;
-            }
-            return true;
-        }
-        if (button != 0) return true;
-
-        if (isInside(mouseX, mouseY,
-                x + FILTER_COPY_BUTTON_X, y + FILTER_COPY_BUTTON_Y,
-                FILTER_COPY_BUTTON_W, FILTER_COPY_BUTTON_H)) {
-            copyCurrentFilter();
-            return true;
-        }
-
-        if (isInside(mouseX, mouseY, x + FILTER_PASTE_BUTTON_X, y + FILTER_PASTE_BUTTON_Y, FILTER_PASTE_BUTTON_W, FILTER_PASTE_BUTTON_H)) {
-            pasteCopiedFilter();
-            return true;
-        }
-        if (isInside(mouseX, mouseY, x + FILTER_MODE_BUTTON_X, y + FILTER_MODE_BUTTON_Y, FILTER_MODE_BUTTON_W, FILTER_MODE_BUTTON_H)) {
-            if (!menu.isUpgradeConfigurationLocked()) pressMenuButton(ExcavatorMenu.BUTTON_TOGGLE_FILTER_MODE);
-            return true;
-        }
-
-        int capacity = menu.getFilterCapacity();
-        for (int slot = 0; slot < capacity; slot++) {
-            int sx = x + FILTER_GRID_X + (slot % 4) * FILTER_GRID_STEP;
-            int sy = y + FILTER_GRID_Y + (slot / 4) * FILTER_GRID_STEP;
-            if (mouseX >= sx && mouseX < sx + 16 && mouseY >= sy && mouseY < sy + 16) {
-                pressMenuButton(ExcavatorMenu.BUTTON_FILTER_SLOT_BASE + slot);
-                return true;
-            }
-        }
-        return true;
-    }
-
-    private boolean isOverPlayerInventorySlot(double mouseX, double mouseY) {
-        int gridX = leftPos + PLAYER_GRID_X;
-        int gridY = topPos + PLAYER_GRID_Y;
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                if (isInside(mouseX, mouseY,
-                        gridX + col * SLOT_STEP, gridY + row * SLOT_STEP,
-                        16, 16)) {
-                    return true;
-                }
-            }
-        }
-
-        int hotbarY = topPos + PLAYER_HOTBAR_Y;
-        for (int col = 0; col < 9; col++) {
-            if (isInside(mouseX, mouseY,
-                    gridX + col * SLOT_STEP, hotbarY,
-                    16, 16)) {
-                return true;
-            }
+    boolean isFilterInventoryPosition(double mouseX, double mouseY) {
+        for (Slot slot : menu.slots) {
+            if (!isPlayerInventorySlot(slot)) continue;
+            if (mouseX >= leftPos + slot.x && mouseX < leftPos + slot.x + 16
+                    && mouseY >= topPos + slot.y && mouseY < topPos + slot.y + 16) return true;
         }
         return false;
+    }
+
+    ItemStack filterInventoryStackAt(double mouseX, double mouseY) {
+        for (Slot slot : menu.slots) {
+            if (!isPlayerInventorySlot(slot)) continue;
+            if (mouseX >= leftPos + slot.x && mouseX < leftPos + slot.x + 16
+                    && mouseY >= topPos + slot.y && mouseY < topPos + slot.y + 16) return slot.getItem();
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static boolean isPlayerInventorySlot(Slot slot) {
+        int x = slot.x - PLAYER_GRID_X;
+        if (x < 0 || x % SLOT_STEP != 0 || x / SLOT_STEP >= 9) return false;
+        int y = slot.y - PLAYER_GRID_Y;
+        return y >= 0 && y % SLOT_STEP == 0 && y / SLOT_STEP < 3 || slot.y == PLAYER_HOTBAR_Y;
     }
 
     private boolean isOverUpgradeSlot(double mouseX, double mouseY) {
@@ -879,22 +717,41 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (handleFilterPanelClick(mouseX, mouseY, button)) return true;
+        if (filterPanel.isOpen()) {
+            if (filterPanel.mouseClicked(mouseX, mouseY, button)) return true;
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        for (EditBox field : configurationFields) {
+            if (field.isFocused() && !field.isMouseOver(mouseX, mouseY) && isParsableNumber(field.getValue())) {
+                sendSelectionValue(field, field.getValue());
+                break;
+            }
+        }
+
         boolean result = super.mouseClicked(mouseX, mouseY, button);
         for (EditBox field : configurationFields) {
-            if (!field.isFocused() && isParsableNumber(field.getValue())) {
-                sendSelectionValue(field, field.getValue());
-            }
+            if (!field.isFocused() && isParsableNumber(field.getValue())) sendSelectionValue(field, field.getValue());
         }
         return result;
     }
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (filterPanel.isOpen() && !isFilterInventoryPosition(mouseX, mouseY)) return true;
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (filterPanel.isOpen() && !isFilterInventoryPosition(mouseX, mouseY)) return true;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (filterPanelOpen) {
-            if (keyCode == 256) {
-                filterPanelOpen = false;
-            }
+        if (filterPanel.isOpen()) {
+            if (keyCode == 256 || minecraft.options.keyInventory.matches(keyCode, scanCode)) onClose();
             return true;
         }
 
@@ -914,41 +771,45 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
+        if (!filterPanel.isOpen()) {
+            super.render(graphics, mouseX, mouseY, partialTick);
+            renderLockedUpgradeIndicators(graphics);
+            renderUnsavedSelectionIcons(graphics);
 
-        if (!filterPanelOpen) {
-            renderTooltip(graphics, mouseX, mouseY);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, 0, 1000);
+            if (!isOverLockedUpgradeLock(mouseX, mouseY)) renderTooltip(graphics, mouseX, mouseY);
             renderEmptySlotTooltip(graphics, mouseX, mouseY);
             renderEnergyTooltip(graphics, mouseX, mouseY);
             renderSolarTooltip(graphics, mouseX, mouseY);
+            renderUnsavedSelectionTooltip(graphics, mouseX, mouseY);
+            renderConfigurationLockTooltip(graphics, mouseX, mouseY);
+            graphics.pose().popPose();
         } else {
-            renderFilterPanel(graphics, mouseX, mouseY);
-
-            if (!isInside(mouseX, mouseY, filterPanelX(), filterPanelY(), FILTER_PANEL_W, FILTER_PANEL_H)) {
-                graphics.pose().pushPose();
-                graphics.pose().translate(0.0F, 0.0F, 900.0F);
-                renderTooltip(graphics, mouseX, mouseY);
-                renderEmptySlotTooltip(graphics, mouseX, mouseY);
-                graphics.pose().popPose();
-            }
-            renderFilterPanelTooltip(graphics, mouseX, mouseY);
+            super.render(graphics, -10000, -10000, partialTick);
+            renderBlurredBackground(partialTick);
+            graphics.fill(0, 0, width, height, 0x44000000);
+            filterPanel.render(graphics, font, mouseX, mouseY, partialTick);
         }
 
         ItemStack carried = menu.getCarried();
-        if (filterPanelOpen && !carried.isEmpty()) {
+        if (filterPanel.isOpen() && !carried.isEmpty()) {
             graphics.pose().pushPose();
-            graphics.pose().translate(0.0F, 0.0F, 850.0F);
+            graphics.pose().translate(0, 0, 900);
             graphics.renderItem(carried, mouseX - 8, mouseY - 8);
             graphics.renderItemDecorations(font, carried, mouseX - 8, mouseY - 8);
             graphics.pose().popPose();
         }
 
-        Component conflict = carried.isEmpty() ? null : menu.getUpgradeConflictMessage(carried);
-        if (conflict != null && isOverUpgradeSlot(mouseX, mouseY)) {
-            graphics.pose().pushPose();
-            graphics.pose().translate(0.0F, 0.0F, 950.0F);
-            graphics.renderTooltip(font, conflict.copy().withStyle(ChatFormatting.RED), mouseX, mouseY);
-            graphics.pose().popPose();
+        if (!filterPanel.isOpen()) {
+            Component conflict = carried.isEmpty() ? null : menu.getUpgradeConflictMessage(carried);
+            if (conflict != null && isOverUpgradeSlot(mouseX, mouseY)
+                    && !isOverLockedUpgradeLock(mouseX, mouseY)) {
+                graphics.pose().pushPose();
+                graphics.pose().translate(0, 0, 1200);
+                graphics.renderTooltip(font, conflict.copy().withStyle(ChatFormatting.RED), mouseX, mouseY);
+                graphics.pose().popPose();
+            }
         }
     }
 }
