@@ -1,6 +1,5 @@
 package de.balto.laserexcavator.block.excavator;
 
-import de.balto.laserexcavator.compat.DynamicTreesCompat;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeItem;
@@ -18,7 +17,6 @@ import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,8 +74,6 @@ public final class ExcavatorUpgradeManager {
     private ItemStack cachedFilterSilkTouchTool = ItemStack.EMPTY;
     private int cachedLootToolLuckLevel = -1;
     private boolean cachedLootToolSilkTouch;
-
-    private static final boolean DYNAMIC_TREES_LOADED = ModList.get().isLoaded("dynamictrees");
 
     /** Upgrade inventory; not exposed to pipes. */
     private final ItemStackHandler inventory = new ItemStackHandler(STORED_UPGRADE_SLOTS) {
@@ -308,10 +304,6 @@ public final class ExcavatorUpgradeManager {
         try {
             Block block = state.getBlock();
             boolean match = filteredBlockLookup.contains(block);
-            if (!match && DYNAMIC_TREES_LOADED) {
-                Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
-                match = primitiveLog != null && filteredBlockLookup.contains(primitiveLog);
-            }
             if (!match) {
                 Block equivalent = ExcavatorLootCache.getSilkTouchFilterEquivalent(level, pos, state, silkTouchTool(level));
                 match = equivalent != null && filteredBlockLookup.contains(equivalent);
@@ -325,11 +317,7 @@ public final class ExcavatorUpgradeManager {
     public boolean isDefinitelyFilteredPaletteState(BlockState state) {
         if (filteredBlockLookup.isEmpty()) return filterWhitelist;
         if (filterWhitelist) return false;
-        Block block = state.getBlock();
-        if (filteredBlockLookup.contains(block)) return true;
-        if (!DYNAMIC_TREES_LOADED) return false;
-        Block primitiveLog = DynamicTreesCompat.getPrimitiveLog(block);
-        return primitiveLog != null && filteredBlockLookup.contains(primitiveLog);
+        return filteredBlockLookup.contains(state.getBlock());
     }
 
     public boolean isFilteredBlockForTargetScan(ServerLevel level, BlockPos pos, BlockState state) {

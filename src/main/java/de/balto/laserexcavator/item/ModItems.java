@@ -4,6 +4,9 @@ import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.block.ModBlocks;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeItem;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -16,7 +19,7 @@ public final class ModItems {
 
     public static final DeferredItem<BlockItem> EXCAVATOR = ITEMS.register(
             "excavator",
-            () -> new BlockItem(ModBlocks.EXCAVATOR.get(), new Item.Properties())
+            () -> new BlockItem(ModBlocks.EXCAVATOR.get(), new Item.Properties().setId(ResourceKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, "excavator"))).useBlockDescriptionPrefix())
     );
 
     public static final DeferredItem<ExcavatorUpgradeItem> SPEED_UPGRADE_TIER_1 = upgrade("speed_upgrade_tier_1", ExcavatorUpgradeType.SPEED, 1, 5);
@@ -71,6 +74,6 @@ public final class ModItems {
             int tier,
             int maxTier
     ) {
-        return ITEMS.register(id, () -> new ExcavatorUpgradeItem(type, tier, maxTier, new Item.Properties()));
+        return ITEMS.register(id, () -> new ExcavatorUpgradeItem(type, tier, maxTier, new Item.Properties().setId(ResourceKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, id)))));
     }
 }

@@ -7,21 +7,11 @@
     "IHI"
   ],
   "key": {
-    "I": {
-      "item": "minecraft:iron_block"
-    },
-    "D": {
-      "item": "minecraft:diamond_block"
-    },
-    "R": {
-      "item": "minecraft:redstone_block"
-    },
-    "B": {
-      "item": "minecraft:blast_furnace"
-    },
-    "H": {
-      "item": "minecraft:hopper"
-    }
+    "I": "minecraft:iron_block",
+    "D": "minecraft:diamond_block",
+    "R": "minecraft:redstone_block",
+    "B": "minecraft:blast_furnace",
+    "H": "minecraft:hopper"
   },
   "result": {
     "count": 1,

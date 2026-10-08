@@ -146,8 +146,8 @@ final class ExcavatorTargetScanner {
                 return result;
             }
 
-            int start = Math.min(startY, level.getMaxBuildHeight() - 1);
-            int min = Math.max(minY, level.getMinBuildHeight());
+            int start = Math.min(startY, level.getMaxY());
+            int min = Math.max(minY, level.getMinY());
             Set<Block> unbreakable = LaserExcavatorConfig.unbreakableBlocks();
             cursor.set(x, start, z);
             attempted = true;
@@ -188,8 +188,8 @@ final class ExcavatorTargetScanner {
                 return noSurface();
             }
 
-            int start = Math.min(startY, level.getMaxBuildHeight() - 1);
-            int min = Math.max(minY, level.getMinBuildHeight());
+            int start = Math.min(startY, level.getMaxY());
+            int min = Math.max(minY, level.getMinY());
             Set<Block> unbreakable = LaserExcavatorConfig.unbreakableBlocks();
             attempted = true;
 

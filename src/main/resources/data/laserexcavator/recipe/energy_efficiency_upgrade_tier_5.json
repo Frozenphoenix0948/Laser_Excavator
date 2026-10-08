@@ -8,33 +8,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:obsidian"
-    },
-    "B": {
-      "item": "minecraft:nether_star"
-    },
-    "C": {
-      "item": "minecraft:obsidian"
-    },
-    "D": {
-      "item": "minecraft:netherite_ingot"
-    },
-    "E": {
-      "item": "laserexcavator:energy_efficiency_upgrade_tier_4"
-    },
-    "F": {
-      "item": "minecraft:netherite_ingot"
-    },
-    "G": {
-      "item": "minecraft:obsidian"
-    },
-    "H": {
-      "item": "minecraft:echo_shard"
-    },
-    "I": {
-      "item": "minecraft:obsidian"
-    }
+    "A": "minecraft:obsidian",
+    "B": "minecraft:nether_star",
+    "C": "minecraft:obsidian",
+    "D": "minecraft:netherite_ingot",
+    "E": "laserexcavator:energy_efficiency_upgrade_tier_4",
+    "F": "minecraft:netherite_ingot",
+    "G": "minecraft:obsidian",
+    "H": "minecraft:echo_shard",
+    "I": "minecraft:obsidian"
   },
   "result": {
     "count": 1,

@@ -8,33 +8,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:diamond_block"
-    },
-    "B": {
-      "item": "minecraft:ender_eye"
-    },
-    "C": {
-      "item": "minecraft:redstone_block"
-    },
-    "D": {
-      "item": "minecraft:ender_eye"
-    },
-    "E": {
-      "item": "laserexcavator:speed_upgrade_tier_3"
-    },
-    "F": {
-      "item": "minecraft:ender_eye"
-    },
-    "G": {
-      "item": "minecraft:redstone_block"
-    },
-    "H": {
-      "item": "minecraft:ender_eye"
-    },
-    "I": {
-      "item": "minecraft:diamond_block"
-    }
+    "A": "minecraft:diamond_block",
+    "B": "minecraft:ender_eye",
+    "C": "minecraft:redstone_block",
+    "D": "minecraft:ender_eye",
+    "E": "laserexcavator:speed_upgrade_tier_3",
+    "F": "minecraft:ender_eye",
+    "G": "minecraft:redstone_block",
+    "H": "minecraft:ender_eye",
+    "I": "minecraft:diamond_block"
   },
   "result": {
     "count": 1,

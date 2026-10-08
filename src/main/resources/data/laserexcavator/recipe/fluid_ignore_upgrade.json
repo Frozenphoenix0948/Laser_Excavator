@@ -7,18 +7,10 @@
     "SBS"
   ],
   "key": {
-    "S": {
-      "item": "minecraft:sponge"
-    },
-    "B": {
-      "item": "minecraft:bucket"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "P": {
-      "item": "minecraft:paper"
-    }
+    "S": "minecraft:sponge",
+    "B": "minecraft:bucket",
+    "R": "minecraft:redstone",
+    "P": "minecraft:paper"
   },
   "result": {
     "count": 1,

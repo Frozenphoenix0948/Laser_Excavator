@@ -8,18 +8,10 @@
     "CQC"
   ],
   "key": {
-    "C": {
-      "item": "minecraft:copper_ingot"
-    },
-    "Q": {
-      "item": "minecraft:quartz"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "P": {
-      "item": "minecraft:paper"
-    }
+    "C": "minecraft:copper_ingot",
+    "Q": "minecraft:quartz",
+    "R": "minecraft:redstone",
+    "P": "minecraft:paper"
   },
   "result": {
     "count": 1,

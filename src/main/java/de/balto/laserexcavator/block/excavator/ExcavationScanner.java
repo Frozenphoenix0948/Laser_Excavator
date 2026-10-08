@@ -16,8 +16,8 @@ public final class ExcavationScanner {
      * Fluids and vegetation count as part of the top layer.
      */
     public static int findSurfaceY(ServerLevel level, int x, int z, int minY, int maxY) {
-        int clampedMinY = Math.max(minY, level.getMinBuildHeight());
-        int clampedMaxY = Math.min(maxY, level.getMaxBuildHeight() - 1);
+        int clampedMinY = Math.max(minY, level.getMinY());
+        int clampedMaxY = Math.min(maxY, level.getMaxY());
 
         if (clampedMinY > clampedMaxY) {
             return NO_SURFACE;

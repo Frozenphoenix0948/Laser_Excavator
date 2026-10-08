@@ -8,33 +8,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:quartz"
-    },
-    "B": {
-      "item": "minecraft:copper_block"
-    },
-    "C": {
-      "item": "minecraft:quartz"
-    },
-    "D": {
-      "item": "minecraft:redstone_block"
-    },
-    "E": {
-      "item": "laserexcavator:energy_efficiency_upgrade_tier_1"
-    },
-    "F": {
-      "item": "minecraft:redstone_block"
-    },
-    "G": {
-      "item": "minecraft:quartz"
-    },
-    "H": {
-      "item": "minecraft:copper_block"
-    },
-    "I": {
-      "item": "minecraft:quartz"
-    }
+    "A": "minecraft:quartz",
+    "B": "minecraft:copper_block",
+    "C": "minecraft:quartz",
+    "D": "minecraft:redstone_block",
+    "E": "laserexcavator:energy_efficiency_upgrade_tier_1",
+    "F": "minecraft:redstone_block",
+    "G": "minecraft:quartz",
+    "H": "minecraft:copper_block",
+    "I": "minecraft:quartz"
   },
   "result": {
     "count": 1,

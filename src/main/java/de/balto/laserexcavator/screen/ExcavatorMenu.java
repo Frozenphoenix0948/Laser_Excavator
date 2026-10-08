@@ -77,6 +77,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     private static final int OUTPUT_SLOT_END = OUTPUT_SLOT_START + ExcavatorBlockEntity.OUTPUT_SLOTS;
 
     private final ContainerData data;
+    private final Inventory playerInventory;
     private final int[] limitInfo = new int[14];
     private final ContainerLevelAccess access;
     private final BlockPos excavatorPos;
@@ -152,6 +153,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
 
         checkContainerDataCount(data, DATA_COUNT);
 
+        this.playerInventory = inventory;
         this.data = data;
         this.access = access;
         this.excavatorPos = excavatorPos.immutable();
@@ -211,7 +213,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
         addSlot(new SlotItemHandler(handler, 0, 179, 95) {
             @Override
             public boolean mayPlace(ItemStack stack) {
-                return ExcavatorBlockEntity.isFuel(stack);
+                return ExcavatorBlockEntity.isFuel(stack, playerInventory.player.level().fuelValues());
             }
         });
     }
@@ -660,7 +662,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
                         || !moveItemStackTo(source, upgradeSlotStart, upgradeSlotEnd, false)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (fuelSlotEnabled && ExcavatorBlockEntity.isFuel(source)) {
+            } else if (fuelSlotEnabled && ExcavatorBlockEntity.isFuel(source, player.level().fuelValues())) {
                 if (!moveItemStackTo(source, fuelSlotIndex, fuelSlotIndex + 1, false)) {
                     return ItemStack.EMPTY;
                 }

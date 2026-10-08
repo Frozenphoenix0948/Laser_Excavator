@@ -8,33 +8,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:iron_block"
-    },
-    "B": {
-      "item": "minecraft:comparator"
-    },
-    "C": {
-      "item": "minecraft:iron_block"
-    },
-    "D": {
-      "item": "minecraft:redstone_block"
-    },
-    "E": {
-      "item": "minecraft:paper"
-    },
-    "F": {
-      "item": "minecraft:redstone_block"
-    },
-    "G": {
-      "item": "minecraft:iron_block"
-    },
-    "H": {
-      "item": "minecraft:compass"
-    },
-    "I": {
-      "item": "minecraft:iron_block"
-    }
+    "A": "minecraft:iron_block",
+    "B": "minecraft:comparator",
+    "C": "minecraft:iron_block",
+    "D": "minecraft:redstone_block",
+    "E": "minecraft:paper",
+    "F": "minecraft:redstone_block",
+    "G": "minecraft:iron_block",
+    "H": "minecraft:compass",
+    "I": "minecraft:iron_block"
   },
   "result": {
     "count": 1,

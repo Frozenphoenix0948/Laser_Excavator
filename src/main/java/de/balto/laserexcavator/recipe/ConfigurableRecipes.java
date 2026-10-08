@@ -4,8 +4,8 @@ import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.block.excavator.ExcavatorLootCache;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.item.ModItems;
-import net.minecraft.core.NonNullList;
-import net.minecraft.core.RegistryAccess;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -19,7 +19,7 @@ import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.RecipeManager;
+import net.minecraft.world.item.crafting.RecipeMap;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapedRecipePattern;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
@@ -71,32 +71,31 @@ public final class ConfigurableRecipes {
 
     public static void onServerStarted(ServerStartedEvent event) {
         ExcavatorLootCache.clear(event.getServer());
-        apply(event.getServer().getRecipeManager(), event.getServer().registryAccess());
     }
 
     public static void onDatapackSync(OnDatapackSyncEvent event) {
         if (event.getPlayer() == null) {
             ExcavatorLootCache.clear(event.getPlayerList().getServer());
         }
-        apply(event.getPlayerList().getServer().getRecipeManager(), event.getPlayerList().getServer().registryAccess());
     }
 
-    private static void apply(RecipeManager manager, RegistryAccess registryAccess) {
-        List<RecipeHolder<?>> recipes = new ArrayList<>(manager.getRecipes());
+    public static RecipeMap apply(RecipeMap original, HolderLookup.Provider registries) {
+        if (!LaserExcavatorConfig.SPEC.isLoaded()) return original;
+        List<RecipeHolder<?>> recipes = new ArrayList<>(original.values());
         boolean changed = false;
 
         for (Definition definition : DEFINITIONS) {
             LaserExcavatorConfig.RecipeConfig config = definition.config();
 
             if (!config.enabled().get()) {
-                changed |= recipes.removeIf(holder -> holder.id().equals(definition.id()));
+                changed |= recipes.removeIf(holder -> holder.id().location().equals(definition.id()));
                 continue;
             }
 
             try {
-                Recipe<?> configured = createRecipe(definition, registryAccess);
-                recipes.removeIf(holder -> holder.id().equals(definition.id()));
-                recipes.add(new RecipeHolder<>(definition.id(), configured));
+                Recipe<?> configured = createRecipe(definition, registries);
+                recipes.removeIf(holder -> holder.id().location().equals(definition.id()));
+                recipes.add(new RecipeHolder<>(ResourceKey.create(Registries.RECIPE, definition.id()), configured));
                 changed = true;
             } catch (RuntimeException ex) {
                 LaserExcavator.LOGGER.error(
@@ -107,12 +106,10 @@ public final class ConfigurableRecipes {
             }
         }
 
-        if (changed) {
-            manager.replaceRecipes(recipes);
-        }
+        return changed ? RecipeMap.create(recipes) : original;
     }
 
-    private static Recipe<?> createRecipe(Definition definition, RegistryAccess registryAccess) {
+    private static Recipe<?> createRecipe(Definition definition, HolderLookup.Provider registries) {
         LaserExcavatorConfig.RecipeConfig config = definition.config();
         List<? extends String> configuredIngredients = config.ingredients().get();
         ItemLike resultItem = definition.result().get();
@@ -129,12 +126,12 @@ public final class ConfigurableRecipes {
                 throw new IllegalArgumentException("Shapeless recipes require 1-9 ingredients");
             }
 
-            NonNullList<Ingredient> ingredients = NonNullList.create();
+            List<Ingredient> ingredients = new ArrayList<>();
             for (String entry : configuredIngredients) {
                 if (entry == null || entry.isBlank()) {
                     throw new IllegalArgumentException("Shapeless recipes cannot contain empty ingredients");
                 }
-                ingredients.add(parseIngredient(entry, registryAccess));
+                ingredients.add(parseIngredient(entry, registries));
             }
             return new ShapelessRecipe(definition.group(), definition.category(), result, ingredients);
         }
@@ -143,20 +140,20 @@ public final class ConfigurableRecipes {
             throw new IllegalArgumentException("Shaped recipes require exactly 9 row-major ingredients");
         }
 
-        NonNullList<Ingredient> ingredients = NonNullList.withSize(9, Ingredient.EMPTY);
+        List<Optional<Ingredient>> ingredients = new ArrayList<>(9);
         for (int i = 0; i < 9; i++) {
             String entry = configuredIngredients.get(i);
-            ingredients.set(i, entry == null || entry.isBlank() ? Ingredient.EMPTY : parseIngredient(entry, registryAccess));
+            ingredients.add(entry == null || entry.isBlank() ? Optional.empty() : Optional.of(parseIngredient(entry, registries)));
         }
 
         ShapedRecipePattern pattern = new ShapedRecipePattern(3, 3, ingredients, Optional.empty());
         return new ShapedRecipe(definition.group(), definition.category(), pattern, result);
     }
 
-    private static Ingredient parseIngredient(String raw, RegistryAccess registryAccess) {
+    private static Ingredient parseIngredient(String raw, HolderLookup.Provider registries) {
         String value = raw.trim();
         if (value.equals("@silk_touch_book")) {
-            var silkTouch = registryAccess.lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SILK_TOUCH);
+            var silkTouch = registries.lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SILK_TOUCH);
             ItemEnchantments.Mutable enchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
             enchantments.set(silkTouch, 1);
             return DataComponentIngredient.of(
@@ -175,7 +172,7 @@ public final class ConfigurableRecipes {
         }
 
         if (isTag) {
-            return Ingredient.of(TagKey.create(Registries.ITEM, id));
+            return Ingredient.of(registries.lookupOrThrow(Registries.ITEM).getOrThrow(TagKey.create(Registries.ITEM, id)));
         }
 
         Item item = BuiltInRegistries.ITEM.getOptional(id)

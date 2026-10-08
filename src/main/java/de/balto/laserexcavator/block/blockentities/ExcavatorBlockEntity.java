@@ -246,7 +246,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 () -> level == null ? Long.MIN_VALUE : level.getGameTime(),
                 this::setChanged
         );
-        fuel = new ExcavatorFuelManager(energyStorage, this::setChanged);
+        fuel = new ExcavatorFuelManager(energyStorage, this::setChanged, () -> level.fuelValues());
         solar = new ExcavatorSolarManager(energyStorage);
         externalAutomationHandler = new ExcavatorAutomationItemHandler(outputInventory, fuel.inventory());
         upgrades = new ExcavatorUpgradeManager(
@@ -331,8 +331,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 && !upgrades.hasNetherCooling();
     }
 
-    public static boolean isFuel(ItemStack stack) {
-        return ExcavatorFuelManager.isFuel(stack);
+    public static boolean isFuel(ItemStack stack, net.minecraft.world.level.block.entity.FuelValues fuelValues) {
+        return ExcavatorFuelManager.isFuel(stack, fuelValues);
     }
 
     public static boolean isExcavatorUpgrade(ItemStack stack) {

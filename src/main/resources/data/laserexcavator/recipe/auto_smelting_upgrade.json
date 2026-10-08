@@ -7,33 +7,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:redstone"
-    },
-    "B": {
-      "item": "minecraft:magma_cream"
-    },
-    "C": {
-      "item": "minecraft:redstone"
-    },
-    "D": {
-      "item": "minecraft:quartz"
-    },
-    "E": {
-      "item": "minecraft:blast_furnace"
-    },
-    "F": {
-      "item": "minecraft:quartz"
-    },
-    "G": {
-      "item": "minecraft:redstone"
-    },
-    "H": {
-      "item": "minecraft:blaze_powder"
-    },
-    "I": {
-      "item": "minecraft:redstone"
-    }
+    "A": "minecraft:redstone",
+    "B": "minecraft:magma_cream",
+    "C": "minecraft:redstone",
+    "D": "minecraft:quartz",
+    "E": "minecraft:blast_furnace",
+    "F": "minecraft:quartz",
+    "G": "minecraft:redstone",
+    "H": "minecraft:blaze_powder",
+    "I": "minecraft:redstone"
   },
   "result": {
     "count": 1,

@@ -15,6 +15,6 @@ public final class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ExcavatorBlockEntity>> EXCAVATOR =
             BLOCK_ENTITIES.register(
                     "excavator",
-                    () -> BlockEntityType.Builder.of(ExcavatorBlockEntity::new, ModBlocks.EXCAVATOR.get()).build(null)
+                    () -> new BlockEntityType<>(ExcavatorBlockEntity::new, ModBlocks.EXCAVATOR.get())
             );
 }

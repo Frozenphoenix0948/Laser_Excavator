@@ -6,6 +6,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.block.entity.FuelValues;
+import java.util.function.Supplier;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
 /** Furnace-fuel slot and fuel-to-FE conversion. */
@@ -18,13 +20,14 @@ public final class ExcavatorFuelManager {
 
     private final ExcavatorEnergyStorage energyStorage;
     private final Runnable changeListener;
+    private final Supplier<FuelValues> fuelValues;
     private int burnTicksRemaining;
     private int burnTicksTotal;
 
     private final ItemStackHandler inventory = new ItemStackHandler(FUEL_SLOTS) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return isEnabled() && isFuel(stack);
+            return isEnabled() && isFuel(stack, fuelValues.get());
         }
 
         @Override
@@ -33,9 +36,10 @@ public final class ExcavatorFuelManager {
         }
     };
 
-    public ExcavatorFuelManager(ExcavatorEnergyStorage energyStorage, Runnable changeListener) {
+    public ExcavatorFuelManager(ExcavatorEnergyStorage energyStorage, Runnable changeListener, Supplier<FuelValues> fuelValues) {
         this.energyStorage = energyStorage;
         this.changeListener = changeListener;
+        this.fuelValues = fuelValues;
     }
 
     public ItemStackHandler inventory() { return inventory; }
@@ -43,7 +47,7 @@ public final class ExcavatorFuelManager {
     public int burnTicksRemaining() { return Math.max(0, burnTicksRemaining); }
     public int burnTicksTotal() { return Math.max(0, burnTicksTotal); }
 
-    public static boolean isFuel(ItemStack stack) { return !stack.isEmpty() && stack.getBurnTime(RecipeType.SMELTING) > 0; }
+    public static boolean isFuel(ItemStack stack, FuelValues fuelValues) { return !stack.isEmpty() && stack.getBurnTime(RecipeType.SMELTING, fuelValues) > 0; }
 
     public void tick(int priorInternalGeneration) {
         if (!isEnabled() || burnTicksRemaining <= 0 && inventory.getStackInSlot(0).isEmpty()) return;
@@ -66,10 +70,10 @@ public final class ExcavatorFuelManager {
 
     private boolean consumeFuelItem() {
         ItemStack stack = inventory.getStackInSlot(0);
-        int burnTime = stack.getBurnTime(RecipeType.SMELTING);
+        int burnTime = stack.getBurnTime(RecipeType.SMELTING, fuelValues.get());
         if (burnTime <= 0) return false;
 
-        ItemStack remainder = stack.copyWithCount(1).getCraftingRemainingItem();
+        ItemStack remainder = stack.copyWithCount(1).getCraftingRemainder();
         if (!canStoreRemainderAfterConsumption(stack, remainder)) return false;
 
         ItemStack consumed = inventory.extractItem(0, 1, false);

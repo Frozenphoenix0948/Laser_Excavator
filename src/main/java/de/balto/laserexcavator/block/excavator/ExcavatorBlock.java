@@ -6,6 +6,7 @@ import de.balto.laserexcavator.block.blockentities.ModBlockEntities;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -26,7 +27,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +35,7 @@ import java.util.List;
 
 public class ExcavatorBlock extends BaseEntityBlock {
     public static final MapCodec<ExcavatorBlock> CODEC = simpleCodec(ExcavatorBlock::new);
-    public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
+    public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
 
     public ExcavatorBlock(Properties properties) {
         super(properties);
@@ -168,6 +169,6 @@ public class ExcavatorBlock extends BaseEntityBlock {
             }
         }
 
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        return (level.isClientSide ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER);
     }
 }

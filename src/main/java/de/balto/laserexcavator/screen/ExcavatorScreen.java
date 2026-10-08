@@ -712,7 +712,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             if (mouseX >= leftPos + slot.x && mouseX < leftPos + slot.x + 16
                     && mouseY >= topPos + slot.y && mouseY < topPos + slot.y + 16) hoveredSlot = slot;
         }
-        if (hoveredSlot != null) renderSlotHighlight(graphics, hoveredSlot, mouseX, mouseY, partialTick);
+        if (hoveredSlot != null) graphics.fill(hoveredSlot.x, hoveredSlot.y, hoveredSlot.x + 16, hoveredSlot.y + 16, 0x80FFFFFF);
         graphics.pose().popPose();
     }
 
@@ -829,7 +829,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             graphics.pose().popPose();
         } else {
             super.render(graphics, -10000, -10000, partialTick);
-            renderBlurredBackground(partialTick);
+            renderBlurredBackground();
             graphics.fill(0, 0, width, height, 0x44000000);
             filterPanel.render(graphics, font, mouseX, mouseY, partialTick);
         }

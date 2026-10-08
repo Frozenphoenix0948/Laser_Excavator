@@ -8,33 +8,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:redstone_block"
-    },
-    "B": {
-      "item": "minecraft:gold_ingot"
-    },
-    "C": {
-      "item": "minecraft:redstone_block"
-    },
-    "D": {
-      "item": "minecraft:quartz"
-    },
-    "E": {
-      "item": "minecraft:paper"
-    },
-    "F": {
-      "item": "minecraft:quartz"
-    },
-    "G": {
-      "item": "minecraft:redstone_block"
-    },
-    "H": {
-      "item": "minecraft:gold_ingot"
-    },
-    "I": {
-      "item": "minecraft:redstone_block"
-    }
+    "A": "minecraft:redstone_block",
+    "B": "minecraft:gold_ingot",
+    "C": "minecraft:redstone_block",
+    "D": "minecraft:quartz",
+    "E": "minecraft:paper",
+    "F": "minecraft:quartz",
+    "G": "minecraft:redstone_block",
+    "H": "minecraft:gold_ingot",
+    "I": "minecraft:redstone_block"
   },
   "result": {
     "count": 1,

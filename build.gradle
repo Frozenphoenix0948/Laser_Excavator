@@ -44,11 +44,6 @@ neoForge {
     // Specify the version of NeoForge to use.
     version = project.neo_version
 
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
-    }
-
     // This line is optional. Access Transformers are automatically detected
     // accessTransformers = project.files('src/main/resources/META-INF/accesstransformer.cfg')
 
@@ -142,11 +137,6 @@ dependencies {
 
     // Example mod dependency using a file as dependency
     // implementation files("libs/coolmod-${mc_version}-${coolmod_version}.jar")
-
-    compileOnly("mezz.jei:jei-${mc_version}-neoforge-api:${jei_version}")
-
-    compileOnly "curse.maven:dynamictrees-252818:8227322"
-    localRuntime "curse.maven:dynamictrees-252818:8227322"
 
     // Example project dependency using a sister or child project:
     // implementation project(":myproject")

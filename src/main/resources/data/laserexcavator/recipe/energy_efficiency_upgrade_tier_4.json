@@ -8,33 +8,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:ender_eye"
-    },
-    "B": {
-      "item": "minecraft:diamond_block"
-    },
-    "C": {
-      "item": "minecraft:ender_eye"
-    },
-    "D": {
-      "item": "minecraft:emerald"
-    },
-    "E": {
-      "item": "laserexcavator:energy_efficiency_upgrade_tier_3"
-    },
-    "F": {
-      "item": "minecraft:emerald"
-    },
-    "G": {
-      "item": "minecraft:ender_eye"
-    },
-    "H": {
-      "item": "minecraft:diamond_block"
-    },
-    "I": {
-      "item": "minecraft:ender_eye"
-    }
+    "A": "minecraft:ender_eye",
+    "B": "minecraft:diamond_block",
+    "C": "minecraft:ender_eye",
+    "D": "minecraft:emerald",
+    "E": "laserexcavator:energy_efficiency_upgrade_tier_3",
+    "F": "minecraft:emerald",
+    "G": "minecraft:ender_eye",
+    "H": "minecraft:diamond_block",
+    "I": "minecraft:ender_eye"
   },
   "result": {
     "count": 1,

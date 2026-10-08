@@ -6,33 +6,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:lapis_block"
-    },
-    "B": {
-      "item": "minecraft:emerald"
-    },
-    "C": {
-      "item": "minecraft:lapis_block"
-    },
-    "D": {
-      "item": "minecraft:gold_ingot"
-    },
-    "E": {
-      "item": "laserexcavator:luck_upgrade_tier_1"
-    },
-    "F": {
-      "item": "minecraft:gold_ingot"
-    },
-    "G": {
-      "item": "minecraft:lapis_block"
-    },
-    "H": {
-      "item": "minecraft:diamond"
-    },
-    "I": {
-      "item": "minecraft:lapis_block"
-    }
+    "A": "minecraft:lapis_block",
+    "B": "minecraft:emerald",
+    "C": "minecraft:lapis_block",
+    "D": "minecraft:gold_ingot",
+    "E": "laserexcavator:luck_upgrade_tier_1",
+    "F": "minecraft:gold_ingot",
+    "G": "minecraft:lapis_block",
+    "H": "minecraft:diamond",
+    "I": "minecraft:lapis_block"
   },
   "result": {
     "id": "laserexcavator:luck_upgrade_tier_2",

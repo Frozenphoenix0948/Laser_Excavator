@@ -2,6 +2,9 @@ package de.balto.laserexcavator.block;
 
 import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.block.excavator.ExcavatorBlock;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.neoforge.registries.DeferredBlock;
@@ -14,6 +17,6 @@ public final class ModBlocks {
 
     public static final DeferredBlock<ExcavatorBlock> EXCAVATOR = BLOCKS.register(
             "excavator",
-            () -> new ExcavatorBlock(BlockBehaviour.Properties.of().strength(5.0F).requiresCorrectToolForDrops().sound(SoundType.METAL))
+            () -> new ExcavatorBlock(BlockBehaviour.Properties.of().setId(ResourceKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, "excavator"))).strength(5.0F).requiresCorrectToolForDrops().sound(SoundType.METAL))
     );
 }

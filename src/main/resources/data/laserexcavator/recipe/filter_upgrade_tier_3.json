@@ -8,33 +8,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:diamond_block"
-    },
-    "B": {
-      "item": "minecraft:ender_pearl"
-    },
-    "C": {
-      "item": "minecraft:diamond_block"
-    },
-    "D": {
-      "item": "minecraft:comparator"
-    },
-    "E": {
-      "item": "laserexcavator:filter_upgrade_tier_2"
-    },
-    "F": {
-      "item": "minecraft:comparator"
-    },
-    "G": {
-      "item": "minecraft:gold_block"
-    },
-    "H": {
-      "item": "minecraft:redstone_block"
-    },
-    "I": {
-      "item": "minecraft:gold_block"
-    }
+    "A": "minecraft:diamond_block",
+    "B": "minecraft:ender_pearl",
+    "C": "minecraft:diamond_block",
+    "D": "minecraft:comparator",
+    "E": "laserexcavator:filter_upgrade_tier_2",
+    "F": "minecraft:comparator",
+    "G": "minecraft:gold_block",
+    "H": "minecraft:redstone_block",
+    "I": "minecraft:gold_block"
   },
   "result": {
     "count": 1,

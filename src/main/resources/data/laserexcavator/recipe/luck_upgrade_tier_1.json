@@ -6,33 +6,15 @@
     "GHI"
   ],
   "key": {
-    "A": {
-      "item": "minecraft:redstone"
-    },
-    "B": {
-      "item": "minecraft:lapis_lazuli"
-    },
-    "C": {
-      "item": "minecraft:redstone"
-    },
-    "D": {
-      "item": "minecraft:quartz"
-    },
-    "E": {
-      "item": "minecraft:paper"
-    },
-    "F": {
-      "item": "minecraft:quartz"
-    },
-    "G": {
-      "item": "minecraft:redstone"
-    },
-    "H": {
-      "item": "minecraft:lapis_lazuli"
-    },
-    "I": {
-      "item": "minecraft:redstone"
-    }
+    "A": "minecraft:redstone",
+    "B": "minecraft:lapis_lazuli",
+    "C": "minecraft:redstone",
+    "D": "minecraft:quartz",
+    "E": "minecraft:paper",
+    "F": "minecraft:quartz",
+    "G": "minecraft:redstone",
+    "H": "minecraft:lapis_lazuli",
+    "I": "minecraft:redstone"
   },
   "result": {
     "id": "laserexcavator:luck_upgrade_tier_1",
