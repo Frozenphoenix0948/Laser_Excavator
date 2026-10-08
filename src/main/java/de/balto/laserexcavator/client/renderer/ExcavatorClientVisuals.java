@@ -7,13 +7,16 @@ import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.network.excavator.ExcavatorVisualBatchPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.api.distmarker.Dist;
@@ -808,10 +811,8 @@ public final class ExcavatorClientVisuals {
         Integer cached = ITEM_MARKER_COLOR_CACHE.get(item);
         if (cached != null) return cached;
 
-        BakedModel model = Minecraft.getInstance()
-                .getItemRenderer()
-                .getModel(stack, level, null, seed);
-        int resolved = shadeMarkerRgb(averageSpriteRgb(model.getParticleIcon()), ITEM_MARKER_SHADE_PERCENT);
+        TextureAtlasSprite sprite = resolveItemParticleSprite(stack, level, seed);
+        int resolved = shadeMarkerRgb(averageSpriteRgb(sprite), ITEM_MARKER_SHADE_PERCENT);
         ITEM_MARKER_COLOR_CACHE.put(item, resolved);
         return resolved;
     }
@@ -866,15 +867,31 @@ public final class ExcavatorClientVisuals {
         return (r << 16) | (g << 8) | b;
     }
 
+    /**
+     * Minecraft 1.21.4 resolves item textures through a render state rather than
+     * ItemRenderer#getModel. Only the particle sprite is needed by our transport
+     * billboard and marker paths; actual item rendering remains unchanged.
+     */
+    private static TextureAtlasSprite resolveItemParticleSprite(ItemStack stack, ClientLevel level, int seed) {
+        ItemStackRenderState state = new ItemStackRenderState();
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.getItemModelResolver().updateForTopItem(
+                state, stack, ItemDisplayContext.NONE, false, level, null, seed
+        );
+        TextureAtlasSprite sprite = state.pickParticleIcon(RandomSource.create(seed));
+        if (sprite == null) {
+            sprite = minecraft.getTextureAtlas(TextureAtlas.LOCATION_BLOCKS)
+                    .apply(MissingTextureAtlasSprite.getLocation());
+        }
+        return sprite;
+    }
+
     public static ItemBillboardTexture resolveItemTexture(
             ItemStack stack,
             ClientLevel level,
             int seed
     ) {
-        BakedModel model = Minecraft.getInstance()
-                .getItemRenderer()
-                .getModel(stack, level, null, seed);
-        TextureAtlasSprite sprite = model.getParticleIcon();
+        TextureAtlasSprite sprite = resolveItemParticleSprite(stack, level, seed);
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.CLIENT_VISUAL_ITEM_TEXTURE_RESOLVES);
 
         return new ItemBillboardTexture(
