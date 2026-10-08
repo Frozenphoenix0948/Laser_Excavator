@@ -24,10 +24,6 @@ hs_err_pid*
 replay_pid*
 
 # gradle
-*.gradle
-*.properties
-*.bat
-gradlew
 /run*
 .idea*
 /build*
