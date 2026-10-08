@@ -44,8 +44,8 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int TITLE_BAR_Y = GAP;
     private static final int TITLE_BAR_HEIGHT = 15;
     private static final int TITLE_Y = 9;
-    private static final int CONTROL_Y = 27;
-    private static final int AXIS_LABEL_Y = 32;
+    private static final int CONTROL_Y = 25;
+    private static final int AXIS_LABEL_Y = 30;
     private static final int CONTROL_GROUP_WIDTH = 61;
     private static final int CONTROL_GROUP_GAP = 6;
     private static final int CONTROL_START_X = GAP;
@@ -53,12 +53,16 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int FIELD_X_OFFSET = 12;
 
     private static final int ACTION_X = GAP;
-    private static final int ACTION_Y = 50;
+    private static final int ACTION_Y = 48;
     private static final int ACTION_WIDTH = 195;
     private static final int ACTION_BUTTON_WIDTH = (ACTION_WIDTH - GAP) / 2;
     private static final int ACTION_HEIGHT = 16;
-    private static final int PROGRESS_Y = 71;
+    private static final int PROGRESS_Y = 70;
     private static final int STATUS_Y = 80;
+    private static final int LIMIT_TILE_X = 190;
+    private static final int LIMIT_TILE_Y = 78;
+    private static final int LIMIT_TILE_W = 10;
+    private static final int LIMIT_TILE_H = 10;
 
     private static final int OUTPUT_PANEL_X = GAP;
     private static final int OUTPUT_PANEL_Y = 90;
@@ -307,7 +311,8 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         filterButton.active = filterButton.visible && !busy;
         if (!filterButton.visible) filterPanel.close();
 
-        excavationButton.active = state == ExcavatorScanState.EXCAVATING || state == ExcavatorScanState.STORAGE_FULL || (state == ExcavatorScanState.READY && !overheating);
+        excavationButton.active = state == ExcavatorScanState.EXCAVATING || state == ExcavatorScanState.STORAGE_FULL
+                || (state == ExcavatorScanState.READY && !overheating && !menu.isRunningLimitReached(menu.getRunningLimitTier()));
         excavationButton.setMessage(Component.literal(overheating && state != ExcavatorScanState.EXCAVATING && state != ExcavatorScanState.STORAGE_FULL ? "Overheated" : switch (state) {
                     case EXCAVATING, STORAGE_FULL -> "Pause";
                     default -> "Excavate";
@@ -334,6 +339,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         graphics.fill(x + GAP + 1, y + TITLE_BAR_Y + 1, x + imageWidth - GAP - 1, y + TITLE_BAR_Y + TITLE_BAR_HEIGHT - 1, PANEL_HEADER);
 
         drawProgress(graphics, x + ACTION_X, y + PROGRESS_Y, ACTION_WIDTH, 5, menu.getScanProgress());
+        if (menu.areRunningLimitsEnabled()) drawRunningLimitTile(graphics, x + LIMIT_TILE_X, y + LIMIT_TILE_Y);
 
         graphics.fill(x + OUTPUT_PANEL_X, y + OUTPUT_PANEL_Y, x + OUTPUT_PANEL_RIGHT, y + OUTPUT_PANEL_BOTTOM, FRAME);
         graphics.fill(x + OUTPUT_PANEL_X + 2, y + OUTPUT_PANEL_Y + 2, x + OUTPUT_PANEL_RIGHT - 2, y + OUTPUT_PANEL_BOTTOM - 2, PANEL_INNER);
@@ -376,14 +382,48 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         drawScaledString(graphics, "Y:", CONTROL_START_X + CONTROL_GROUP_WIDTH + CONTROL_GROUP_GAP + 1, AXIS_LABEL_Y, TEXT, LABEL_SCALE);
         drawScaledString(graphics, "Z:", CONTROL_START_X + (CONTROL_GROUP_WIDTH + CONTROL_GROUP_GAP) * 2 + 1, AXIS_LABEL_Y, TEXT, LABEL_SCALE);
 
-        int statusMaxWidth = Math.round((imageWidth - 28) / STATUS_SCALE);
-        String status = font.plainSubstrByWidth(statusText(), statusMaxWidth);
-        drawCenteredScaledString(graphics, status, imageWidth / 2.0F, STATUS_Y, statusColor(), STATUS_SCALE);
+        String status = font.plainSubstrByWidth(statusText(), Math.round((GUI_WIDTH - 12) / STATUS_SCALE));
+        drawCenteredScaledString(graphics, status, GUI_WIDTH / 2.0F, STATUS_Y, statusColor(), STATUS_SCALE);
 
         drawScaledString(graphics, "OUTPUT", OUTPUT_GRID_X, OUTPUT_PANEL_Y + 5, TEXT, LABEL_SCALE);
         int modPanelY = menu.isFuelSlotEnabled() ? MOD_PANEL_Y_WITH_FUEL : MOD_PANEL_Y_NO_FUEL;
         drawCenteredScaledString(graphics, "MOD", (MOD_PANEL_X + MOD_PANEL_RIGHT) / 2.0F, modPanelY + 5, GOLD, LABEL_SCALE);
         drawScaledString(graphics, "INVENTORY", PLAYER_GRID_X, PLAYER_PANEL_Y + 5, TEXT, LABEL_SCALE);
+    }
+
+    private int runningLimitColor() {
+        int active = menu.getRunningLimitActive(menu.getRunningLimitTier()), allowed = menu.getRunningLimitAllowed(menu.getRunningLimitTier());
+        return active >= allowed ? ERROR : active > 0 && active * 2 >= allowed ? WARNING : GOOD;
+    }
+
+    private void drawRunningLimitTile(GuiGraphics graphics, int x, int y) {
+        int color = runningLimitColor();
+        graphics.fill(x, y, x + LIMIT_TILE_W, y + LIMIT_TILE_H, FRAME);
+        graphics.fill(x + 1, y + 1, x + LIMIT_TILE_W - 1, y + LIMIT_TILE_H - 1, PANEL_HEADER);
+        graphics.fill(x + 2, y + 2, x + LIMIT_TILE_W - 2, y + LIMIT_TILE_H - 2, color);
+    }
+
+    private void renderRunningLimitTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!menu.areRunningLimitsEnabled() || !isInside(mouseX, mouseY, leftPos + LIMIT_TILE_X, topPos + LIMIT_TILE_Y, LIMIT_TILE_W, LIMIT_TILE_H)) return;
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("Server limits active").withStyle(ChatFormatting.GOLD));
+        lines.add(Component.literal("Your running excavators:").withStyle(ChatFormatting.GRAY));
+        for (int tier = 0; tier <= 5; tier++) {
+            int active = menu.getRunningLimitActive(tier), allowed = menu.getRunningLimitAllowed(tier);
+            ChatFormatting color = active >= allowed ? ChatFormatting.RED : active > 0 && active * 2 >= allowed ? ChatFormatting.YELLOW : ChatFormatting.GREEN;
+            lines.add(Component.literal("Tier " + tier + ": " + active + "/" + allowed).withStyle(color));
+        }
+        graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+    }
+
+    private void renderExcavationLimitTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!menu.isRunningLimitReached(menu.getRunningLimitTier()) || (menu.getScanState() != ExcavatorScanState.READY || menu.isOverheating())
+                || !isInside(mouseX, mouseY, excavationButton.getX(), excavationButton.getY(), excavationButton.getWidth(), excavationButton.getHeight())) return;
+        int tier = menu.getRunningLimitTier();
+        graphics.renderComponentTooltip(font, List.of(
+                Component.literal("Running excavator limit reached").withStyle(ChatFormatting.RED),
+                Component.literal("Tier " + tier + ": " + menu.getRunningLimitActive(tier) + "/" + menu.getRunningLimitAllowed(tier)).withStyle(ChatFormatting.YELLOW),
+                Component.literal("Pause another excavator of this tier first.").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
     }
 
     private void drawSlot(GuiGraphics graphics, int x, int y) {
@@ -781,6 +821,8 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             if (!isOverLockedUpgradeLock(mouseX, mouseY)) renderTooltip(graphics, mouseX, mouseY);
             renderEmptySlotTooltip(graphics, mouseX, mouseY);
             renderEnergyTooltip(graphics, mouseX, mouseY);
+            renderRunningLimitTooltip(graphics, mouseX, mouseY);
+            renderExcavationLimitTooltip(graphics, mouseX, mouseY);
             renderSolarTooltip(graphics, mouseX, mouseY);
             renderUnsavedSelectionTooltip(graphics, mouseX, mouseY);
             renderConfigurationLockTooltip(graphics, mouseX, mouseY);

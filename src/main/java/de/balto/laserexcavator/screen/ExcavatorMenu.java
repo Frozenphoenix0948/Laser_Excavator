@@ -3,6 +3,7 @@ package de.balto.laserexcavator.screen;
 import de.balto.laserexcavator.block.ModBlocks;
 import de.balto.laserexcavator.block.blockentities.ExcavatorBlockEntity;
 import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
+import de.balto.laserexcavator.block.excavator.ExcavatorRunningLimits;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
 import net.minecraft.core.BlockPos;
@@ -12,9 +13,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.BlockItem;
@@ -74,6 +77,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     private static final int OUTPUT_SLOT_END = OUTPUT_SLOT_START + ExcavatorBlockEntity.OUTPUT_SLOTS;
 
     private final ContainerData data;
+    private final int[] limitInfo = new int[14];
     private final ContainerLevelAccess access;
     private final BlockPos excavatorPos;
     private final @Nullable ExcavatorBlockEntity blockEntity;
@@ -163,6 +167,21 @@ public class ExcavatorMenu extends AbstractContainerMenu {
         this.hotbarEnd = playerInvStart + 36;
 
         addDataSlots(data);
+        for (int i = 0; i < limitInfo.length; i++) {
+            final int index = i;
+            addDataSlot(new DataSlot() {
+                @Override
+                public int get() {
+                    if (blockEntity == null || !(inventory.player.level() instanceof ServerLevel level)) return limitInfo[index];
+                    return index == 13 ? blockEntity.getSpeedUpgradeTier()
+                            : index == 0 ? (LaserExcavatorConfig.RUNNING_LIMITS_ENABLED.get() ? 1 : 0)
+                            : index <= 6 ? Math.min(32767, ExcavatorRunningLimits.get(level).activeCount(inventory.player.getUUID(), index - 1))
+                            : Math.min(32767, LaserExcavatorConfig.RUNNING_LIMITS[index - 7].get());
+                }
+                @Override
+                public void set(int value) { limitInfo[index] = value; }
+            });
+        }
         addOutputSlots(outputInventory);
         if (fuelSlotEnabled) {
             addFuelSlot(fuelInventory);
@@ -329,6 +348,11 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     public int getFilterCapacity() { return Mth.clamp(data.get(DATA_FILTER_CAPACITY), 0, ExcavatorBlockEntity.MAX_FILTER_SLOTS); }
     public boolean isFilterWhitelist() { return data.get(DATA_FILTER_WHITELIST) != 0; }
     public int getSolarStatus() { return data.get(DATA_SOLAR_STATUS); }
+    public boolean areRunningLimitsEnabled() { return limitInfo[0] != 0; }
+    public int getRunningLimitActive(int tier) { return limitInfo[1 + tier]; }
+    public int getRunningLimitAllowed(int tier) { return limitInfo[7 + tier]; }
+    public boolean isRunningLimitReached(int tier) { return areRunningLimitsEnabled() && getRunningLimitActive(tier) >= getRunningLimitAllowed(tier); }
+    public int getRunningLimitTier() { return limitInfo[13]; }
 
     public int getEnergyStored() {
         return Math.max(0, data.get(DATA_ENERGY_STORED));
@@ -571,7 +595,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
         if (state == ExcavatorScanState.EXCAVATING || state == ExcavatorScanState.STORAGE_FULL) {
             blockEntity.pauseExcavation();
         } else {
-            blockEntity.beginExcavation();
+            return blockEntity.beginExcavation(player);
         }
         return true;
     }

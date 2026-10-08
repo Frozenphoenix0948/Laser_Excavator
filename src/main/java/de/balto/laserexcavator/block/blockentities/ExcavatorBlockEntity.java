@@ -2,6 +2,7 @@ package de.balto.laserexcavator.block.blockentities;
 
 import de.balto.laserexcavator.block.excavator.ExcavationScanner;
 import de.balto.laserexcavator.block.excavator.ExcavatorArea;
+import de.balto.laserexcavator.block.excavator.ExcavatorRunningLimits;
 import de.balto.laserexcavator.block.excavator.ExcavatorAutomationItemHandler;
 import de.balto.laserexcavator.block.excavator.ExcavatorAutoSmelter;
 import de.balto.laserexcavator.block.excavator.ExcavatorLootCache;
@@ -714,6 +715,21 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         ExcavatorProfiler.end(ExcavatorProfiler.Section.SCANNER, scannerProfile);
     }
 
+    public boolean beginExcavation(Player player) {
+        if (!(level instanceof ServerLevel serverLevel) || scanState != ExcavatorScanState.READY || isOverheating()) return false;
+        ExcavatorRunningLimits limits = ExcavatorRunningLimits.get(serverLevel);
+        if (!limits.claim(serverLevel, worldPosition, player.getUUID(), getSpeedUpgradeTier())) {
+            return false;
+        }
+        beginExcavation();
+        if (scanState != ExcavatorScanState.EXCAVATING && scanState != ExcavatorScanState.STORAGE_FULL) limits.release(serverLevel, worldPosition);
+        return true;
+    }
+
+    public void releaseRunningLimit() {
+        if (level instanceof ServerLevel serverLevel) ExcavatorRunningLimits.get(serverLevel).release(serverLevel, worldPosition);
+    }
+
     public void beginExcavation() {
         if (!(level instanceof ServerLevel serverLevel)) return;
         if (isOverheating()) return;
@@ -734,6 +750,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
     public void pauseExcavation() {
         if (scanState != ExcavatorScanState.EXCAVATING && scanState != ExcavatorScanState.STORAGE_FULL) return;
+        releaseRunningLimit();
         enterReadyAfterPause();
     }
 
@@ -1308,6 +1325,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void onUpgradeInventoryChanged() {
+        if (level instanceof ServerLevel serverLevel && (scanState == ExcavatorScanState.EXCAVATING || scanState == ExcavatorScanState.STORAGE_FULL)
+                && !ExcavatorRunningLimits.get(serverLevel).changeTier(serverLevel, worldPosition, getSpeedUpgradeTier())) pauseExcavation();
         lootTableCache = null;
         setChanged();
     }
@@ -1425,6 +1444,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void finishExcavation() {
+        releaseRunningLimit();
         unregisterSharedColumns();
         targetScanner.clearCaches();
         columns.finishExcavation();
@@ -1446,6 +1466,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void resetAllWorkData() {
+        releaseRunningLimit();
         unregisterSharedColumns();
         targetScanner.clearCaches();
         scanState = ExcavatorScanState.IDLE;

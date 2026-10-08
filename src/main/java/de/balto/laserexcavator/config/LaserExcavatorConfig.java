@@ -44,6 +44,8 @@ public final class LaserExcavatorConfig {
     public static final ModConfigSpec.BooleanValue ENABLE_STRESS_TEST_COMMANDS;
 
     public static final ModConfigSpec.IntValue UPGRADE_SLOT_COUNT;
+    public static final ModConfigSpec.BooleanValue RUNNING_LIMITS_ENABLED;
+    public static final ModConfigSpec.IntValue[] RUNNING_LIMITS = new ModConfigSpec.IntValue[6];
     public static final ModConfigSpec.IntValue SPEED_BASE_INTERVAL;
     public static final ModConfigSpec.IntValue SPEED_TIER_1_INTERVAL;
     public static final ModConfigSpec.IntValue SPEED_TIER_2_INTERVAL;
@@ -256,6 +258,12 @@ public final class LaserExcavatorConfig {
         SPEED_TIER_3_INTERVAL = builder.defineInRange("tier3IntervalTicks", 3, 1, 1200);
         SPEED_TIER_4_INTERVAL = builder.defineInRange("tier4IntervalTicks", 2, 1, 1200);
         SPEED_TIER_5_INTERVAL = builder.defineInRange("tier5IntervalTicks", 1, 1, 1200);
+        builder.pop();
+        builder.comment(" Per-player limits for running excavators, including machines waiting for energy or storage.").push("runningLimits");
+        RUNNING_LIMITS_ENABLED = builder.define("enabled", false);
+        for (int tier = 0; tier <= 5; tier++) {
+            RUNNING_LIMITS[tier] = builder.defineInRange("speedTier" + tier, 1 << (5 - tier), 0, Integer.MAX_VALUE);
+        }
         builder.pop();
 
         builder.comment(

@@ -123,6 +123,7 @@ public class ExcavatorBlock extends BaseEntityBlock {
         if (!level.isClientSide && !state.is(newState.getBlock())) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof ExcavatorBlockEntity excavator) {
+                excavator.releaseRunningLimit();
                 dropAndClear(level, pos, excavator.getOutputInventory());
                 dropAndClear(level, pos, excavator.getUpgradeInventory());
                 dropAndClear(level, pos, excavator.getFuelInventory());
