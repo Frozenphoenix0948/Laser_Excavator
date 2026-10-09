@@ -53,7 +53,7 @@ public final class ExcavatorSolarManager {
             status = STATUS_BLOCKED;
             return 0;
         }
-        if (!level.isDay()) {
+        if (!level.isBrightOutside()) {
             status = STATUS_NIGHT;
             return 0;
         }

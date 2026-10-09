@@ -876,7 +876,7 @@ public final class ExcavatorClientVisuals {
         ItemStackRenderState state = new ItemStackRenderState();
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.getItemModelResolver().updateForTopItem(
-                state, stack, ItemDisplayContext.NONE, false, level, null, seed
+                state, stack, ItemDisplayContext.NONE, level, null, seed
         );
         TextureAtlasSprite sprite = state.pickParticleIcon(RandomSource.create(seed));
         if (sprite == null) {

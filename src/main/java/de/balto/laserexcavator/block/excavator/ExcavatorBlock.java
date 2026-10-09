@@ -31,7 +31,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 public class ExcavatorBlock extends BaseEntityBlock {
     public static final MapCodec<ExcavatorBlock> CODEC = simpleCodec(ExcavatorBlock::new);
@@ -47,18 +47,10 @@ public class ExcavatorBlock extends BaseEntityBlock {
         return CODEC;
     }
 
-    @Override
-    public void appendHoverText(
-            ItemStack stack,
-            Item.TooltipContext context,
-            List<Component> tooltipComponents,
-            TooltipFlag tooltipFlag
-    ) {
-        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
-
-        tooltipComponents.add(description("Base performance without upgrades."));
-        tooltipComponents.add(value("Mining interval", LaserExcavatorConfig.speedInterval(0) + " ticks"));
-        tooltipComponents.add(value(
+    public static void appendExcavatorTooltip(Consumer<Component> tooltipComponents) {
+        tooltipComponents.accept(description("Base performance without upgrades."));
+        tooltipComponents.accept(value("Mining interval", LaserExcavatorConfig.speedInterval(0) + " ticks"));
+        tooltipComponents.accept(value(
                 "Energy use",
                 LaserExcavatorConfig.energyPerBlock(0) + " FE/block ("
                         + LaserExcavatorConfig.energyPerTick(0, 0) + " FE/t)"
@@ -97,7 +89,6 @@ public class ExcavatorBlock extends BaseEntityBlock {
         return new ExcavatorBlockEntity(pos, state);
     }
 
-
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
             Level level,
@@ -114,34 +105,10 @@ public class ExcavatorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected void onRemove(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            BlockState newState,
-            boolean movedByPiston
-    ) {
-        if (!level.isClientSide && !state.is(newState.getBlock())) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof ExcavatorBlockEntity excavator) {
-                excavator.releaseRunningLimit();
-                dropAndClear(level, pos, excavator.getOutputInventory());
-                dropAndClear(level, pos, excavator.getUpgradeInventory());
-                dropAndClear(level, pos, excavator.getFuelInventory());
-            }
-        }
-
-        super.onRemove(state, level, pos, newState, movedByPiston);
-    }
-
-    private static void dropAndClear(Level level, BlockPos pos, ItemStackHandler inventory) {
-        for (int slot = 0; slot < inventory.getSlots(); slot++) {
-            var stack = inventory.getStackInSlot(slot);
-            if (stack.isEmpty()) continue;
-
-            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack.copy());
-            inventory.setStackInSlot(slot, ItemStack.EMPTY);
-        }
+    protected void affectNeighborsAfterRemoval(BlockState state, net.minecraft.server.level.ServerLevel level,
+                                                BlockPos pos, boolean movedByPiston) {
+        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
+        Containers.updateNeighboursAfterDestroy(state, level, pos);
     }
 
     @Override

@@ -393,11 +393,11 @@ public final class ExcavatorUpgradeManager {
     public void loadFilter(CompoundTag tag) {
         Arrays.fill(filteredBlocks, null);
         filterWhitelist = false;
-        if (tag.contains(TAG_BLOCK_FILTER, Tag.TAG_COMPOUND)) {
-            CompoundTag filterTag = tag.getCompound(TAG_BLOCK_FILTER);
-            filterWhitelist = filterTag.getBoolean(TAG_FILTER_WHITELIST);
+        CompoundTag filterTag = tag.getCompound(TAG_BLOCK_FILTER).orElse(null);
+        if (filterTag != null) {
+            filterWhitelist = filterTag.getBooleanOr(TAG_FILTER_WHITELIST, false);
             for (int i = 0; i < MAX_FILTER_SLOTS; i++) {
-                String raw = filterTag.getString(TAG_FILTER_SLOT_PREFIX + i);
+                String raw = filterTag.getStringOr(TAG_FILTER_SLOT_PREFIX + i, "");
                 if (raw.isBlank()) continue;
                 ResourceLocation id = ResourceLocation.tryParse(raw);
                 if (id != null) {

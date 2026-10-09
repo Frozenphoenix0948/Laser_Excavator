@@ -1,5 +1,7 @@
 package de.balto.laserexcavator.block.renderer;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -16,12 +18,14 @@ import de.balto.laserexcavator.screen.ExcavatorScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -38,20 +42,18 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
      * All geometry is opaque, unblended and depth-writing so shader packs can
      * reject hidden fragments early without needing a separate glow pass.
      */
+    private static final RenderPipeline OPAQUE_DEPTH_LINES_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
+            .withLocation(ResourceLocation.fromNamespaceAndPath("laserexcavator", "pipeline/opaque_depth_lines"))
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_NORMAL, VertexFormat.Mode.LINES)
+            .withoutBlend()
+            .withCull(false)
+            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+            .withDepthWrite(true)
+            .build();
+
     private static final RenderType OPAQUE_DEPTH_LINES = RenderType.create(
-            "laser_excavator_opaque_depth_lines",
-            DefaultVertexFormat.POSITION_COLOR_NORMAL,
-            VertexFormat.Mode.LINES,
-            8_192,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderType.RENDERTYPE_LINES_SHADER)
-                    .setTransparencyState(RenderType.NO_TRANSPARENCY)
-                    .setCullState(RenderType.NO_CULL)
-                    .setWriteMaskState(RenderType.COLOR_DEPTH_WRITE)
-                    .setLightmapState(RenderType.NO_LIGHTMAP)
-                    .createCompositeState(false)
+            "laser_excavator_opaque_depth_lines", 8_192, false, false,
+            OPAQUE_DEPTH_LINES_PIPELINE, RenderType.CompositeState.builder().createCompositeState(false)
     );
 
     private static final float MEDIUM_LASER_SIDE_OFFSET = 0.056F;
@@ -108,7 +110,8 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
             PoseStack poseStack,
             MultiBufferSource bufferSource,
             int packedLight,
-            int packedOverlay
+            int packedOverlay,
+            Vec3 renderCameraPos
     ) {
         // Diagnostic hard stop: skip the complete excavator block-entity render path before frustum tests,
         // visual cache lookups, force-field/laser work or transport processing.

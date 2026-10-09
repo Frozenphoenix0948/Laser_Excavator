@@ -2,15 +2,22 @@ package de.balto.laserexcavator.item;
 
 import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.block.ModBlocks;
+import de.balto.laserexcavator.block.excavator.ExcavatorBlock;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeItem;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+
+import java.util.function.Consumer;
 
 public final class ModItems {
     private ModItems() {}
@@ -19,7 +26,15 @@ public final class ModItems {
 
     public static final DeferredItem<BlockItem> EXCAVATOR = ITEMS.register(
             "excavator",
-            () -> new BlockItem(ModBlocks.EXCAVATOR.get(), new Item.Properties().setId(ResourceKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, "excavator"))).useBlockDescriptionPrefix())
+            () -> new BlockItem(ModBlocks.EXCAVATOR.get(), new Item.Properties().setId(ResourceKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, "excavator"))).useBlockDescriptionPrefix()) {
+                @Override
+                public void appendHoverText(ItemStack stack, Item.TooltipContext context,
+                                            TooltipDisplay display, Consumer<Component> tooltip,
+                                            TooltipFlag tooltipFlag) {
+                    super.appendHoverText(stack, context, display, tooltip, tooltipFlag);
+                    ExcavatorBlock.appendExcavatorTooltip(tooltip);
+                }
+            }
     );
 
     public static final DeferredItem<ExcavatorUpgradeItem> SPEED_UPGRADE_TIER_1 = upgrade("speed_upgrade_tier_1", ExcavatorUpgradeType.SPEED, 1, 5);

@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.Item;
@@ -225,24 +226,28 @@ public final class ExcavatorDeliveryManager {
         lastProcessedGameTime = Long.MIN_VALUE;
         schedulerCatchUpRequired = true;
         indexDirty = true;
-        if (!tag.contains(NBT_DELIVERIES, Tag.TAG_LIST)) return;
-
-        ListTag deliveriesTag = tag.getList(NBT_DELIVERIES, Tag.TAG_COMPOUND);
+        ListTag deliveriesTag = tag.getListOrEmpty(NBT_DELIVERIES);
         for (int i = 0; i < deliveriesTag.size(); i++) {
-            CompoundTag deliveryTag = deliveriesTag.getCompound(i);
-            long tick = deliveryTag.getLong(NBT_ARRIVAL);
-            if (deliveryTag.contains(NBT_STACK, Tag.TAG_COMPOUND)) {
-                ItemStack stack = ItemStack.parseOptional(registries, deliveryTag.getCompound(NBT_STACK));
+            CompoundTag deliveryTag = deliveriesTag.getCompoundOrEmpty(i);
+            long tick = deliveryTag.getLongOr(NBT_ARRIVAL, 0L);
+            CompoundTag stackTag = deliveryTag.getCompound(NBT_STACK).orElse(null);
+            if (stackTag != null) {
+                ItemStack stack = parseStack(registries, stackTag);
                 if (!stack.isEmpty()) addNew(tick, stack);
                 continue;
             }
-            if (!deliveryTag.contains(NBT_STACKS, Tag.TAG_LIST)) continue;
-            ListTag stacksTag = deliveryTag.getList(NBT_STACKS, Tag.TAG_COMPOUND);
+            ListTag stacksTag = deliveryTag.getListOrEmpty(NBT_STACKS);
             for (int j = 0; j < stacksTag.size(); j++) {
-                ItemStack stack = ItemStack.parseOptional(registries, stacksTag.getCompound(j));
+                ItemStack stack = parseStack(registries, stacksTag.getCompoundOrEmpty(j));
                 if (!stack.isEmpty()) addNew(tick, stack);
             }
         }
+    }
+
+    private static ItemStack parseStack(HolderLookup.Provider registries, CompoundTag compound) {
+        return ItemStack.OPTIONAL_CODEC
+                .parse(registries.createSerializationContext(NbtOps.INSTANCE), compound)
+                .result().orElse(ItemStack.EMPTY);
     }
 
     private boolean canMerge(ItemStack stack) {

@@ -42,7 +42,7 @@ public final class ExcavatorFastBlockRemoval {
 
     public static boolean removeDirect(ServerLevel level, BlockPos pos) {
         LevelChunk chunk = level.getChunkAt(pos);
-        BlockState previous = chunk.setBlockState(pos, Blocks.AIR.defaultBlockState(), false);
+        BlockState previous = chunk.setBlockState(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_NONE);
         return previous != null;
     }
 

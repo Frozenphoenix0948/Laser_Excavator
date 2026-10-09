@@ -1,5 +1,7 @@
 package de.balto.laserexcavator.block.renderer;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -8,7 +10,9 @@ import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import java.util.Arrays;
@@ -20,20 +24,18 @@ import java.util.Arrays;
  * block-entity rendering.
  */
 public final class ExcavatorTransportMarkerRenderer {
+    private static final RenderPipeline MARKER_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+            .withLocation(ResourceLocation.fromNamespaceAndPath("laserexcavator", "pipeline/transport_markers"))
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+            .withoutBlend()
+            .withCull(false)
+            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+            .withDepthWrite(true)
+            .build();
+
     private static final RenderType MARKER_RENDER_TYPE = RenderType.create(
-            "laser_excavator_transport_marker",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.QUADS,
-            16_384,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderType.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderType.NO_TRANSPARENCY)
-                    .setDepthTestState(RenderType.LEQUAL_DEPTH_TEST)
-                    .setCullState(RenderType.NO_CULL)
-                    .setWriteMaskState(RenderType.COLOR_DEPTH_WRITE)
-                    .createCompositeState(false)
+            "laser_excavator_transport_marker", 16_384, false, false,
+            MARKER_PIPELINE, RenderType.CompositeState.builder().createCompositeState(false)
     );
 
     private static final int ALPHA = 255;

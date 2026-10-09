@@ -1518,11 +1518,32 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        // Drop inventories before the block entity is removed; clear slots to prevent duplicate drops.
+        if (level instanceof ServerLevel) {
+            releaseRunningLimit();
+            dropAndClearInventory(getOutputInventory(), pos);
+            dropAndClearInventory(getUpgradeInventory(), pos);
+            dropAndClearInventory(getFuelInventory(), pos);
+        }
+        super.preRemoveSideEffects(pos, state);
+    }
+
+    private void dropAndClearInventory(ItemStackHandler inventory, BlockPos pos) {
+        for (int slot = 0; slot < inventory.getSlots(); slot++) {
+            ItemStack stack = inventory.getStackInSlot(slot);
+            if (stack.isEmpty()) continue;
+            net.minecraft.world.Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack.copy());
+            inventory.setStackInSlot(slot, ItemStack.EMPTY);
+        }
+    }
+
+    @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
 
         loadCommonState(tag);
-        if (tag.getBoolean(TAG_CLIENT_SYNC_ONLY)) {
+        if (tag.getBooleanOr(TAG_CLIENT_SYNC_ONLY, false)) {
             loadClientSyncState();
             return;
         }
@@ -1539,61 +1560,56 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private int readPersistenceVersion(CompoundTag tag) {
-        return tag.contains(TAG_DATA_VERSION, Tag.TAG_INT)
-                ? Math.max(0, tag.getInt(TAG_DATA_VERSION))
-                : 0;
+        return Math.max(0, tag.getIntOr(TAG_DATA_VERSION, 0));
     }
 
     private void loadCommonState(CompoundTag tag) {
         selectionWidth = LaserExcavatorConfig.clampSelectionSize(
                 tag.contains(TAG_SELECTION_WIDTH)
-                        ? tag.getInt(TAG_SELECTION_WIDTH)
+                        ? tag.getIntOr(TAG_SELECTION_WIDTH, 0)
                         : LaserExcavatorConfig.DEFAULT_WIDTH.get(),
                 LaserExcavatorConfig.maxConfiguredHorizontalSize()
         );
         selectionHeight = LaserExcavatorConfig.clampSelectionSize(
                 tag.contains(TAG_SELECTION_HEIGHT)
-                        ? tag.getInt(TAG_SELECTION_HEIGHT)
+                        ? tag.getIntOr(TAG_SELECTION_HEIGHT, 0)
                         : LaserExcavatorConfig.DEFAULT_HEIGHT.get(),
                 LaserExcavatorConfig.MAX_VERTICAL_SIZE.get()
         );
         selectionLength = LaserExcavatorConfig.clampSelectionSize(
                 tag.contains(TAG_SELECTION_LENGTH)
-                        ? tag.getInt(TAG_SELECTION_LENGTH)
+                        ? tag.getIntOr(TAG_SELECTION_LENGTH, 0)
                         : LaserExcavatorConfig.DEFAULT_LENGTH.get(),
                 LaserExcavatorConfig.maxConfiguredHorizontalSize()
         );
 
-        scanState = ExcavatorScanState.byId(tag.getInt(TAG_SCAN_STATE));
+        scanState = ExcavatorScanState.byId(tag.getIntOr(TAG_SCAN_STATE, 0));
         int loadedHighestSurfaceY = tag.contains(TAG_HIGHEST_SURFACE_Y)
-                ? tag.getInt(TAG_HIGHEST_SURFACE_Y)
+                ? tag.getIntOr(TAG_HIGHEST_SURFACE_Y, 0)
                 : ExcavationScanner.NO_SURFACE;
         columns.loadSummary(
-                tag.getInt(TAG_SCAN_INDEX),
+                tag.getIntOr(TAG_SCAN_INDEX, 0),
                 loadedHighestSurfaceY,
-                tag.getInt(TAG_ACTIVE_COLUMN_COUNT)
+                tag.getIntOr(TAG_ACTIVE_COLUMN_COUNT, 0)
         );
-        blocksExcavated = Math.max(0, tag.getInt(TAG_BLOCKS_EXCAVATED));
-        syncedPendingDeliveryCount = Math.max(0, tag.getInt(TAG_PENDING_ITEM_COUNT));
-        workPhase = ExcavatorWorkPhase.byId(tag.getInt(TAG_WORK_PHASE));
-        phaseStartGameTime = tag.getLong(TAG_PHASE_START_GAME_TIME);
-        laserPoweredTicks = Math.max(0, tag.getInt(TAG_LASER_POWERED_TICKS));
-        laserEnergySpent = Math.max(0, tag.getInt(TAG_LASER_ENERGY_SPENT));
+        blocksExcavated = Math.max(0, tag.getIntOr(TAG_BLOCKS_EXCAVATED, 0));
+        syncedPendingDeliveryCount = Math.max(0, tag.getIntOr(TAG_PENDING_ITEM_COUNT, 0));
+        workPhase = ExcavatorWorkPhase.byId(tag.getIntOr(TAG_WORK_PHASE, 0));
+        phaseStartGameTime = tag.getLongOr(TAG_PHASE_START_GAME_TIME, 0L);
+        laserPoweredTicks = Math.max(0, tag.getIntOr(TAG_LASER_POWERED_TICKS, 0));
+        laserEnergySpent = Math.max(0, tag.getIntOr(TAG_LASER_ENERGY_SPENT, 0));
 
         columns.setSharedColumnsRegistered(false);
         laserVisualNeedsRestart = workPhase == ExcavatorWorkPhase.LASER;
 
         if (tag.contains(TAG_ENERGY)) {
-            energyStorage.loadStoredEnergy(tag.getInt(TAG_ENERGY));
+            energyStorage.loadStoredEnergy(tag.getIntOr(TAG_ENERGY, 0));
         }
-        activeTarget = tag.contains(TAG_ACTIVE_TARGET) ? BlockPos.of(tag.getLong(TAG_ACTIVE_TARGET)) : null;
-        activeTargetBlock = null;
-        if (tag.contains(TAG_ACTIVE_TARGET_BLOCK, Tag.TAG_STRING)) {
-            ResourceLocation id = ResourceLocation.tryParse(tag.getString(TAG_ACTIVE_TARGET_BLOCK));
-            if (id != null) {
-                activeTargetBlock = BuiltInRegistries.BLOCK.getOptional(id).orElse(null);
-            }
-        }
+        activeTarget = tag.contains(TAG_ACTIVE_TARGET) ? BlockPos.of(tag.getLongOr(TAG_ACTIVE_TARGET, 0L)) : null;
+        activeTargetBlock = tag.getString(TAG_ACTIVE_TARGET_BLOCK)
+                .map(ResourceLocation::tryParse)
+                .flatMap(BuiltInRegistries.BLOCK::getOptional)
+                .orElse(null);
     }
 
     private void loadClientSyncState() {
@@ -1605,30 +1621,24 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void loadExcavationState(CompoundTag tag) {
-        filterSkipCooldownEndTick = tag.contains(TAG_FILTER_SKIP_COOLDOWN_END_TICK, Tag.TAG_LONG)
-                ? tag.getLong(TAG_FILTER_SKIP_COOLDOWN_END_TICK)
-                : Long.MIN_VALUE;
+        filterSkipCooldownEndTick = tag.getLong(TAG_FILTER_SKIP_COOLDOWN_END_TICK).orElse(Long.MIN_VALUE);
         columns.loadExcavationState(
-                tag.getIntArray(TAG_SURFACE_HEIGHTS),
-                tag.getIntArray(TAG_CURRENT_HEIGHTS),
-                tag.getIntArray(TAG_ACTIVE_COLUMNS),
-                tag.getBoolean(TAG_EXCAVATION_INITIALIZED)
+                tag.getIntArray(TAG_SURFACE_HEIGHTS).orElseGet(() -> new int[0]),
+                tag.getIntArray(TAG_CURRENT_HEIGHTS).orElseGet(() -> new int[0]),
+                tag.getIntArray(TAG_ACTIVE_COLUMNS).orElseGet(() -> new int[0]),
+                tag.getBooleanOr(TAG_EXCAVATION_INITIALIZED, false)
         );
     }
 
     private void loadInventories(CompoundTag tag, HolderLookup.Provider registries) {
-        if (tag.contains(TAG_OUTPUT_INVENTORY, Tag.TAG_COMPOUND)) {
-            CompoundTag inventoryTag = tag.getCompound(TAG_OUTPUT_INVENTORY);
-            if (inventoryTag.getInt(TAG_INVENTORY_SIZE) == OUTPUT_SLOTS) {
+        tag.getCompound(TAG_OUTPUT_INVENTORY).ifPresent(inventoryTag -> {
+            if (inventoryTag.getIntOr(TAG_INVENTORY_SIZE, 0) == OUTPUT_SLOTS)
                 outputInventory.deserializeNBT(registries, inventoryTag);
-            }
-        }
-        if (tag.contains(TAG_UPGRADE_INVENTORY, Tag.TAG_COMPOUND)) {
-            CompoundTag inventoryTag = tag.getCompound(TAG_UPGRADE_INVENTORY);
-            if (inventoryTag.getInt(TAG_INVENTORY_SIZE) == ExcavatorUpgradeManager.STORED_UPGRADE_SLOTS) {
+        });
+        tag.getCompound(TAG_UPGRADE_INVENTORY).ifPresent(inventoryTag -> {
+            if (inventoryTag.getIntOr(TAG_INVENTORY_SIZE, 0) == ExcavatorUpgradeManager.STORED_UPGRADE_SLOTS)
                 upgrades.deserializeInventory(inventoryTag, registries);
-            }
-        }
+        });
     }
 
     private void rebuildRuntimeStateAfterLoad() {

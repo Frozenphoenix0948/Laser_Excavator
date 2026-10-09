@@ -6,8 +6,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 public final class ExcavatorUpgradeItem extends Item {
     private final ExcavatorUpgradeType type;
@@ -39,69 +40,70 @@ public final class ExcavatorUpgradeItem extends Item {
     public void appendHoverText(
             ItemStack stack,
             Item.TooltipContext context,
-            List<Component> tooltipComponents,
+            TooltipDisplay display,
+            Consumer<Component> tooltipComponents,
             TooltipFlag tooltipFlag
     ) {
-        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
+        super.appendHoverText(stack, context, display, tooltipComponents, tooltipFlag);
 
         switch (type) {
             case SPEED -> {
-                tooltipComponents.add(description("Reduces the time between mined blocks."));
-                tooltipComponents.add(value("Mining interval", LaserExcavatorConfig.speedInterval(tier) + " ticks"));
-                tooltipComponents.add(value(
+                tooltipComponents.accept(description("Reduces the time between mined blocks."));
+                tooltipComponents.accept(value("Mining interval", LaserExcavatorConfig.speedInterval(tier) + " ticks"));
+                tooltipComponents.accept(value(
                         "Energy draw",
                         LaserExcavatorConfig.energyPerTick(tier, 0) + " FE/t at base efficiency"
                 ));
             }
             case ENERGY_EFFICIENCY -> {
-                tooltipComponents.add(description("Reduces the total FE needed per excavated block."));
+                tooltipComponents.accept(description("Reduces the total FE needed per excavated block."));
                 int reduction = LaserExcavatorConfig.energyEfficiencyReductionPercent(tier);
                 int cost = LaserExcavatorConfig.energyPerBlock(tier);
                 int perTick = LaserExcavatorConfig.energyPerTick(0, tier);
-                tooltipComponents.add(value("Reduction", reduction + "%"));
-                tooltipComponents.add(value("Energy use", cost + " FE/block (" + perTick + " FE/t at base speed)"));
+                tooltipComponents.accept(value("Reduction", reduction + "%"));
+                tooltipComponents.accept(value("Energy use", cost + " FE/block (" + perTick + " FE/t at base speed)"));
             }
             case AREA -> {
-                tooltipComponents.add(description("Increases the maximum horizontal excavation area."));
+                tooltipComponents.accept(description("Increases the maximum horizontal excavation area."));
                 int size = LaserExcavatorConfig.areaSize(tier);
-                tooltipComponents.add(value("Maximum X/Z", size + " x " + size + " blocks"));
+                tooltipComponents.accept(value("Maximum X/Z", size + " x " + size + " blocks"));
             }
             case LUCK -> {
-                tooltipComponents.add(description("Applies Fortune to excavated block drops."));
-                tooltipComponents.add(value("Fortune level", Integer.toString(LaserExcavatorConfig.luckLevel(tier))));
-                tooltipComponents.add(Component.literal("Incompatible with Silk Touch").withStyle(ChatFormatting.DARK_RED));
+                tooltipComponents.accept(description("Applies Fortune to excavated block drops."));
+                tooltipComponents.accept(value("Fortune level", Integer.toString(LaserExcavatorConfig.luckLevel(tier))));
+                tooltipComponents.accept(Component.literal("Incompatible with Silk Touch").withStyle(ChatFormatting.DARK_RED));
             }
             case FILTER -> {
-                tooltipComponents.add(description("Leaves configured block types untouched."));
-                tooltipComponents.add(value("Filter entries", Integer.toString(LaserExcavatorConfig.filterCapacity(tier))));
+                tooltipComponents.accept(description("Leaves configured block types untouched."));
+                tooltipComponents.accept(value("Filter entries", Integer.toString(LaserExcavatorConfig.filterCapacity(tier))));
                 int reduction = LaserExcavatorConfig.filterCooldownReductionPercent(tier);
-                tooltipComponents.add(value(
+                tooltipComponents.accept(value(
                         "Skip cooldown",
                         reduction >= 100 ? "100% reduction (instant)" : reduction + "% reduction"
                 ));
             }
             case SILK_TOUCH -> {
-                tooltipComponents.add(description("Uses Silk Touch drops for excavated blocks."));
-                tooltipComponents.add(status("Silk Touch", LaserExcavatorConfig.SILK_TOUCH_ENABLED.get()));
-                tooltipComponents.add(Component.literal("Incompatible with Luck and Auto-Smelt").withStyle(ChatFormatting.DARK_RED));
+                tooltipComponents.accept(description("Uses Silk Touch drops for excavated blocks."));
+                tooltipComponents.accept(status("Silk Touch", LaserExcavatorConfig.SILK_TOUCH_ENABLED.get()));
+                tooltipComponents.accept(Component.literal("Incompatible with Luck and Auto-Smelt").withStyle(ChatFormatting.DARK_RED));
             }
             case AUTO_SMELTING -> {
-                tooltipComponents.add(description("Automatically smelts compatible block drops."));
-                tooltipComponents.add(status("Auto-Smelt", LaserExcavatorConfig.AUTO_SMELTING_ENABLED.get()));
-                tooltipComponents.add(Component.literal("Incompatible with Silk Touch").withStyle(ChatFormatting.DARK_RED));
+                tooltipComponents.accept(description("Automatically smelts compatible block drops."));
+                tooltipComponents.accept(status("Auto-Smelt", LaserExcavatorConfig.AUTO_SMELTING_ENABLED.get()));
+                tooltipComponents.accept(Component.literal("Incompatible with Silk Touch").withStyle(ChatFormatting.DARK_RED));
             }
             case FLUID_IGNORE -> {
-                tooltipComponents.add(description("Leaves fluid blocks untouched while excavating."));
-                tooltipComponents.add(Component.literal("Fluid blocks are skipped instantly").withStyle(ChatFormatting.AQUA));
+                tooltipComponents.accept(description("Leaves fluid blocks untouched while excavating."));
+                tooltipComponents.accept(Component.literal("Fluid blocks are skipped instantly").withStyle(ChatFormatting.AQUA));
             }
             case NETHER_COOLING -> {
-                tooltipComponents.add(description("Protects the excavator from extreme Nether heat."));
-                tooltipComponents.add(Component.literal("Allows scanning and excavation in the Nether").withStyle(ChatFormatting.AQUA));
+                tooltipComponents.accept(description("Protects the excavator from extreme Nether heat."));
+                tooltipComponents.accept(Component.literal("Allows scanning and excavation in the Nether").withStyle(ChatFormatting.AQUA));
             }
             case SOLAR -> {
-                tooltipComponents.add(description("Generates FE from 06:00-18:00."));
-                tooltipComponents.add(value("Generation", LaserExcavatorConfig.solarEnergyPerTick(tier) + " FE/t"));
-                tooltipComponents.add(Component.literal("Allows glass blocks/panes and up to " + LaserExcavatorConfig.solarMaxWaterBlocks() + " blocks of water above").withStyle(ChatFormatting.AQUA));
+                tooltipComponents.accept(description("Generates FE from 06:00-18:00."));
+                tooltipComponents.accept(value("Generation", LaserExcavatorConfig.solarEnergyPerTick(tier) + " FE/t"));
+                tooltipComponents.accept(Component.literal("Allows glass blocks/panes and up to " + LaserExcavatorConfig.solarMaxWaterBlocks() + " blocks of water above").withStyle(ChatFormatting.AQUA));
             }
         }
     }

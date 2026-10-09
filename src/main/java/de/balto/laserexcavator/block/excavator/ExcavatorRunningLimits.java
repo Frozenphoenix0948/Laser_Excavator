@@ -2,12 +2,13 @@ package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,9 +20,14 @@ public final class ExcavatorRunningLimits extends SavedData {
     private record Entry(UUID owner, int tier) {}
     private final Map<String, Entry> running = new HashMap<>();
 
+    private static final SavedDataType<ExcavatorRunningLimits> DATA_TYPE = new SavedDataType<>(
+            "laserexcavator_running_limits",
+            ExcavatorRunningLimits::new,
+            CompoundTag.CODEC.xmap(ExcavatorRunningLimits::load, ExcavatorRunningLimits::save)
+    );
+
     public static ExcavatorRunningLimits get(ServerLevel level) {
-        return level.getServer().overworld().getDataStorage().computeIfAbsent(
-                new SavedData.Factory<>(ExcavatorRunningLimits::new, ExcavatorRunningLimits::load, null), "laserexcavator_running_limits");
+        return level.getServer().overworld().getDataStorage().computeIfAbsent(DATA_TYPE);
     }
 
     private static String key(ServerLevel level, BlockPos pos) {
@@ -68,23 +74,24 @@ public final class ExcavatorRunningLimits extends SavedData {
         if (running.remove(key(level, pos)) != null) setDirty();
     }
 
-    private static ExcavatorRunningLimits load(CompoundTag tag, HolderLookup.Provider registries) {
+    private static ExcavatorRunningLimits load(CompoundTag tag) {
         ExcavatorRunningLimits data = new ExcavatorRunningLimits();
-        for (Tag element : tag.getList("Running", Tag.TAG_COMPOUND)) {
-            CompoundTag entry = (CompoundTag) element;
-            if (entry.hasUUID("Owner")) data.running.put(entry.getString("Position"),
-                    new Entry(entry.getUUID("Owner"), Math.clamp(entry.getInt("Tier"), 0, 5)));
+        for (Tag element : tag.getListOrEmpty("Running")) {
+            if (!(element instanceof CompoundTag entry)) continue;
+            entry.read("Owner", UUIDUtil.CODEC).ifPresent(owner ->
+                    data.running.put(entry.getStringOr("Position", ""),
+                            new Entry(owner, Math.clamp(entry.getIntOr("Tier", 0), 0, 5))));
         }
         return data;
     }
 
-    @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    private CompoundTag save() {
+        CompoundTag tag = new CompoundTag();
         ListTag list = new ListTag();
         running.forEach((key, entry) -> {
             CompoundTag row = new CompoundTag();
             row.putString("Position", key);
-            row.putUUID("Owner", entry.owner);
+            row.store("Owner", UUIDUtil.CODEC, entry.owner);
             row.putInt("Tier", entry.tier);
             list.add(row);
         });
