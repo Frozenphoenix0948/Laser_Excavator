@@ -230,11 +230,11 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
         for (int g = 0; g < GROUPS.size(); g++) {
             Group group = GROUPS.get(g);
             int x = panelLeft + 15 + group.column * (columnWidth + 6), y = groupY[g] - scroll;
-            graphics.pose().pushPose();
-            graphics.pose().translate(x, y, 0);
-            graphics.pose().scale(.85F, .85F, 1);
+            graphics.pose().pushMatrix();
+            graphics.pose().translate(x, y);
+            graphics.pose().scale(.85F, .85F);
             graphics.drawString(font, group.name, 0, 0, ACCENT, false);
-            graphics.pose().popPose();
+            graphics.pose().popMatrix();
             int lineEnd = x + columnWidth - 14;
             graphics.fill(x + (int) (font.width(group.name) * .85F) + 5, y + 3, lineEnd, y + 4, ACCENT_DIM);
         }
@@ -264,10 +264,10 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
 
         Impact hoveredImpact = hoveredImpact(mouseX, mouseY);
         Setting hovered = hoveredSetting(mouseX, mouseY);
-        if (hoveredImpact != null) graphics.renderTooltip(font, Component.literal(hoveredImpact.tooltip), mouseX, mouseY);
-        else if (hovered != null) graphics.renderTooltip(font, font.split(settingTooltip(hovered), 260), mouseX, mouseY);
-        else if (breakEffectsButton.isHovered()) graphics.renderTooltip(font, font.split(Component.literal("Play vanilla block-break sounds and particles locally when excavator removals reach this client."), 260), mouseX, mouseY);
-        else if (transportModeButton.isHovered()) graphics.renderTooltip(font, font.split(Component.literal("Transport rendering mode: Normal uses full LOD visuals, Dots uses the cheapest markers, and Off renders no transports."), 260), mouseX, mouseY);
+        if (hoveredImpact != null) graphics.setTooltipForNextFrame(font, Component.literal(hoveredImpact.tooltip), mouseX, mouseY);
+        else if (hovered != null) graphics.setTooltipForNextFrame(font, font.split(settingTooltip(hovered), 260), mouseX, mouseY);
+        else if (breakEffectsButton.isHovered()) graphics.setTooltipForNextFrame(font, font.split(Component.literal("Play vanilla block-break sounds and particles locally when excavator removals reach this client."), 260), mouseX, mouseY);
+        else if (transportModeButton.isHovered()) graphics.setTooltipForNextFrame(font, font.split(Component.literal("Transport rendering mode: Normal uses full LOD visuals, Dots uses the cheapest markers, and Off renders no transports."), 260), mouseX, mouseY);
     }
 
     private Impact hoveredImpact(int mouseX, int mouseY) {

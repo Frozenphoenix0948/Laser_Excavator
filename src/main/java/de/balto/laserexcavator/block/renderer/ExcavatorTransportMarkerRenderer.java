@@ -102,9 +102,8 @@ public final class ExcavatorTransportMarkerRenderer {
         batchedSmallMarkerCount = index + 1;
     }
 
-    public static void flush(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) return;
-
+    public static void flush(RenderLevelStageEvent.AfterEntities event) {
+        
         // A disabled renderer discards any markers queued earlier in the frame.
         if (LaserExcavatorClientConfig.isAllRenderingDisabled()) {
             clear();

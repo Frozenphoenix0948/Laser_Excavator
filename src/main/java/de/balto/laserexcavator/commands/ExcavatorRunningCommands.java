@@ -27,7 +27,7 @@ public final class ExcavatorRunningCommands {
     }
 
     private static int list(ServerPlayer player) {
-        var entries = ExcavatorRunningLimits.get(player.serverLevel()).list(player.getUUID());
+        var entries = ExcavatorRunningLimits.get(player.level()).list(player.getUUID());
         entries.sort(Comparator.comparingInt(ExcavatorRunningLimits.RunningExcavator::tier)
                 .thenComparing(ExcavatorRunningLimits.RunningExcavator::dimension)
                 .thenComparing(entry -> entry.position().asLong()));

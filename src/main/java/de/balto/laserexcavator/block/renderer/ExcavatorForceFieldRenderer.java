@@ -832,7 +832,6 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
         return !frustum.isVisible(getRenderBoundingBox(blockEntity));
     }
 
-    @Override
     public boolean shouldRenderOffScreen(ExcavatorBlockEntity blockEntity) {
         // Keep the dispatcher permissive; render() performs the exact complete-effect
         // hull test itself so vanilla block-entity culling cannot create edge/below-field false negatives.

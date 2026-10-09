@@ -2,7 +2,8 @@ package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.entity.FuelValues;
@@ -102,17 +103,17 @@ public final class ExcavatorFuelManager {
                 && fuel.getCount() - 1 + remainder.getCount() <= Math.min(limit, fuel.getMaxStackSize());
     }
 
-    public void save(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.put(TAG_FUEL_INVENTORY, inventory.serializeNBT(registries));
+    public void save(ValueOutput tag) {
+        inventory.serialize(tag.child(TAG_FUEL_INVENTORY));
         if (burnTicksRemaining > 0) {
             tag.putInt(TAG_BURN_TICKS_REMAINING, burnTicksRemaining);
             tag.putInt(TAG_BURN_TICKS_TOTAL, Math.max(burnTicksRemaining, burnTicksTotal));
         }
     }
 
-    public void load(CompoundTag tag, HolderLookup.Provider registries) {
+    public void load(ValueInput tag) {
         burnTicksRemaining = Math.max(0, tag.getIntOr(TAG_BURN_TICKS_REMAINING, 0));
         burnTicksTotal = Math.max(burnTicksRemaining, tag.getIntOr(TAG_BURN_TICKS_TOTAL, 0));
-        tag.getCompound(TAG_FUEL_INVENTORY).ifPresent(inventoryTag -> inventory.deserializeNBT(registries, inventoryTag));
+        tag.child(TAG_FUEL_INVENTORY).ifPresent(inventory::deserialize);
     }
 }

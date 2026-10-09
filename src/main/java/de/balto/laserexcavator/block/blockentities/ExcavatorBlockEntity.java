@@ -29,6 +29,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -1489,19 +1491,19 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(ValueOutput tag) {
+        super.saveAdditional(tag);
 
         tag.putInt(TAG_DATA_VERSION, PERSISTENCE_VERSION);
         writeCommonData(tag, false);
         saveExcavationState(tag);
-        saveInventories(tag, registries);
-        fuel.save(tag, registries);
+        saveInventories(tag);
+        fuel.save(tag);
         upgrades.saveFilter(tag);
-        deliveries.save(tag, registries);
+        deliveries.save(tag);
     }
 
-    private void saveExcavationState(CompoundTag tag) {
+    private void saveExcavationState(ValueOutput tag) {
         tag.putIntArray(TAG_SURFACE_HEIGHTS, columns.surfaceHeightsForSave());
         tag.putIntArray(TAG_CURRENT_HEIGHTS, columns.currentHeightsForSave());
         tag.putIntArray(TAG_ACTIVE_COLUMNS, columns.activeColumnsForSave());
@@ -1512,9 +1514,9 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         }
     }
 
-    private void saveInventories(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.put(TAG_OUTPUT_INVENTORY, outputInventory.serializeNBT(registries));
-        tag.put(TAG_UPGRADE_INVENTORY, upgrades.inventory().serializeNBT(registries));
+    private void saveInventories(ValueOutput tag) {
+        outputInventory.serialize(tag.child(TAG_OUTPUT_INVENTORY));
+        upgrades.inventory().serialize(tag.child(TAG_UPGRADE_INVENTORY));
     }
 
     @Override
@@ -1539,8 +1541,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
+    protected void loadAdditional(ValueInput tag) {
+        super.loadAdditional(tag);
 
         loadCommonState(tag);
         if (tag.getBooleanOr(TAG_CLIENT_SYNC_ONLY, false)) {
@@ -1550,41 +1552,41 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         int persistenceVersion = readPersistenceVersion(tag);
         loadExcavationState(tag);
-        loadInventories(tag, registries);
-        fuel.load(tag, registries);
+        loadInventories(tag);
+        fuel.load(tag);
         upgrades.loadFilter(tag);
         clampSelectionToAreaUpgrade();
-        deliveries.load(tag, registries);
+        deliveries.load(tag);
         rebuildRuntimeStateAfterLoad();
         validateLoadedWorkState(persistenceVersion);
     }
 
-    private int readPersistenceVersion(CompoundTag tag) {
+    private int readPersistenceVersion(ValueInput tag) {
         return Math.max(0, tag.getIntOr(TAG_DATA_VERSION, 0));
     }
 
-    private void loadCommonState(CompoundTag tag) {
+    private void loadCommonState(ValueInput tag) {
         selectionWidth = LaserExcavatorConfig.clampSelectionSize(
-                tag.contains(TAG_SELECTION_WIDTH)
+                tag.getInt(TAG_SELECTION_WIDTH).isPresent()
                         ? tag.getIntOr(TAG_SELECTION_WIDTH, 0)
                         : LaserExcavatorConfig.DEFAULT_WIDTH.get(),
                 LaserExcavatorConfig.maxConfiguredHorizontalSize()
         );
         selectionHeight = LaserExcavatorConfig.clampSelectionSize(
-                tag.contains(TAG_SELECTION_HEIGHT)
+                tag.getInt(TAG_SELECTION_HEIGHT).isPresent()
                         ? tag.getIntOr(TAG_SELECTION_HEIGHT, 0)
                         : LaserExcavatorConfig.DEFAULT_HEIGHT.get(),
                 LaserExcavatorConfig.MAX_VERTICAL_SIZE.get()
         );
         selectionLength = LaserExcavatorConfig.clampSelectionSize(
-                tag.contains(TAG_SELECTION_LENGTH)
+                tag.getInt(TAG_SELECTION_LENGTH).isPresent()
                         ? tag.getIntOr(TAG_SELECTION_LENGTH, 0)
                         : LaserExcavatorConfig.DEFAULT_LENGTH.get(),
                 LaserExcavatorConfig.maxConfiguredHorizontalSize()
         );
 
         scanState = ExcavatorScanState.byId(tag.getIntOr(TAG_SCAN_STATE, 0));
-        int loadedHighestSurfaceY = tag.contains(TAG_HIGHEST_SURFACE_Y)
+        int loadedHighestSurfaceY = tag.getInt(TAG_HIGHEST_SURFACE_Y).isPresent()
                 ? tag.getIntOr(TAG_HIGHEST_SURFACE_Y, 0)
                 : ExcavationScanner.NO_SURFACE;
         columns.loadSummary(
@@ -1602,10 +1604,10 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         columns.setSharedColumnsRegistered(false);
         laserVisualNeedsRestart = workPhase == ExcavatorWorkPhase.LASER;
 
-        if (tag.contains(TAG_ENERGY)) {
+        if (tag.getInt(TAG_ENERGY).isPresent()) {
             energyStorage.loadStoredEnergy(tag.getIntOr(TAG_ENERGY, 0));
         }
-        activeTarget = tag.contains(TAG_ACTIVE_TARGET) ? BlockPos.of(tag.getLongOr(TAG_ACTIVE_TARGET, 0L)) : null;
+        activeTarget = tag.getLong(TAG_ACTIVE_TARGET).isPresent() ? BlockPos.of(tag.getLongOr(TAG_ACTIVE_TARGET, 0L)) : null;
         activeTargetBlock = tag.getString(TAG_ACTIVE_TARGET_BLOCK)
                 .map(ResourceLocation::tryParse)
                 .flatMap(BuiltInRegistries.BLOCK::getOptional)
@@ -1620,7 +1622,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         );
     }
 
-    private void loadExcavationState(CompoundTag tag) {
+    private void loadExcavationState(ValueInput tag) {
         filterSkipCooldownEndTick = tag.getLong(TAG_FILTER_SKIP_COOLDOWN_END_TICK).orElse(Long.MIN_VALUE);
         columns.loadExcavationState(
                 tag.getIntArray(TAG_SURFACE_HEIGHTS).orElseGet(() -> new int[0]),
@@ -1630,14 +1632,14 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         );
     }
 
-    private void loadInventories(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.getCompound(TAG_OUTPUT_INVENTORY).ifPresent(inventoryTag -> {
+    private void loadInventories(ValueInput tag) {
+        tag.child(TAG_OUTPUT_INVENTORY).ifPresent(inventoryTag -> {
             if (inventoryTag.getIntOr(TAG_INVENTORY_SIZE, 0) == OUTPUT_SLOTS)
-                outputInventory.deserializeNBT(registries, inventoryTag);
+                outputInventory.deserialize(inventoryTag);
         });
-        tag.getCompound(TAG_UPGRADE_INVENTORY).ifPresent(inventoryTag -> {
+        tag.child(TAG_UPGRADE_INVENTORY).ifPresent(inventoryTag -> {
             if (inventoryTag.getIntOr(TAG_INVENTORY_SIZE, 0) == ExcavatorUpgradeManager.STORED_UPGRADE_SLOTS)
-                upgrades.deserializeInventory(inventoryTag, registries);
+                upgrades.deserializeInventory(inventoryTag);
         });
     }
 
@@ -1661,6 +1663,33 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         if (columns.isExcavationInitialized() && !columns.hasExpectedCurrentCount(totalColumns)) {
             resetAllWorkData();
+        }
+    }
+
+    private void writeCommonData(ValueOutput tag, boolean clientSyncOnly) {
+        tag.putInt(TAG_SELECTION_WIDTH, selectionWidth);
+        tag.putInt(TAG_SELECTION_HEIGHT, selectionHeight);
+        tag.putInt(TAG_SELECTION_LENGTH, selectionLength);
+        tag.putInt(TAG_SCAN_STATE, scanState.id());
+        tag.putInt(TAG_SCAN_INDEX, columns.scanIndex());
+        tag.putInt(TAG_HIGHEST_SURFACE_Y, columns.highestSurfaceY());
+        tag.putInt(TAG_BLOCKS_EXCAVATED, blocksExcavated);
+        tag.putInt(TAG_ACTIVE_COLUMN_COUNT, columns.activeCount());
+        tag.putInt(TAG_PENDING_ITEM_COUNT, deliveries.pendingCount());
+
+        if (!clientSyncOnly) {
+            tag.putInt(TAG_WORK_PHASE, workPhase.id());
+            tag.putLong(TAG_PHASE_START_GAME_TIME, phaseStartGameTime);
+            tag.putInt(TAG_LASER_POWERED_TICKS, laserPoweredTicks);
+            tag.putInt(TAG_LASER_ENERGY_SPENT, laserEnergySpent);
+            if (activeTarget != null) {
+                tag.putLong(TAG_ACTIVE_TARGET, activeTarget.asLong());
+            }
+            if (activeTargetBlock != null) {
+                tag.putString(TAG_ACTIVE_TARGET_BLOCK, BuiltInRegistries.BLOCK.getKey(activeTargetBlock).toString());
+            }
+        } else {
+            tag.putBoolean(TAG_CLIENT_SYNC_ONLY, true);
         }
     }
 

@@ -53,8 +53,6 @@ final class ExcavatorFilterPanel {
 
     void render(GuiGraphics graphics, Font font, int mouseX, int mouseY, float partialTick) {
         int x = x(), y = y(), bottom = bottom(), capacity = menu().getFilterCapacity();
-        graphics.pose().pushPose();
-        graphics.pose().translate(0, 0, 600);
 
         graphics.fill(x + 4, y + 4, x + W + 4, bottom + 4, SHADOW);
         graphics.fill(x, y, x + W, bottom, FRAME);
@@ -104,7 +102,6 @@ final class ExcavatorFilterPanel {
 
         renderTooltip(graphics, font, mouseX, mouseY);
         screen.renderFilterInventoryTooltip(graphics, mouseX, mouseY);
-        graphics.pose().popPose();
     }
 
     private void drawInventoryBackground(GuiGraphics graphics) {
@@ -147,13 +144,13 @@ final class ExcavatorFilterPanel {
             int sx = x + GRID_X + slot % 4 * GRID_STEP, sy = y + GRID_Y + slot / 4 * GRID_STEP;
             if (!inside(mouseX, mouseY, sx, sy, 16, 16)) continue;
             Block block = menu().getFilterBlock(slot);
-            if (block == null) graphics.renderComponentTooltip(font, List.of(
+            if (block == null) graphics.setComponentTooltipForNextFrame(font, List.of(
                     Component.literal("Filter slot").withStyle(ChatFormatting.GOLD),
                     Component.literal("Hold a block and click, or Shift-click it in your inventory.").withStyle(ChatFormatting.GRAY)
             ), mouseX, mouseY);
             else {
                 ItemStack stack = block.asItem().getDefaultInstance();
-                if (!stack.isEmpty()) graphics.renderTooltip(font, stack, mouseX, mouseY);
+                if (!stack.isEmpty()) graphics.setTooltipForNextFrame(font, stack, mouseX, mouseY);
             }
             return;
         }

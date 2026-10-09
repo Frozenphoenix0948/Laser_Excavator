@@ -79,11 +79,11 @@ final class ExcavatorUiStyle {
     }
 
     static void drawScaledString(GuiGraphics graphics, Font font, String text, float x, float y, int color, float scale) {
-        graphics.pose().pushPose();
-        graphics.pose().translate(x, y, 0);
-        graphics.pose().scale(scale, scale, 1);
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(x, y);
+        graphics.pose().scale(scale, scale);
         graphics.drawString(font, text, 0, 0, color, false);
-        graphics.pose().popPose();
+        graphics.pose().popMatrix();
     }
 
     static void drawCenteredScaledString(GuiGraphics graphics, Font font, String text, float centerX, float y, int color, float scale) {

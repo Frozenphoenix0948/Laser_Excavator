@@ -12,7 +12,7 @@ public final class ExcavatorStressClientHooks {
         NeoForge.EVENT_BUS.addListener(ExcavatorTransportStressHarness::onClientTick);
     }
 
-    public static void renderBeforeTransportFlush(RenderLevelStageEvent event) {
+    public static void renderBeforeTransportFlush(RenderLevelStageEvent.AfterEntities event) {
         ExcavatorTransportStressHarness.render(event);
     }
 }

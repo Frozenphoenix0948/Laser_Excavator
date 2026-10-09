@@ -413,14 +413,14 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             ChatFormatting color = active >= allowed ? ChatFormatting.RED : active > 0 && active * 2 >= allowed ? ChatFormatting.YELLOW : ChatFormatting.GREEN;
             lines.add(Component.literal("Tier " + tier + ": " + active + "/" + allowed).withStyle(color));
         }
-        graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+        graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
     }
 
     private void renderExcavationLimitTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!menu.isRunningLimitReached(menu.getRunningLimitTier()) || (menu.getScanState() != ExcavatorScanState.READY || menu.isOverheating())
                 || !isInside(mouseX, mouseY, excavationButton.getX(), excavationButton.getY(), excavationButton.getWidth(), excavationButton.getHeight())) return;
         int tier = menu.getRunningLimitTier();
-        graphics.renderComponentTooltip(font, List.of(
+        graphics.setComponentTooltipForNextFrame(font, List.of(
                 Component.literal("Running excavator limit reached").withStyle(ChatFormatting.RED),
                 Component.literal("Tier " + tier + ": " + menu.getRunningLimitActive(tier) + "/" + menu.getRunningLimitAllowed(tier)).withStyle(ChatFormatting.YELLOW),
                 Component.literal("Pause another excavator of this tier first.").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
@@ -540,10 +540,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     }
 
     private void renderLockedUpgradeIndicators(GuiGraphics graphics) {
-        graphics.flush();
-        graphics.pose().pushPose();
-        graphics.pose().translate(0, 0, 500);
-
+        graphics.nextStratum();
         int y = topPos + (menu.isFuelSlotEnabled() ? UPGRADE_Y_WITH_FUEL : UPGRADE_Y_NO_FUEL);
         for (int slot = 0; slot < menu.getUpgradeSlotCount(); slot++) {
             if (!menu.isUpgradeSlotLocked(slot)) continue;
@@ -552,8 +549,6 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             ExcavatorUiStyle.drawLock(graphics, x + 9, sy + 8, WARNING);
         }
 
-        graphics.pose().popPose();
-        graphics.flush();
     }
 
     private boolean isOverLockedUpgradeLock(double mouseX, double mouseY) {
@@ -582,7 +577,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     }
 
     private void renderLockTooltip(GuiGraphics graphics, int mouseX, int mouseY, String target) {
-        graphics.renderComponentTooltip(font, List.of(
+        graphics.setComponentTooltipForNextFrame(font, List.of(
                 Component.literal("Locked while active").withStyle(ChatFormatting.GOLD),
                 Component.literal("Pause the excavator and wait for all transports").withStyle(ChatFormatting.GRAY),
                 Component.literal("to finish before changing this " + target + ".").withStyle(ChatFormatting.GRAY)
@@ -610,7 +605,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             int x = field.getX() + field.getWidth() - 12;
             int y = field.getY() + 5;
             if (!isInside(mouseX, mouseY, x, y, 7, 8)) continue;
-            graphics.renderComponentTooltip(font, List.of(
+            graphics.setComponentTooltipForNextFrame(font, List.of(
                     Component.literal("Unsaved change").withStyle(ChatFormatting.GOLD),
                     Component.literal("Click outside to save it.").withStyle(ChatFormatting.GRAY)
             ), mouseX, mouseY);
@@ -623,7 +618,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         int y = topPos + ENERGY_BAR_Y;
         if (!isInside(mouseX, mouseY, x, y, ENERGY_BAR_W, ENERGY_BAR_H)) return;
 
-        graphics.renderComponentTooltip(
+        graphics.setComponentTooltipForNextFrame(
                 font,
                 List.of(
                         Component.literal("Energy").withStyle(ChatFormatting.RED),
@@ -649,7 +644,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             case ExcavatorSolarManager.STATUS_NIGHT -> "Solar: Night";
             default -> "Solar: Blocked";
         };
-        graphics.renderTooltip(font, Component.literal(text), mouseX, mouseY);
+        graphics.setTooltipForNextFrame(font, Component.literal(text), mouseX, mouseY);
     }
 
     private void renderEmptySlotTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -684,7 +679,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
 
         if (tooltip != null) {
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
         }
     }
 
@@ -704,8 +699,8 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
 
     void renderFilterInventory(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         hoveredSlot = null;
-        graphics.pose().pushPose();
-        graphics.pose().translate(leftPos, topPos, 0);
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(leftPos, topPos);
         for (Slot slot : menu.slots) {
             if (!isPlayerInventorySlot(slot) || !slot.isActive()) continue;
             renderSlot(graphics, slot);
@@ -713,7 +708,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
                     && mouseY >= topPos + slot.y && mouseY < topPos + slot.y + 16) hoveredSlot = slot;
         }
         if (hoveredSlot != null) graphics.fill(hoveredSlot.x, hoveredSlot.y, hoveredSlot.x + 16, hoveredSlot.y + 16, 0x80FFFFFF);
-        graphics.pose().popPose();
+        graphics.pose().popMatrix();
     }
 
     void renderFilterInventoryTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -816,8 +811,6 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             renderLockedUpgradeIndicators(graphics);
             renderUnsavedSelectionIcons(graphics);
 
-            graphics.pose().pushPose();
-            graphics.pose().translate(0, 0, 1000);
             if (!isOverLockedUpgradeLock(mouseX, mouseY)) renderTooltip(graphics, mouseX, mouseY);
             renderEmptySlotTooltip(graphics, mouseX, mouseY);
             renderEnergyTooltip(graphics, mouseX, mouseY);
@@ -826,31 +819,26 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             renderSolarTooltip(graphics, mouseX, mouseY);
             renderUnsavedSelectionTooltip(graphics, mouseX, mouseY);
             renderConfigurationLockTooltip(graphics, mouseX, mouseY);
-            graphics.pose().popPose();
         } else {
             super.render(graphics, -10000, -10000, partialTick);
-            renderBlurredBackground();
+            graphics.nextStratum();
+            renderBlurredBackground(graphics);
             graphics.fill(0, 0, width, height, 0x44000000);
             filterPanel.render(graphics, font, mouseX, mouseY, partialTick);
         }
 
         ItemStack carried = menu.getCarried();
         if (filterPanel.isOpen() && !carried.isEmpty()) {
-            graphics.pose().pushPose();
-            graphics.pose().translate(0, 0, 900);
+            graphics.nextStratum();
             graphics.renderItem(carried, mouseX - 8, mouseY - 8);
             graphics.renderItemDecorations(font, carried, mouseX - 8, mouseY - 8);
-            graphics.pose().popPose();
         }
 
         if (!filterPanel.isOpen()) {
             Component conflict = carried.isEmpty() ? null : menu.getUpgradeConflictMessage(carried);
             if (conflict != null && isOverUpgradeSlot(mouseX, mouseY)
                     && !isOverLockedUpgradeLock(mouseX, mouseY)) {
-                graphics.pose().pushPose();
-                graphics.pose().translate(0, 0, 1200);
-                graphics.renderTooltip(font, conflict.copy().withStyle(ChatFormatting.RED), mouseX, mouseY);
-                graphics.pose().popPose();
+                graphics.setTooltipForNextFrame(font, conflict.copy().withStyle(ChatFormatting.RED), mouseX, mouseY);
             }
         }
     }

@@ -7,7 +7,8 @@ import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -378,8 +379,8 @@ public final class ExcavatorUpgradeManager {
         return cachedLootTool;
     }
 
-    public void saveFilter(CompoundTag tag) {
-        CompoundTag filterTag = new CompoundTag();
+    public void saveFilter(ValueOutput tag) {
+        ValueOutput filterTag = tag.child(TAG_BLOCK_FILTER);
         for (int i = 0; i < MAX_FILTER_SLOTS; i++) {
             Block block = filteredBlocks[i];
             if (block != null) {
@@ -387,13 +388,12 @@ public final class ExcavatorUpgradeManager {
             }
         }
         filterTag.putBoolean(TAG_FILTER_WHITELIST, filterWhitelist);
-        tag.put(TAG_BLOCK_FILTER, filterTag);
     }
 
-    public void loadFilter(CompoundTag tag) {
+    public void loadFilter(ValueInput tag) {
         Arrays.fill(filteredBlocks, null);
         filterWhitelist = false;
-        CompoundTag filterTag = tag.getCompound(TAG_BLOCK_FILTER).orElse(null);
+        ValueInput filterTag = tag.child(TAG_BLOCK_FILTER).orElse(null);
         if (filterTag != null) {
             filterWhitelist = filterTag.getBooleanOr(TAG_FILTER_WHITELIST, false);
             for (int i = 0; i < MAX_FILTER_SLOTS; i++) {
@@ -410,8 +410,8 @@ public final class ExcavatorUpgradeManager {
         rebuildFilterLookup();
     }
 
-    public void deserializeInventory(CompoundTag inventoryTag, HolderLookup.Provider registries) {
-        inventory.deserializeNBT(registries, inventoryTag);
+    public void deserializeInventory(ValueInput inventoryTag) {
+        inventory.deserialize(inventoryTag);
         refreshCache();
     }
 }

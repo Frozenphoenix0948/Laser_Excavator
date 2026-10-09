@@ -4,11 +4,8 @@ import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
@@ -202,52 +199,36 @@ public final class ExcavatorDeliveryManager {
         }
     }
 
-    public void save(CompoundTag tag, HolderLookup.Provider registries) {
+    public void save(ValueOutput output) {
         if (pendingDeliveryCount == 0) return;
-        ListTag deliveriesTag = new ListTag();
+        ValueOutput.ValueOutputList entries = output.childrenList(NBT_DELIVERIES);
         for (var entry : pendingByTick.long2ObjectEntrySet()) {
             for (Delivery delivery : entry.getValue()) {
-                CompoundTag deliveryTag = new CompoundTag();
-                deliveryTag.putLong(NBT_ARRIVAL, entry.getLongKey());
-                Tag saved = materialize(delivery).save(registries);
-                if (saved instanceof CompoundTag compound) {
-                    deliveryTag.put(NBT_STACK, compound);
-                    deliveriesTag.add(deliveryTag);
-                }
+                ValueOutput row = entries.addChild();
+                row.putLong(NBT_ARRIVAL, entry.getLongKey());
+                row.store(NBT_STACK, ItemStack.CODEC, materialize(delivery));
             }
         }
-        if (!deliveriesTag.isEmpty()) tag.put(NBT_DELIVERIES, deliveriesTag);
     }
 
-    public void load(CompoundTag tag, HolderLookup.Provider registries) {
+    public void load(ValueInput input) {
         pendingByTick.clear();
         catchUpTicks.clear();
         pendingDeliveryCount = 0;
         lastProcessedGameTime = Long.MIN_VALUE;
         schedulerCatchUpRequired = true;
         indexDirty = true;
-        ListTag deliveriesTag = tag.getListOrEmpty(NBT_DELIVERIES);
-        for (int i = 0; i < deliveriesTag.size(); i++) {
-            CompoundTag deliveryTag = deliveriesTag.getCompoundOrEmpty(i);
-            long tick = deliveryTag.getLongOr(NBT_ARRIVAL, 0L);
-            CompoundTag stackTag = deliveryTag.getCompound(NBT_STACK).orElse(null);
-            if (stackTag != null) {
-                ItemStack stack = parseStack(registries, stackTag);
+        for (ValueInput row : input.childrenListOrEmpty(NBT_DELIVERIES)) {
+            long tick = row.getLongOr(NBT_ARRIVAL, 0L);
+            if (row.child(NBT_STACK).isPresent()) {
+                ItemStack stack = row.read(NBT_STACK, ItemStack.CODEC).orElse(ItemStack.EMPTY);
                 if (!stack.isEmpty()) addNew(tick, stack);
                 continue;
             }
-            ListTag stacksTag = deliveryTag.getListOrEmpty(NBT_STACKS);
-            for (int j = 0; j < stacksTag.size(); j++) {
-                ItemStack stack = parseStack(registries, stacksTag.getCompoundOrEmpty(j));
+            for (ItemStack stack : row.listOrEmpty(NBT_STACKS, ItemStack.CODEC)) {
                 if (!stack.isEmpty()) addNew(tick, stack);
             }
         }
-    }
-
-    private static ItemStack parseStack(HolderLookup.Provider registries, CompoundTag compound) {
-        return ItemStack.OPTIONAL_CODEC
-                .parse(registries.createSerializationContext(NbtOps.INSTANCE), compound)
-                .result().orElse(ItemStack.EMPTY);
     }
 
     private boolean canMerge(ItemStack stack) {

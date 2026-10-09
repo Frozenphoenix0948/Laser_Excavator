@@ -910,7 +910,7 @@ public final class ExcavatorClientVisuals {
     }
 
     /** Atlas rebuilds invalidate cached UV coordinates. */
-    @EventBusSubscriber(modid = LaserExcavator.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
+    @EventBusSubscriber(modid = LaserExcavator.MODID, value = Dist.CLIENT)
     public static final class ModEvents {
         private ModEvents() {}
 
