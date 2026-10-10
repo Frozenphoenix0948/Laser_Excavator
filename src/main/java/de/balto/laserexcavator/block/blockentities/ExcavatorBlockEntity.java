@@ -3,7 +3,7 @@ package de.balto.laserexcavator.block.blockentities;
 import de.balto.laserexcavator.block.excavator.ExcavationScanner;
 import de.balto.laserexcavator.block.excavator.ExcavatorArea;
 import de.balto.laserexcavator.block.excavator.ExcavatorRunningLimits;
-import de.balto.laserexcavator.block.excavator.ExcavatorAutomationItemHandler;
+import de.balto.laserexcavator.block.excavator.ExcavatorTransferItemHandler;
 import de.balto.laserexcavator.block.excavator.ExcavatorAutoSmelter;
 import de.balto.laserexcavator.block.excavator.ExcavatorLootCache;
 import de.balto.laserexcavator.block.excavator.ExcavatorFastBlockRemoval;
@@ -18,7 +18,6 @@ import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
 import de.balto.laserexcavator.block.excavator.ExcavatorSolarManager;
 import de.balto.laserexcavator.block.excavator.ExcavatorSharedColumnHeights;
 import de.balto.laserexcavator.block.excavator.ExcavatorWorkPhase;
-import de.balto.laserexcavator.block.excavator.ExtractOnlyItemHandler;
 import de.balto.laserexcavator.screen.ExcavatorMenu;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
 import de.balto.laserexcavator.network.excavator.ExcavatorNetworking;
@@ -52,7 +51,9 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.neoforge.energy.IEnergyStorage;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.Nullable;
 
@@ -179,13 +180,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         }
     };
 
-    private final IItemHandler externalOutputHandler = new ExtractOnlyItemHandler(outputInventory);
-
-    /**
-     * Combined automation view used on the top, sides, and unsided capability.
-     * Output remains extract-only while the virtual final slot accepts furnace fuel.
-     */
-    private final IItemHandler externalAutomationHandler;
+    private final ExcavatorTransferItemHandler externalTransferOutput;
+    private final ExcavatorTransferItemHandler externalTransferAutomation;
 
     /**
      * Standard NeoForge/Forge Energy input. External systems may insert power but
@@ -250,7 +246,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         );
         fuel = new ExcavatorFuelManager(energyStorage, this::setChanged, () -> level.fuelValues());
         solar = new ExcavatorSolarManager(energyStorage);
-        externalAutomationHandler = new ExcavatorAutomationItemHandler(outputInventory, fuel.inventory());
+        externalTransferOutput = new ExcavatorTransferItemHandler(outputInventory, fuel.inventory(), false);
+        externalTransferAutomation = new ExcavatorTransferItemHandler(outputInventory, fuel.inventory(), true);
         upgrades = new ExcavatorUpgradeManager(
                 () -> level != null,
                 this::isBusy,
@@ -460,15 +457,11 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         onConfigurationChanged();
     }
 
-    /**
-     * Sided automation-facing handler used by the NeoForge item capability.
-     * The bottom face is output-only. The top, horizontal faces, and unsided
-     * access may also insert valid furnace fuel into the dedicated fuel slot.
-     * Output extraction remains available from every face for pipe compatibility.
-     */
-    public IItemHandler getExternalItemHandler(@Nullable Direction side) {
-        return side == Direction.DOWN ? externalOutputHandler : externalAutomationHandler;
+    public ResourceHandler<ItemResource> getTransferItemHandler(@Nullable Direction side) {
+        return side == Direction.DOWN ? externalTransferOutput : externalTransferAutomation;
     }
+
+    public EnergyHandler getTransferEnergyHandler() { return energyStorage; }
 
     public IEnergyStorage getEnergyStorage() {
         return energyStorage;
@@ -590,11 +583,11 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     public int getPendingItemCount() {
-        return level != null && level.isClientSide ? syncedPendingDeliveryCount : deliveries.pendingCount();
+        return level != null && level.isClientSide() ? syncedPendingDeliveryCount : deliveries.pendingCount();
     }
 
     public boolean hasPendingDeliveries() {
-        return level != null && level.isClientSide ? syncedPendingDeliveryCount > 0 : deliveries.hasPending();
+        return level != null && level.isClientSide() ? syncedPendingDeliveryCount > 0 : deliveries.hasPending();
     }
 
     public ExcavatorArea getExcavatorArea() {
@@ -1485,7 +1478,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void syncToClient() {
-        if (level == null || level.isClientSide) return;
+        if (level == null || level.isClientSide()) return;
         BlockState state = getBlockState();
         level.sendBlockUpdated(worldPosition, state, state, 3);
     }

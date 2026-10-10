@@ -22,6 +22,7 @@ import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.FuelValues;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.items.ItemStackHandler;
@@ -77,7 +78,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     private static final int OUTPUT_SLOT_END = OUTPUT_SLOT_START + ExcavatorBlockEntity.OUTPUT_SLOTS;
 
     private final ContainerData data;
-    private final Inventory playerInventory;
+    private final FuelValues fuelValues;
     private final int[] limitInfo = new int[14];
     private final ContainerLevelAccess access;
     private final BlockPos excavatorPos;
@@ -153,8 +154,8 @@ public class ExcavatorMenu extends AbstractContainerMenu {
 
         checkContainerDataCount(data, DATA_COUNT);
 
-        this.playerInventory = inventory;
         this.data = data;
+        this.fuelValues = inventory.player.level().fuelValues();
         this.access = access;
         this.excavatorPos = excavatorPos.immutable();
         this.blockEntity = blockEntity;
@@ -213,7 +214,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
         addSlot(new SlotItemHandler(handler, 0, 179, 95) {
             @Override
             public boolean mayPlace(ItemStack stack) {
-                return ExcavatorBlockEntity.isFuel(stack, playerInventory.player.level().fuelValues());
+                return ExcavatorBlockEntity.isFuel(stack, fuelValues);
             }
         });
     }
@@ -515,7 +516,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     private boolean toggleFilterMode(Player player) {
         if (getFilterCapacity() <= 0 || isUpgradeConfigurationLocked()) return false;
         boolean whitelist = !isFilterWhitelist();
-        if (player.level().isClientSide) {
+        if (player.level().isClientSide()) {
             data.set(DATA_FILTER_WHITELIST, whitelist ? 1 : 0);
             return true;
         }
@@ -543,7 +544,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
             }
         }
 
-        if (player.level().isClientSide) {
+        if (player.level().isClientSide()) {
             data.set(DATA_FILTER_START + filterSlot, block == null ? -1 : BuiltInRegistries.BLOCK.getId(block));
             return true;
         }
@@ -561,7 +562,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
             return false;
         }
 
-        if (player.level().isClientSide) {
+        if (player.level().isClientSide()) {
             data.set(DATA_STATE, ExcavatorScanState.SCANNING.id());
             data.set(DATA_SCAN_INDEX, 0);
             data.set(DATA_BLOCKS_EXCAVATED, 0);
@@ -582,7 +583,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
         }
         if (state == ExcavatorScanState.READY && isOverheating()) return false;
 
-        if (player.level().isClientSide) {
+        if (player.level().isClientSide()) {
             data.set(
                     DATA_STATE,
                     (state == ExcavatorScanState.EXCAVATING || state == ExcavatorScanState.STORAGE_FULL)
@@ -662,7 +663,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
                         || !moveItemStackTo(source, upgradeSlotStart, upgradeSlotEnd, false)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (fuelSlotEnabled && ExcavatorBlockEntity.isFuel(source, player.level().fuelValues())) {
+            } else if (fuelSlotEnabled && ExcavatorBlockEntity.isFuel(source, fuelValues)) {
                 if (!moveItemStackTo(source, fuelSlotIndex, fuelSlotIndex + 1, false)) {
                     return ItemStack.EMPTY;
                 }

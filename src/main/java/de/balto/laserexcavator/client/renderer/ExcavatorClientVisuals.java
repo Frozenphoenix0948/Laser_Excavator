@@ -880,8 +880,8 @@ public final class ExcavatorClientVisuals {
         );
         TextureAtlasSprite sprite = state.pickParticleIcon(RandomSource.create(seed));
         if (sprite == null) {
-            sprite = minecraft.getTextureAtlas(TextureAtlas.LOCATION_BLOCKS)
-                    .apply(MissingTextureAtlasSprite.getLocation());
+            sprite = minecraft.getAtlasManager().getAtlasOrThrow(TextureAtlas.LOCATION_BLOCKS)
+                    .getSprite(MissingTextureAtlasSprite.getLocation());
         }
         return sprite;
     }

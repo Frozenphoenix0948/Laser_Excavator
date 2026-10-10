@@ -120,7 +120,7 @@ public final class ExcavatorTransportMarkerRenderer {
         long totalProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.Section.TRANSPORT_MARKER_FRAME_RENDER);
         try {
             PoseStack poseStack = event.getPoseStack();
-            var camera = event.getCamera();
+            var camera = Minecraft.getInstance().gameRenderer.getMainCamera();
             var left = camera.getLeftVector();
             var up = camera.getUpVector();
 

@@ -95,7 +95,7 @@ public class ExcavatorBlock extends BaseEntityBlock {
             BlockState state,
             BlockEntityType<T> blockEntityType
     ) {
-        return level.isClientSide
+        return level.isClientSide()
                 ? null
                 : createTickerHelper(
                         blockEntityType,
@@ -124,7 +124,7 @@ public class ExcavatorBlock extends BaseEntityBlock {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
 
             if (blockEntity instanceof ExcavatorBlockEntity excavator) {
@@ -136,6 +136,6 @@ public class ExcavatorBlock extends BaseEntityBlock {
             }
         }
 
-        return (level.isClientSide ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER);
+        return (level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER);
     }
 }

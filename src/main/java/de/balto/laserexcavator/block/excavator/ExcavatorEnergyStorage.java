@@ -4,11 +4,14 @@ import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.util.Mth;
 import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.neoforged.neoforge.transfer.energy.EnergyHandler;
+import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
 import java.util.function.LongSupplier;
 
 /** Internal FE storage with per-tick external receive limit */
-public final class ExcavatorEnergyStorage implements IEnergyStorage {
+public final class ExcavatorEnergyStorage extends SnapshotJournal<ExcavatorEnergyStorage.TransferSnapshot> implements IEnergyStorage, EnergyHandler {
     private final LongSupplier gameTimeSupplier;
     private final Runnable changeListener;
 
@@ -29,17 +32,14 @@ public final class ExcavatorEnergyStorage implements IEnergyStorage {
             if (maxReceive <= 0) return 0;
 
             long gameTime = gameTimeSupplier.getAsLong();
-            if (gameTime != receiveBudgetTick) {
-                receiveBudgetTick = gameTime;
-                receivedThisTick = 0;
-            }
-
-            int rateRemaining = Math.max(0, LaserExcavatorConfig.ENERGY_MAX_RECEIVE.get() - receivedThisTick);
+            int received = gameTime == receiveBudgetTick ? receivedThisTick : 0;
+            int rateRemaining = Math.max(0, LaserExcavatorConfig.ENERGY_MAX_RECEIVE.get() - received);
             int accepted = Math.min(maxReceive, Math.min(rateRemaining, remainingCapacity()));
 
             if (!simulate && accepted > 0) {
+                receiveBudgetTick = gameTime;
+                receivedThisTick = received + accepted;
                 energy += accepted;
-                receivedThisTick += accepted;
                 changeListener.run();
             }
             return accepted;
@@ -47,6 +47,32 @@ public final class ExcavatorEnergyStorage implements IEnergyStorage {
             ExcavatorProfiler.end(ExcavatorProfiler.Section.EXTERNAL_FE_RECEIVE, profile);
         }
     }
+
+    record TransferSnapshot(int energy, long receiveBudgetTick, int receivedThisTick) {}
+
+    @Override
+    protected TransferSnapshot createSnapshot() { return new TransferSnapshot(energy, receiveBudgetTick, receivedThisTick); }
+
+    @Override
+    protected void revertToSnapshot(TransferSnapshot snapshot) {
+        energy = snapshot.energy();
+        receiveBudgetTick = snapshot.receiveBudgetTick();
+        receivedThisTick = snapshot.receivedThisTick();
+        changeListener.run();
+    }
+
+    @Override public long getCapacityAsLong() { return capacity(); }
+    @Override public long getAmountAsLong() { return Math.min(energy, capacity()); }
+
+    @Override
+    public int insert(int amount, TransactionContext transaction) {
+        int accepted = receiveEnergy(amount, true);
+        if (accepted <= 0) return 0;
+        updateSnapshots(transaction);
+        return receiveEnergy(accepted, false);
+    }
+
+    @Override public int extract(int amount, TransactionContext transaction) { return 0; }
 
     @Override public int extractEnergy(int maxExtract, boolean simulate) { return 0; }
     @Override public int getEnergyStored() { return Math.min(energy, capacity()); }

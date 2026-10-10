@@ -17,12 +17,16 @@ import de.balto.laserexcavator.screen.ExcavatorMenu;
 import de.balto.laserexcavator.screen.ExcavatorScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.culling.Frustum;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -34,7 +38,11 @@ import net.minecraft.world.phys.Vec3;
 
 import java.lang.ref.WeakReference;
 
-public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<ExcavatorBlockEntity> {
+public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<ExcavatorBlockEntity, ExcavatorForceFieldRenderer.ExcavatorRenderState> {
+    public static final class ExcavatorRenderState extends BlockEntityRenderState {
+        private ExcavatorBlockEntity blockEntity;
+        private float partialTick;
+    }
     private static WeakReference<ExcavatorForceFieldRenderer> activeRenderer = new WeakReference<>(null);
 
     /**
@@ -104,72 +112,53 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
     }
 
     @Override
-    public void render(
-            ExcavatorBlockEntity blockEntity,
-            float partialTick,
-            PoseStack poseStack,
-            MultiBufferSource bufferSource,
-            int packedLight,
-            int packedOverlay,
-            Vec3 renderCameraPos
-    ) {
-        // Diagnostic hard stop: skip the complete excavator block-entity render path before frustum tests,
-        // visual cache lookups, force-field/laser work or transport processing.
+    public ExcavatorRenderState createRenderState() {
+        return new ExcavatorRenderState();
+    }
+
+    @Override
+    public void extractRenderState(ExcavatorBlockEntity blockEntity, ExcavatorRenderState state, float partialTick, Vec3 cameraPos, @Nullable ModelFeatureRenderer.CrumblingOverlay crumblingOverlay) {
+        BlockEntityRenderer.super.extractRenderState(blockEntity, state, partialTick, cameraPos, crumblingOverlay);
+        state.blockEntity = blockEntity;
+        state.partialTick = partialTick;
+    }
+
+    @Override
+    public void submit(ExcavatorRenderState renderState, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState) {
         if (LaserExcavatorClientConfig.isAllRenderingDisabled()) return;
-
-        Level level = blockEntity.getLevel();
-        if (!(level instanceof ClientLevel clientLevel)) return;
-
+        ExcavatorBlockEntity blockEntity = renderState.blockEntity;
+        if (blockEntity == null || !(blockEntity.getLevel() instanceof ClientLevel clientLevel)) return;
         boolean profiling = ExcavatorProfiler.isEnabled();
-        if (profiling) {
-            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_FRUSTUM_TESTS);
-        }
-        if (isWholeEffectOutsideFrustum(blockEntity)) {
-            // VisualSet remains authoritative while the derived transport render state may be
-            // discarded off-screen. Cache removals are staggered to avoid bursts on camera turns.
-            if (shouldClearOffscreenTransportCache(blockEntity.getBlockPos(), clientLevel.getGameTime())) {
-                transportRenderer.clearCachedState(blockEntity);
-            }
-            if (profiling) {
-                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_FRUSTUM_CULLED);
-            }
+        Frustum frustum = ExcavatorViewFrustum.current(cameraState);
+        if (profiling) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_FRUSTUM_TESTS);
+        if (!frustum.isVisible(getRenderBoundingBox(blockEntity))) {
+            if (shouldClearOffscreenTransportCache(blockEntity.getBlockPos(), clientLevel.getGameTime())) transportRenderer.clearCachedState(blockEntity);
+            if (profiling) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_FRUSTUM_CULLED);
             return;
         }
-
-        if (profiling) {
-            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.RENDER_CALLS);
-        }
-
+        if (profiling) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.RENDER_CALLS);
         BlockPos origin = blockEntity.getBlockPos();
         ExcavatorMenu previewMenu = findOpenExcavatorMenu(blockEntity);
-        ExcavatorScanState state = previewMenu != null ? previewMenu.getScanState() : blockEntity.getScanState();
-        ExcavatorArea displayArea = resolveRenderArea(blockEntity, previewMenu);
-        if (state == ExcavatorScanState.IDLE || state == ExcavatorScanState.SCANNING) {
-            ExcavatorClientVisuals.clear(clientLevel, origin);
-        }
-
+        ExcavatorScanState scanState = previewMenu != null ? previewMenu.getScanState() : blockEntity.getScanState();
+        ExcavatorArea area = resolveRenderArea(blockEntity, previewMenu);
+        if (scanState == ExcavatorScanState.IDLE || scanState == ExcavatorScanState.SCANNING) ExcavatorClientVisuals.clear(clientLevel, origin);
         ExcavatorClientVisuals.VisualSet visuals = ExcavatorClientVisuals.get(clientLevel, origin);
+        boolean energized = scanState == ExcavatorScanState.READY || scanState == ExcavatorScanState.EXCAVATING
+                || scanState == ExcavatorScanState.STORAGE_FULL || blockEntity.hasPendingDeliveries() || visuals.hasAny();
+        float partialTick = renderState.partialTick;
+        collector.submitCustomGeometry(poseStack, OPAQUE_DEPTH_LINES,
+                (pose, consumer) -> renderLines(blockEntity, clientLevel, partialTick, pose, consumer, area, scanState, energized, visuals, profiling));
+        collector.submitCustomGeometry(poseStack, ExcavatorTransportRenderer.atlasRenderType(),
+                (pose, consumer) -> transportRenderer.render(visuals, clientLevel, blockEntity, partialTick, pose, consumer, frustum));
+    }
 
-        boolean energizedField = state == ExcavatorScanState.READY
-                || state == ExcavatorScanState.EXCAVATING
-                || state == ExcavatorScanState.STORAGE_FULL
-                || blockEntity.hasPendingDeliveries()
-                || visuals.hasAny();
-
+    private void renderLines(ExcavatorBlockEntity blockEntity, ClientLevel level, float partialTick, PoseStack.Pose pose,
+                             VertexConsumer consumer, ExcavatorArea displayArea, ExcavatorScanState state, boolean energized,
+                             ExcavatorClientVisuals.VisualSet visuals, boolean profiling) {
+        BlockPos origin = blockEntity.getBlockPos();
         long fieldProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.Section.FORCE_FIELD_RENDER);
-        renderForceField(
-                blockEntity,
-                level,
-                partialTick,
-                poseStack,
-                bufferSource,
-                displayArea,
-                state,
-                energizedField,
-                profiling
-        );
+        renderForceField(blockEntity, level, partialTick, pose, consumer, displayArea, state, energized, profiling);
         ExcavatorProfiler.end(ExcavatorProfiler.Section.FORCE_FIELD_RENDER, fieldProfile);
-
         if (!visuals.lasers().isEmpty()) {
             long laserProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.Section.LASER_RENDER);
 
@@ -178,8 +167,6 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
             // base pose, and target coordinates are already excavator-local.
             double laserRenderGameTime = level.getGameTime() + partialTick;
             float laserTopY = blockEntity.getForceFieldY() - origin.getY();
-            PoseStack.Pose laserPose = poseStack.last();
-            VertexConsumer opaqueLaserLines = bufferSource.getBuffer(OPAQUE_DEPTH_LINES);
             Vec3 cameraPos = preparedCameraPos;
             int fullLaserCount = 0;
             int midLaserCount = 0;
@@ -213,7 +200,7 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
                         farLaserSkippedCount++;
                         continue;
                     }
-                    renderFarDistanceLaser(laser, laserTopY, laserPose, opaqueLaserLines);
+                    renderFarDistanceLaser(laser, laserTopY, pose, consumer);
                     farLaserCount++;
                 }
             } else {
@@ -231,7 +218,7 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
                             farLaserSkippedCount++;
                             continue;
                         }
-                        renderFarDistanceLaser(laser, laserTopY, laserPose, opaqueLaserLines);
+                        renderFarDistanceLaser(laser, laserTopY, pose, consumer);
                         farLaserCount++;
                     } else if (distanceSqr >= preparedMidLaserDistanceSqr) {
                         // MID keeps two thirds of source lasers.
@@ -240,13 +227,13 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
                             continue;
                         }
                         renderMidDistanceLaser(
-                                laser, laserRenderGameTime, laserTopY, origin, cameraPos, laserPose,
-                                opaqueLaserLines
+                                laser, laserRenderGameTime, laserTopY, origin, cameraPos, pose,
+                                consumer
                         );
                         midLaserCount++;
                     } else {
                         renderLaser(
-                                laser, laserRenderGameTime, laserTopY, laserPose, opaqueLaserLines
+                                laser, laserRenderGameTime, laserTopY, pose, consumer
                         );
                         fullLaserCount++;
                     }
@@ -262,17 +249,14 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
             ExcavatorProfiler.end(ExcavatorProfiler.Section.LASER_RENDER, laserProfile);
         }
 
-        transportRenderer.render(
-                visuals, clientLevel, blockEntity, partialTick, poseStack, bufferSource
-        );
     }
 
     private void renderForceField(
             ExcavatorBlockEntity blockEntity,
             Level level,
             float partialTick,
-            PoseStack poseStack,
-            MultiBufferSource bufferSource,
+            PoseStack.Pose pose,
+            VertexConsumer opaqueLines,
             ExcavatorArea area,
             ExcavatorScanState state,
             boolean energized,
@@ -287,8 +271,6 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
         float fieldY = blockEntity.getForceFieldY() - origin.getY();
         float bottomY = area.min().getY() - origin.getY();
 
-        VertexConsumer opaqueLines = bufferSource.getBuffer(OPAQUE_DEPTH_LINES);
-        PoseStack.Pose pose = poseStack.last();
 
         int forceFieldColor = forceFieldColor(state);
         int outlineRed = (forceFieldColor >>> 16) & 0xFF;
@@ -785,7 +767,6 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
                 .setNormal(pose, normalX, normalY, normalZ);
     }
 
-    @Override
     public AABB getRenderBoundingBox(ExcavatorBlockEntity blockEntity) {
         BlockPos pos = blockEntity.getBlockPos();
         ExcavatorArea area = resolveRenderArea(blockEntity, findOpenExcavatorMenu(blockEntity));
@@ -811,30 +792,14 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
         );
     }
 
-    /**
-     * Custom whole-effect culling keeps vanilla block-entity culling disabled because the
-     * dispatcher bounds can produce edge/below-field false negatives for this effect.
-     * Instead, reject the renderer only when the exact complete-effect hull (plus a
-     * small 4-block safety margin) is wholly outside the current world frustum.
-     *
-     * No near-camera exemption is needed: when the camera is inside/intersecting this
-     * hull the frustum test remains visible, while distant fully off-screen effects
-     * can be culled aggressively again.
-     */
     private static boolean shouldClearOffscreenTransportCache(BlockPos pos, long gameTime) {
         long key = pos.asLong();
         long mixed = key ^ (key >>> 17) ^ (key >>> 37);
         return ((gameTime + mixed) & OFFSCREEN_TRANSPORT_CACHE_CLEANUP_MASK) == 0L;
     }
 
-    private boolean isWholeEffectOutsideFrustum(ExcavatorBlockEntity blockEntity) {
-        Frustum frustum = Minecraft.getInstance().levelRenderer.getFrustum();
-        return !frustum.isVisible(getRenderBoundingBox(blockEntity));
-    }
-
-    public boolean shouldRenderOffScreen(ExcavatorBlockEntity blockEntity) {
-        // Keep the dispatcher permissive; render() performs the exact complete-effect
-        // hull test itself so vanilla block-entity culling cannot create edge/below-field false negatives.
+    @Override
+    public boolean shouldRenderOffScreen() {
         return true;
     }
 

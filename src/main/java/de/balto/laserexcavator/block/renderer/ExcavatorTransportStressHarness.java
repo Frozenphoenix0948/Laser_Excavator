@@ -131,10 +131,10 @@ public final class ExcavatorTransportStressHarness {
         ClientLevel level = minecraft.level;
         if (level == null || level != activeLevel || LANES.isEmpty()) return;
 
-        float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(true);
+        float partialTick = minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         PoseStack poseStack = event.getPoseStack();
-        Vec3 camera = event.getCamera().getPosition();
+        Vec3 camera = minecraft.gameRenderer.getMainCamera().getPosition();
         byte forcedTier = forcedTierId();
 
         for (Lane lane : LANES) {
@@ -152,8 +152,8 @@ public final class ExcavatorTransportStressHarness {
                     level,
                     lane.fakeBlockEntity,
                     partialTick,
-                    poseStack,
-                    buffers,
+                    poseStack.last(),
+                    buffers.getBuffer(ExcavatorTransportRenderer.atlasRenderType()),
                     forcedTier
             );
             poseStack.popPose();

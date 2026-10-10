@@ -156,7 +156,7 @@ final class ExcavatorFilterPanel {
         }
     }
 
-    boolean mouseClicked(double mouseX, double mouseY, int button) {
+    boolean mouseClicked(double mouseX, double mouseY, int button, boolean shiftDown) {
         int x = x(), y = y();
         if (!inside(mouseX, mouseY, x, y, W, bottom() - y)) {
             if (button == 0 || button == 1) close();
@@ -169,7 +169,7 @@ final class ExcavatorFilterPanel {
         }
 
         if (screen.isFilterInventoryPosition(mouseX, mouseY)) {
-            if (button == 0 && Screen.hasShiftDown()) {
+            if (button == 0 && shiftDown) {
                 addInventoryBlock(screen.filterInventoryStackAt(mouseX, mouseY));
                 return true;
             }

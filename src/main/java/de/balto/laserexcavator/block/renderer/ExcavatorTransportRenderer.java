@@ -12,7 +12,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -147,18 +146,12 @@ final class ExcavatorTransportRenderer {
     private final Map<ExcavatorBlockEntity, TransportRenderState> transportStates = new WeakHashMap<>();
     private int batchRepresentativeVisibilityStamp;
 
-    void render(
-            ExcavatorClientVisuals.VisualSet visuals,
-            ClientLevel level,
-            ExcavatorBlockEntity blockEntity,
-            float partialTick,
-            PoseStack poseStack,
-            MultiBufferSource bufferSource
-    ) {
-        renderInternal(
-                visuals, level, blockEntity, partialTick, poseStack, bufferSource,
-                DISTANCE_TIER_UNCLASSIFIED
-        );
+    static RenderType atlasRenderType() { return TRANSPORT_ATLAS_RENDER_TYPE; }
+
+    void render(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
+                float partialTick, PoseStack.Pose pose, VertexConsumer atlasConsumer, Frustum frustum) {
+        frameFrustum = frustum;
+        renderInternal(visuals, level, blockEntity, partialTick, pose, atlasConsumer, DISTANCE_TIER_UNCLASSIFIED);
     }
 
     /**
@@ -171,11 +164,12 @@ final class ExcavatorTransportRenderer {
             ClientLevel level,
             ExcavatorBlockEntity blockEntity,
             float partialTick,
-            PoseStack poseStack,
-            MultiBufferSource bufferSource,
+            PoseStack.Pose basePose,
+            VertexConsumer providedAtlasConsumer,
             byte forcedTier
     ) {
-        renderInternal(visuals, level, blockEntity, partialTick, poseStack, bufferSource, forcedTier);
+        frameFrustum = ExcavatorViewFrustum.current(Minecraft.getInstance().gameRenderer.getMainCamera());
+        renderInternal(visuals, level, blockEntity, partialTick, basePose, providedAtlasConsumer, forcedTier);
     }
 
     void clearCachedState(ExcavatorBlockEntity blockEntity) {
@@ -200,8 +194,8 @@ final class ExcavatorTransportRenderer {
             ClientLevel level,
             ExcavatorBlockEntity blockEntity,
             float partialTick,
-            PoseStack poseStack,
-            MultiBufferSource bufferSource,
+            PoseStack.Pose basePose,
+            VertexConsumer providedAtlasConsumer,
             byte forcedTier
     ) {
         List<ExcavatorClientVisuals.TransportVisual> transports = visuals.transports();
@@ -252,7 +246,6 @@ final class ExcavatorTransportRenderer {
             return;
         }
 
-        PoseStack.Pose basePose = poseStack.last();
         blockNormalsPrepared = false;
         VertexConsumer atlasConsumer = null;
 
@@ -354,7 +347,7 @@ final class ExcavatorTransportRenderer {
                 profiling, ExcavatorProfiler.TransportSubsection.INDIVIDUAL_TRANSPORTS
         );
         if (emitGeometry && !frameIndividualRegions.isEmpty()) {
-            atlasConsumer = bufferSource.getBuffer(TRANSPORT_ATLAS_RENDER_TYPE);
+            atlasConsumer = providedAtlasConsumer;
         }
         for (TransportRegion region : frameIndividualRegions) {
             if (!isTransportRegionVisible(region, frustumCullStats)) continue;
@@ -2045,8 +2038,6 @@ final class ExcavatorTransportRenderer {
         frameCameraWorldY = cameraPosition.y;
         frameCameraWorldZ = cameraPosition.z;
 
-        Minecraft minecraft = Minecraft.getInstance();
-        frameFrustum = minecraft.levelRenderer.getFrustum();
 
         var cameraLeft = camera.getLeftVector();
         var cameraUp = camera.getUpVector();

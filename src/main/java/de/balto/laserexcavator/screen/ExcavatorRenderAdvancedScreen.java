@@ -4,6 +4,8 @@ import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig.RenderPreset;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig.TransportRenderMode;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -199,12 +201,13 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256 || minecraft.options.keyInventory.matches(keyCode, scanCode)) {
+    public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
+        if (keyCode == 256 || minecraft.options.keyInventory.matches(event)) {
             closeExcavatorMenu();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
@@ -303,7 +306,9 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
+        int button = event.button();
         int x = panelLeft + panelWidth - 13;
         if (button == 0 && maxScroll > 0 && mouseX >= x && mouseX < x + 8 && mouseY >= contentTop && mouseY < contentBottom) {
             int ty = thumbY(), th = thumbHeight();
@@ -315,25 +320,28 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
             draggingScroll = true;
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        double mouseY = event.y();
+        int button = event.button();
         if (draggingScroll && button == 0) {
             scrollFromThumb((int) mouseY - dragOffset);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        int button = event.button();
         if (button == 0 && draggingScroll) {
             draggingScroll = false;
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     private void scrollFromThumb(int y) {

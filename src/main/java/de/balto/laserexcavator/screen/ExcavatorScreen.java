@@ -5,6 +5,8 @@ import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
 import de.balto.laserexcavator.block.excavator.ExcavatorSolarManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.ChatFormatting;
@@ -751,10 +753,12 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x(), mouseY = event.y();
+        int button = event.button();
         if (filterPanel.isOpen()) {
-            if (filterPanel.mouseClicked(mouseX, mouseY, button)) return true;
-            return super.mouseClicked(mouseX, mouseY, button);
+            if (filterPanel.mouseClicked(mouseX, mouseY, button, event.hasShiftDown())) return true;
+            return super.mouseClicked(event, doubleClick);
         }
 
         for (EditBox field : configurationFields) {
@@ -764,7 +768,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             }
         }
 
-        boolean result = super.mouseClicked(mouseX, mouseY, button);
+        boolean result = super.mouseClicked(event, doubleClick);
         for (EditBox field : configurationFields) {
             if (!field.isFocused() && isParsableNumber(field.getValue())) sendSelectionValue(field, field.getValue());
         }
@@ -772,25 +776,28 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        double mouseX = event.x(), mouseY = event.y();
         if (filterPanel.isOpen() && !isFilterInventoryPosition(mouseX, mouseY)) return true;
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(MouseButtonEvent event) {
+        double mouseX = event.x(), mouseY = event.y();
         if (filterPanel.isOpen() && !isFilterInventoryPosition(mouseX, mouseY)) return true;
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
         if (filterPanel.isOpen()) {
-            if (keyCode == 256 || minecraft.options.keyInventory.matches(keyCode, scanCode)) onClose();
+            if (keyCode == 256 || minecraft.options.keyInventory.matches(event)) onClose();
             return true;
         }
 
-        boolean handled = super.keyPressed(keyCode, scanCode, modifiers);
+        boolean handled = super.keyPressed(event);
         if (keyCode == 257 || keyCode == 335 || keyCode == 258) {
             commitFocusedField();
             return true;

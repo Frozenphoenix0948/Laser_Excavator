@@ -3,6 +3,7 @@ package de.balto.laserexcavator.screen;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig.RenderPreset;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -77,12 +78,13 @@ public final class ExcavatorRenderSettingsScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256 || minecraft.options.keyInventory.matches(keyCode, scanCode)) {
+    public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
+        if (keyCode == 256 || minecraft.options.keyInventory.matches(event)) {
             closeExcavatorMenu();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(event);
     }
 
     @Override
