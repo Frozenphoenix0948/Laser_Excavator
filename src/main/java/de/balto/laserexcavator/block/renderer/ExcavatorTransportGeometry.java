@@ -1,6 +1,6 @@
 package de.balto.laserexcavator.block.renderer;
 
-import org.joml.Vector3f;
+import org.joml.Vector3fc;
 
 final class ExcavatorTransportGeometry {
     private ExcavatorTransportGeometry() {}
@@ -61,7 +61,7 @@ final class ExcavatorTransportGeometry {
             this.halfSize = halfSize;
         }
 
-        void update(Vector3f cameraLeft, Vector3f cameraUp, Vector3f cameraLook, float cos, float sin) {
+        void update(Vector3fc cameraLeft, Vector3fc cameraUp, Vector3fc cameraLook, float cos, float sin) {
             float rightX = -cameraLeft.x();
             float rightY = -cameraLeft.y();
             float rightZ = -cameraLeft.z();

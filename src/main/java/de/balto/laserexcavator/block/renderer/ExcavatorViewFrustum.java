@@ -20,7 +20,7 @@ final class ExcavatorViewFrustum {
     }
 
     static Frustum current(Camera camera) {
-        return current(camera.getPosition(), camera.rotation());
+        return current(camera.position(), camera.rotation());
     }
 
     private static Frustum current(Vec3 position, Quaternionf orientation) {

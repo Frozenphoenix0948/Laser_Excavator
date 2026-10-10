@@ -11,8 +11,9 @@ import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import java.util.Arrays;
@@ -25,7 +26,7 @@ import java.util.Arrays;
  */
 public final class ExcavatorTransportMarkerRenderer {
     private static final RenderPipeline MARKER_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
-            .withLocation(ResourceLocation.fromNamespaceAndPath("laserexcavator", "pipeline/transport_markers"))
+            .withLocation(Identifier.fromNamespaceAndPath("laserexcavator", "pipeline/transport_markers"))
             .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
             .withoutBlend()
             .withCull(false)
@@ -33,10 +34,7 @@ public final class ExcavatorTransportMarkerRenderer {
             .withDepthWrite(true)
             .build();
 
-    private static final RenderType MARKER_RENDER_TYPE = RenderType.create(
-            "laser_excavator_transport_marker", 16_384, false, false,
-            MARKER_PIPELINE, RenderType.CompositeState.builder().createCompositeState(false)
-    );
+    private static final RenderType MARKER_RENDER_TYPE = RenderType.create("laser_excavator_transport_marker", RenderSetup.builder(MARKER_PIPELINE).createRenderSetup());
 
     private static final int ALPHA = 255;
 
@@ -121,8 +119,8 @@ public final class ExcavatorTransportMarkerRenderer {
         try {
             PoseStack poseStack = event.getPoseStack();
             var camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-            var left = camera.getLeftVector();
-            var up = camera.getUpVector();
+            var left = camera.leftVector();
+            var up = camera.upVector();
 
             float largeHalfSize = LaserExcavatorClientConfig.TRANSPORT_MARKER_HALF_SIZE.get().floatValue();
             float individualHalfSize = largeHalfSize * INDIVIDUAL_SMALL_HALF_SIZE_FACTOR;

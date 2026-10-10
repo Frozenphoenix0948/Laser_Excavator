@@ -18,7 +18,8 @@ import de.balto.laserexcavator.screen.ExcavatorScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.state.CameraRenderState;
@@ -29,7 +30,7 @@ import net.minecraft.client.renderer.culling.Frustum;
 import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -51,18 +52,15 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
      * reject hidden fragments early without needing a separate glow pass.
      */
     private static final RenderPipeline OPAQUE_DEPTH_LINES_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
-            .withLocation(ResourceLocation.fromNamespaceAndPath("laserexcavator", "pipeline/opaque_depth_lines"))
-            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_NORMAL, VertexFormat.Mode.LINES)
+            .withLocation(Identifier.fromNamespaceAndPath("laserexcavator", "pipeline/opaque_depth_lines"))
+            .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH, VertexFormat.Mode.LINES)
             .withoutBlend()
             .withCull(false)
             .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
             .withDepthWrite(true)
             .build();
 
-    private static final RenderType OPAQUE_DEPTH_LINES = RenderType.create(
-            "laser_excavator_opaque_depth_lines", 8_192, false, false,
-            OPAQUE_DEPTH_LINES_PIPELINE, RenderType.CompositeState.builder().createCompositeState(false)
-    );
+    private static final RenderType OPAQUE_DEPTH_LINES = RenderType.create("laser_excavator_opaque_depth_lines", RenderSetup.builder(OPAQUE_DEPTH_LINES_PIPELINE).createRenderSetup());
 
     private static final float MEDIUM_LASER_SIDE_OFFSET = 0.056F;
     private static final float LASER_PULSE_ANGULAR_SCALE = Mth.PI * 4.0F;
@@ -150,6 +148,8 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
                 (pose, consumer) -> renderLines(blockEntity, clientLevel, partialTick, pose, consumer, area, scanState, energized, visuals, profiling));
         collector.submitCustomGeometry(poseStack, ExcavatorTransportRenderer.atlasRenderType(),
                 (pose, consumer) -> transportRenderer.render(visuals, clientLevel, blockEntity, partialTick, pose, consumer, frustum));
+        collector.submitCustomGeometry(poseStack, ExcavatorTransportRenderer.itemAtlasRenderType(),
+                (pose, consumer) -> transportRenderer.renderItemBillboards(visuals, clientLevel, blockEntity, partialTick, pose, consumer, frustum));
     }
 
     private void renderLines(ExcavatorBlockEntity blockEntity, ClientLevel level, float partialTick, PoseStack.Pose pose,
@@ -393,7 +393,7 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
 
         preparedForceFieldGameTime = gameTime;
         preparedForceFieldPartialBits = partialBits;
-        preparedCameraPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        preparedCameraPos = Minecraft.getInstance().gameRenderer.getMainCamera().position();
 
         float renderTime = gameTime + partialTick;
         preparedSweepAnimation = (renderTime % 80.0F) / 80.0F;
@@ -764,7 +764,8 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
     ) {
         consumer.addVertex(pose, x, y, z)
                 .setColor(red, green, blue, alpha)
-                .setNormal(pose, normalX, normalY, normalZ);
+                .setNormal(pose, normalX, normalY, normalZ)
+                .setLineWidth(1.0F);
     }
 
     public AABB getRenderBoundingBox(ExcavatorBlockEntity blockEntity) {

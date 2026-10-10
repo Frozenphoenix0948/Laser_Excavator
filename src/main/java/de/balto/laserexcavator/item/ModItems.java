@@ -7,7 +7,7 @@ import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeItem;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -26,7 +26,7 @@ public final class ModItems {
 
     public static final DeferredItem<BlockItem> EXCAVATOR = ITEMS.register(
             "excavator",
-            () -> new BlockItem(ModBlocks.EXCAVATOR.get(), new Item.Properties().setId(ResourceKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, "excavator"))).useBlockDescriptionPrefix()) {
+            () -> new BlockItem(ModBlocks.EXCAVATOR.get(), new Item.Properties().setId(ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(LaserExcavator.MODID, "excavator"))).useBlockDescriptionPrefix()) {
                 @Override
                 public void appendHoverText(ItemStack stack, Item.TooltipContext context,
                                             TooltipDisplay display, Consumer<Component> tooltip,
@@ -89,6 +89,6 @@ public final class ModItems {
             int tier,
             int maxTier
     ) {
-        return ITEMS.register(id, () -> new ExcavatorUpgradeItem(type, tier, maxTier, new Item.Properties().setId(ResourceKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, id)))));
+        return ITEMS.register(id, () -> new ExcavatorUpgradeItem(type, tier, maxTier, new Item.Properties().setId(ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(LaserExcavator.MODID, id)))));
     }
 }

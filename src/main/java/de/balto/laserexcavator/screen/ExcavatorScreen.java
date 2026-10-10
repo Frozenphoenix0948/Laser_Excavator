@@ -705,7 +705,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         graphics.pose().translate(leftPos, topPos);
         for (Slot slot : menu.slots) {
             if (!isPlayerInventorySlot(slot) || !slot.isActive()) continue;
-            renderSlot(graphics, slot);
+            renderSlot(graphics, slot, mouseX, mouseY);
             if (mouseX >= leftPos + slot.x && mouseX < leftPos + slot.x + 16
                     && mouseY >= topPos + slot.y && mouseY < topPos + slot.y + 16) hoveredSlot = slot;
         }

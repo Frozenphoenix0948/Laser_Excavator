@@ -42,7 +42,7 @@ final class ExcavatorStyledButton extends Button {
     }
 
     @Override
-    protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    protected void renderContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         boolean chosen = selected.getAsBoolean(), iconButton = icon != Icon.NONE, lockedNow = locked.getAsBoolean();
         boolean hovered = iconButton ? isHovered() : isHoveredOrFocused();
         int x = getX(), y = getY(), fill = !active ? BUTTON_DISABLED : chosen ? BUTTON_SELECTED : hovered ? BUTTON_HOVER : BUTTON_BG;

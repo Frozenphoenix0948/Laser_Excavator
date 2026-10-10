@@ -1,7 +1,7 @@
 package de.balto.laserexcavator.config;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -116,7 +116,7 @@ public final class LaserExcavatorConfig {
     /**
      * Resolved global hard blacklist. The config stores registry IDs because that is
      * readable/editable for pack authors, while excavation uses Block identity checks
-     * so target scanning never reparses ResourceLocations in its inner loop.
+     * so target scanning never reparses Identifiers in its inner loop.
      */
     private static volatile List<String> cachedUnbreakableIds = List.of();
     private static volatile Set<Block> cachedUnbreakableBlocks = Set.of();
@@ -181,7 +181,7 @@ public final class LaserExcavatorConfig {
                         "unbreakableBlocks",
                         List.of("minecraft:bedrock"),
                         () -> "minecraft:bedrock",
-                        value -> value instanceof String id && ResourceLocation.tryParse(id) != null
+                        value -> value instanceof String id && Identifier.tryParse(id) != null
                 );
         builder.pop();
 
@@ -674,7 +674,7 @@ public final class LaserExcavatorConfig {
             java.util.ArrayList<String> snapshot = new java.util.ArrayList<>(configured.size());
             for (String raw : configured) {
                 snapshot.add(raw);
-                ResourceLocation id = ResourceLocation.tryParse(raw);
+                Identifier id = Identifier.tryParse(raw);
                 if (id == null) continue;
                 BuiltInRegistries.BLOCK.getOptional(id).ifPresent(resolved::add);
             }

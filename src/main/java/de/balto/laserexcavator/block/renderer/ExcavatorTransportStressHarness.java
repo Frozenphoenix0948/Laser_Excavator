@@ -21,14 +21,7 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Client-only synthetic transport benchmark.
- *
- * No server blocks, block entities, excavation, networking or chunk updates are
- * involved. Synthetic visuals are inserted through
- * ExcavatorClientVisuals.addSyntheticTransport(), then rendered by the exact
- * production ExcavatorTransportRenderer. The benchmark may optionally override the production spatial-region LOD tier.
- */
+/** Client-only synthetic transport benchmark using the production renderer and optional forced LOD. */
 public final class ExcavatorTransportStressHarness {
     public enum LodTier {
         AUTO,
@@ -134,7 +127,7 @@ public final class ExcavatorTransportStressHarness {
         float partialTick = minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         PoseStack poseStack = event.getPoseStack();
-        Vec3 camera = minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 camera = minecraft.gameRenderer.getMainCamera().position();
         byte forcedTier = forcedTierId();
 
         for (Lane lane : LANES) {
@@ -156,6 +149,8 @@ public final class ExcavatorTransportStressHarness {
                     buffers.getBuffer(ExcavatorTransportRenderer.atlasRenderType()),
                     forcedTier
             );
+            RENDERER.renderItemBillboardsForStressTest(visuals, level, lane.fakeBlockEntity, partialTick,
+                    poseStack.last(), buffers.getBuffer(ExcavatorTransportRenderer.itemAtlasRenderType()), forcedTier);
             poseStack.popPose();
         }
     }
@@ -195,7 +190,6 @@ public final class ExcavatorTransportStressHarness {
         ComponentKind next = kind == null ? ComponentKind.BLOCK : kind;
         if (componentKind == next) return;
         componentKind = next;
-        // Component-specific tests clear transports from the other component.
         if (running) resetVisualsOnly();
     }
 
@@ -289,7 +283,7 @@ public final class ExcavatorTransportStressHarness {
         if (activeLevel == null) return;
         for (Lane lane : LANES) {
             ExcavatorClientVisuals.clearSyntheticVisualSet(lane.visuals);
-            RENDERER.clearStressTestState(lane.fakeBlockEntity);
+            RENDERER.clearCachedState(lane.fakeBlockEntity);
         }
         laneCursor = 0;
     }
@@ -298,7 +292,7 @@ public final class ExcavatorTransportStressHarness {
         if (activeLevel != null) {
             for (Lane lane : LANES) {
                 ExcavatorClientVisuals.clearSyntheticVisualSet(lane.visuals);
-                RENDERER.clearStressTestState(lane.fakeBlockEntity);
+                RENDERER.clearCachedState(lane.fakeBlockEntity);
             }
         }
         LANES.clear();

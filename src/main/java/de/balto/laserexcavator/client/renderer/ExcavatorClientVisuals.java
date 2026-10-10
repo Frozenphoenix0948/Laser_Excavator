@@ -18,6 +18,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.VegetationBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -109,20 +110,8 @@ public final class ExcavatorClientVisuals {
         public float invDurationTicks() { return invDurationTicks; }
     }
 
-    public record BlockCubeTexture(
-            float u0,
-            float u1,
-            float v0,
-            float v1,
-            int markerRgb
-    ) {}
-
-    public record ItemBillboardTexture(
-            float u0,
-            float u1,
-            float v0,
-            float v1
-    ) {}
+    public record BlockCubeTexture(float u0, float u1, float v0, float v1, int markerRgb) {}
+    public record ItemBillboardTexture(float u0, float u1, float v0, float v1) {}
 
     /**
      * Reusable precomputed transport slot. Lighting is deliberately absent here:
@@ -734,7 +723,8 @@ public final class ExcavatorClientVisuals {
             return null;
         }
 
-        boolean isBlockItem = visualStack.getItem() instanceof BlockItem;
+        boolean isBlockItem = visualStack.getItem() instanceof BlockItem blockItem
+                && !(blockItem.getBlock() instanceof VegetationBlock);
 
         // Texture/model data and region lighting are resolved lazily only when the
         // renderer selects a textured cube or billboard representation.
@@ -867,39 +857,23 @@ public final class ExcavatorClientVisuals {
         return (r << 16) | (g << 8) | b;
     }
 
-    /**
-     * Minecraft 1.21.4 resolves item textures through a render state rather than
-     * ItemRenderer#getModel. Only the particle sprite is needed by our transport
-     * billboard and marker paths; actual item rendering remains unchanged.
-     */
+    // Only the particle sprite from the item render state is needed for transport visuals.
     private static TextureAtlasSprite resolveItemParticleSprite(ItemStack stack, ClientLevel level, int seed) {
         ItemStackRenderState state = new ItemStackRenderState();
         Minecraft minecraft = Minecraft.getInstance();
-        minecraft.getItemModelResolver().updateForTopItem(
-                state, stack, ItemDisplayContext.NONE, level, null, seed
-        );
+        minecraft.getItemModelResolver().updateForTopItem(state, stack, ItemDisplayContext.NONE, level, null, seed);
         TextureAtlasSprite sprite = state.pickParticleIcon(RandomSource.create(seed));
         if (sprite == null) {
-            sprite = minecraft.getAtlasManager().getAtlasOrThrow(TextureAtlas.LOCATION_BLOCKS)
+            sprite = minecraft.getAtlasManager().getAtlasOrThrow(TextureAtlas.LOCATION_ITEMS)
                     .getSprite(MissingTextureAtlasSprite.getLocation());
         }
         return sprite;
     }
 
-    public static ItemBillboardTexture resolveItemTexture(
-            ItemStack stack,
-            ClientLevel level,
-            int seed
-    ) {
+    public static ItemBillboardTexture resolveItemTexture(ItemStack stack, ClientLevel level, int seed) {
         TextureAtlasSprite sprite = resolveItemParticleSprite(stack, level, seed);
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.CLIENT_VISUAL_ITEM_TEXTURE_RESOLVES);
-
-        return new ItemBillboardTexture(
-                sprite.getU0(),
-                sprite.getU1(),
-                sprite.getV0(),
-                sprite.getV1()
-        );
+        return new ItemBillboardTexture(sprite.getU0(), sprite.getU1(), sprite.getV0(), sprite.getV1());
     }
 
     private static void clearPendingNetworkVisuals() {
@@ -916,7 +890,8 @@ public final class ExcavatorClientVisuals {
 
         @SubscribeEvent
         public static void onTextureAtlasStitched(TextureAtlasStitchedEvent event) {
-            if (!TextureAtlas.LOCATION_BLOCKS.equals(event.getAtlas().location())) return;
+            if (!TextureAtlas.LOCATION_BLOCKS.equals(event.getAtlas().location())
+                    && !TextureAtlas.LOCATION_ITEMS.equals(event.getAtlas().location())) return;
             BLOCK_TEXTURE_CACHE.clear();
             ITEM_MARKER_COLOR_CACHE.clear();
             clearAllVisualSets();

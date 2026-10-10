@@ -35,7 +35,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.MenuProvider;
@@ -1602,7 +1602,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         }
         activeTarget = tag.getLong(TAG_ACTIVE_TARGET).isPresent() ? BlockPos.of(tag.getLongOr(TAG_ACTIVE_TARGET, 0L)) : null;
         activeTargetBlock = tag.getString(TAG_ACTIVE_TARGET_BLOCK)
-                .map(ResourceLocation::tryParse)
+                .map(Identifier::tryParse)
                 .flatMap(BuiltInRegistries.BLOCK::getOptional)
                 .orElse(null);
     }

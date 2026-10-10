@@ -13,7 +13,7 @@ public final class ExcavatorNetworkDebugCommands {
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(
                 Commands.literal("excavatornetworkdebug")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(source))
                         .executes(context -> report(context.getSource()))
                         .then(Commands.literal("normal")
                                 .executes(context -> set(context.getSource(), NetworkDebugMode.NORMAL)))

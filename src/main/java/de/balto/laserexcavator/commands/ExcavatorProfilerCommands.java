@@ -18,7 +18,7 @@ public final class ExcavatorProfilerCommands {
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(
                 Commands.literal("excavatorprofiler")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(source))
                         .executes(context -> report(context.getSource()))
                         .then(Commands.literal("start")
                                 .executes(context -> {

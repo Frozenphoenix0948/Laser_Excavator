@@ -10,7 +10,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -64,7 +64,7 @@ public final class ExcavatorUpgradeManager {
 
     /**
      * Hot-path block lookup for the filter. Blocks are registry singletons, so identity
-     * semantics are exactly what we want and avoid hashing ResourceLocations or scanning
+     * semantics are exactly what we want and avoid hashing Identifiers or scanning
      * up to sixteen slots for every target/state lookup. The set is rebuilt only when
      * the filter contents or the installed filter tier changes.
      */
@@ -399,7 +399,7 @@ public final class ExcavatorUpgradeManager {
             for (int i = 0; i < MAX_FILTER_SLOTS; i++) {
                 String raw = filterTag.getStringOr(TAG_FILTER_SLOT_PREFIX + i, "");
                 if (raw.isBlank()) continue;
-                ResourceLocation id = ResourceLocation.tryParse(raw);
+                Identifier id = Identifier.tryParse(raw);
                 if (id != null) {
                     int filterSlot = i;
                     BuiltInRegistries.BLOCK.getOptional(id)

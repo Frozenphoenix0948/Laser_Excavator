@@ -31,7 +31,7 @@ public final class ExcavatorRunningLimits extends SavedData {
     }
 
     private static String key(ServerLevel level, BlockPos pos) {
-        return level.dimension().location() + ":" + pos.asLong();
+        return level.dimension().identifier() + ":" + pos.asLong();
     }
 
     public boolean claim(ServerLevel level, BlockPos pos, UUID owner, int tier) {

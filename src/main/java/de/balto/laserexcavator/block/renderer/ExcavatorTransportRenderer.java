@@ -12,7 +12,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -75,8 +76,8 @@ final class ExcavatorTransportRenderer {
     private static final double BLOCK_ROTATION_RADIANS_PER_TICK = Math.toRadians(5.0D);
     private static final double ITEM_ROTATION_RADIANS_PER_TICK = Math.toRadians(9.0D);
 
-    private static final RenderType TRANSPORT_ATLAS_RENDER_TYPE =
-            RenderType.entityCutout(TextureAtlas.LOCATION_BLOCKS);
+    private static final RenderType TRANSPORT_ATLAS_RENDER_TYPE = RenderTypes.entityCutout(TextureAtlas.LOCATION_BLOCKS);
+    private static final RenderType ITEM_ATLAS_RENDER_TYPE = RenderTypes.entityCutoutNoCull(TextureAtlas.LOCATION_ITEMS);
 
     private final ExcavatorTransportGeometry.Position transportPosition = new ExcavatorTransportGeometry.Position();
     private final BlockPos.MutableBlockPos regionLightSamplePos = new BlockPos.MutableBlockPos();
@@ -147,6 +148,7 @@ final class ExcavatorTransportRenderer {
     private int batchRepresentativeVisibilityStamp;
 
     static RenderType atlasRenderType() { return TRANSPORT_ATLAS_RENDER_TYPE; }
+    static RenderType itemAtlasRenderType() { return ITEM_ATLAS_RENDER_TYPE; }
 
     void render(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
                 float partialTick, PoseStack.Pose pose, VertexConsumer atlasConsumer, Frustum frustum) {
@@ -172,16 +174,60 @@ final class ExcavatorTransportRenderer {
         renderInternal(visuals, level, blockEntity, partialTick, basePose, providedAtlasConsumer, forcedTier);
     }
 
+    void renderItemBillboards(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
+                              float partialTick, PoseStack.Pose pose, VertexConsumer consumer, Frustum frustum) {
+        renderItemBillboardsInternal(visuals, level, blockEntity, partialTick, pose, consumer, frustum, DISTANCE_TIER_UNCLASSIFIED);
+    }
+
+    void renderItemBillboardsForStressTest(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
+                                          float partialTick, PoseStack.Pose pose, VertexConsumer consumer, byte forcedTier) {
+        renderItemBillboardsInternal(visuals, level, blockEntity, partialTick, pose, consumer,
+                ExcavatorViewFrustum.current(Minecraft.getInstance().gameRenderer.getMainCamera()), forcedTier);
+    }
+
+    private void renderItemBillboardsInternal(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
+                                              float partialTick, PoseStack.Pose pose, VertexConsumer consumer, Frustum frustum, byte forcedTier) {
+        if (visuals.transports().isEmpty() || forcedTier == DISTANCE_TIER_HIDDEN) return;
+        TransportDebugMode mode = LaserExcavatorClientConfig.transportDebugMode();
+        if (mode != TransportDebugMode.NORMAL) return;
+
+        long gameTime = level.getGameTime();
+        double renderGameTime = gameTime + partialTick;
+        prepareSharedFrameState(gameTime, renderGameTime);
+        if (isAutomaticTierMode(forcedTier) && isWholeTransportEnvelopeHidden(blockEntity)) return;
+
+        BlockPos origin = blockEntity.getBlockPos();
+        TransportRenderState state = transportStates.computeIfAbsent(blockEntity, ignored -> new TransportRenderState());
+        syncNewTransports(state, visuals.transports(), gameTime, renderGameTime, origin, false);
+        updateSpatialRegionMembership(state, gameTime, renderGameTime, origin, false);
+        classifySpatialRegions(state, forcedTier, false);
+
+        float cameraX = (float) (frameCameraWorldX - origin.getX());
+        float cameraY = (float) (frameCameraWorldY - origin.getY());
+        float cameraZ = (float) (frameCameraWorldZ - origin.getZ());
+        frameFrustum = frustum;
+        for (TransportRegion region : state.individualRegions) {
+            if (!isTransportRegionVisible(region, null)) continue;
+            for (CachedTransport cached : region.members) {
+                if (cached.blockItem) continue;
+                calculateCachedTransportPosition(cached, renderGameTime);
+                float dx = cameraX - transportPosition.x;
+                float dy = cameraY - transportPosition.y;
+                float dz = cameraZ - transportPosition.z;
+                if (dx * dx + dy * dy + dz * dz >= smallMarkerDistanceSq || !ensureTransportAppearance(cached, level)) continue;
+                renderTexturedItemBillboard(pose, consumer, cached.itemTexture,
+                        transportPosition.x, transportPosition.y, transportPosition.z,
+                        resolveRegionPackedLight(cached.region, level, origin, false));
+            }
+        }
+    }
+
     void clearCachedState(ExcavatorBlockEntity blockEntity) {
         transportStates.remove(blockEntity);
     }
 
     void clearAllCachedStates() {
         transportStates.clear();
-    }
-
-    void clearStressTestState(ExcavatorBlockEntity blockEntity) {
-        clearCachedState(blockEntity);
     }
 
     static byte stressTierAuto() { return DISTANCE_TIER_UNCLASSIFIED; }
@@ -1770,17 +1816,6 @@ final class ExcavatorTransportRenderer {
             return VISUAL_ITEM_MARKER;
         }
 
-        if (emitGeometry && ensureTransportAppearance(cached, level)) {
-            renderTexturedItemBillboard(
-                    basePose,
-                    consumer,
-                    cached.itemTexture,
-                    transportPosition.x,
-                    transportPosition.y,
-                    transportPosition.z,
-                    resolveRegionPackedLight(cached.region, level, origin, profiling)
-            );
-        }
         return VISUAL_ITEM_BILLBOARD;
     }
 
@@ -2033,15 +2068,15 @@ final class ExcavatorTransportRenderer {
         lastPreparedRenderTimeBits = renderTimeBits;
 
         var camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        var cameraPosition = camera.getPosition();
+        var cameraPosition = camera.position();
         frameCameraWorldX = cameraPosition.x;
         frameCameraWorldY = cameraPosition.y;
         frameCameraWorldZ = cameraPosition.z;
 
 
-        var cameraLeft = camera.getLeftVector();
-        var cameraUp = camera.getUpVector();
-        var cameraLook = camera.getLookVector();
+        var cameraLeft = camera.leftVector();
+        var cameraUp = camera.upVector();
+        var cameraLook = camera.forwardVector();
         float blockAngle = (float) (renderGameTime * BLOCK_ROTATION_RADIANS_PER_TICK);
         float blockCos = Mth.cos(blockAngle);
         float blockSin = Mth.sin(blockAngle);
@@ -2210,8 +2245,4 @@ final class ExcavatorTransportRenderer {
         }
         return phase;
     }
-
-
-
-
 }

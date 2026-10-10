@@ -55,7 +55,7 @@ public final class ExcavatorTrailerCommands {
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(
                 Commands.literal("excavatortrailer")
-                        .requires(source -> LaserExcavatorConfig.stressTestCommandsEnabled() && source.hasPermission(2))
+                        .requires(source -> LaserExcavatorConfig.stressTestCommandsEnabled() && Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(source))
                         .then(Commands.literal("setup")
                                 .then(Commands.literal("1")
                                         .executes(context -> startSetup(context.getSource(), Layout.ONE)))

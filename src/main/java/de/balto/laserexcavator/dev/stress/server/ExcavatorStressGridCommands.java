@@ -15,7 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -130,7 +130,7 @@ public final class ExcavatorStressGridCommands {
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(
                 Commands.literal("excavatorstressgrid")
-                        .requires(source -> LaserExcavatorConfig.stressTestCommandsEnabled() && source.hasPermission(2))
+                        .requires(source -> LaserExcavatorConfig.stressTestCommandsEnabled() && Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(source))
                         .executes(context -> start(context.getSource(), StressUpgradePreset.DEFAULT))
                         .then(Commands.literal("tier3")
                                 .executes(context -> start(context.getSource(), StressUpgradePreset.TIER_3_FILTERED)))
@@ -149,7 +149,7 @@ public final class ExcavatorStressGridCommands {
 
         event.getDispatcher().register(
                 Commands.literal("excavatorstressgridisolated")
-                        .requires(source -> LaserExcavatorConfig.stressTestCommandsEnabled() && source.hasPermission(2))
+                        .requires(source -> LaserExcavatorConfig.stressTestCommandsEnabled() && Commands.hasPermission(Commands.LEVEL_GAMEMASTERS).test(source))
                         .executes(context -> startIsolated(context.getSource()))
                         .then(Commands.literal("status")
                                 .executes(context -> status(context.getSource())))
@@ -1620,7 +1620,7 @@ public final class ExcavatorStressGridCommands {
         }
 
         private boolean isOritechSuperconductorFamily(Block block) {
-            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
+            Identifier id = BuiltInRegistries.BLOCK.getKey(block);
             if (id == null || !"oritech".equals(id.getNamespace())) return false;
             String path = id.getPath();
             return path.equals("superconductor")
@@ -1940,7 +1940,7 @@ public final class ExcavatorStressGridCommands {
 
     private static Block findBlock(String idText) {
         if (BLOCK_CACHE.containsKey(idText)) return BLOCK_CACHE.get(idText);
-        ResourceLocation id = ResourceLocation.tryParse(idText);
+        Identifier id = Identifier.tryParse(idText);
         Block block = id == null ? null : BuiltInRegistries.BLOCK.getOptional(id).orElse(null);
         if (block == Blocks.AIR && !"minecraft:air".equals(idText)) block = null;
         BLOCK_CACHE.put(idText, block);
@@ -1949,7 +1949,7 @@ public final class ExcavatorStressGridCommands {
 
     private static Item findItem(String idText) {
         if (ITEM_CACHE.containsKey(idText)) return ITEM_CACHE.get(idText);
-        ResourceLocation id = ResourceLocation.tryParse(idText);
+        Identifier id = Identifier.tryParse(idText);
         Item item = id == null ? null : BuiltInRegistries.ITEM.getOptional(id).orElse(null);
         ITEM_CACHE.put(idText, item);
         return item;

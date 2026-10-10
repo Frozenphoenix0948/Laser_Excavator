@@ -4,7 +4,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +30,7 @@ public record ExcavatorSectionBlockUpdatePayload(
     public static final int MAX_POSITIONS = 4096;
 
     public static final Type<ExcavatorSectionBlockUpdatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(MODID, "excavator_section_block_update")
+            Identifier.fromNamespaceAndPath(MODID, "excavator_section_block_update")
     );
 
     private static final StreamCodec<RegistryFriendlyByteBuf, List<Short>> POSITION_LIST_CODEC =

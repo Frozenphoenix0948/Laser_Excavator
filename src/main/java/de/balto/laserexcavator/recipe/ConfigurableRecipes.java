@@ -9,7 +9,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -88,13 +88,13 @@ public final class ConfigurableRecipes {
             LaserExcavatorConfig.RecipeConfig config = definition.config();
 
             if (!config.enabled().get()) {
-                changed |= recipes.removeIf(holder -> holder.id().location().equals(definition.id()));
+                changed |= recipes.removeIf(holder -> holder.id().identifier().equals(definition.id()));
                 continue;
             }
 
             try {
                 Recipe<?> configured = createRecipe(definition, registries);
-                recipes.removeIf(holder -> holder.id().location().equals(definition.id()));
+                recipes.removeIf(holder -> holder.id().identifier().equals(definition.id()));
                 recipes.add(new RecipeHolder<>(ResourceKey.create(Registries.RECIPE, definition.id()), configured));
                 changed = true;
             } catch (RuntimeException ex) {
@@ -166,7 +166,7 @@ public final class ConfigurableRecipes {
 
         boolean isTag = value.startsWith("#");
         String idText = isTag ? value.substring(1) : value;
-        ResourceLocation id = ResourceLocation.tryParse(idText);
+        Identifier id = Identifier.tryParse(idText);
         if (id == null) {
             throw new IllegalArgumentException("Invalid ingredient id: " + raw);
         }
@@ -188,7 +188,7 @@ public final class ConfigurableRecipes {
             String group
     ) {
         return new Definition(
-                ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, path),
+                Identifier.fromNamespaceAndPath(LaserExcavator.MODID, path),
                 config,
                 result,
                 category,
@@ -197,7 +197,7 @@ public final class ConfigurableRecipes {
     }
 
     private record Definition(
-            ResourceLocation id,
+            Identifier id,
             LaserExcavatorConfig.RecipeConfig config,
             Supplier<? extends ItemLike> result,
             CraftingBookCategory category,
