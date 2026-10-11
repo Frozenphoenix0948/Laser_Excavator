@@ -147,13 +147,20 @@ final class ExcavatorTransportRenderer {
     private final Map<ExcavatorBlockEntity, TransportRenderState> transportStates = new WeakHashMap<>();
     private int batchRepresentativeVisibilityStamp;
 
+    static final class FramePreparation {
+        private boolean prepared;
+        private TransportRenderState state;
+    }
+
+    FramePreparation newFramePreparation() { return new FramePreparation(); }
+
     static RenderType atlasRenderType() { return TRANSPORT_ATLAS_RENDER_TYPE; }
     static RenderType itemAtlasRenderType() { return ITEM_ATLAS_RENDER_TYPE; }
 
     void render(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
-                float partialTick, PoseStack.Pose pose, VertexConsumer atlasConsumer, Frustum frustum) {
+                float partialTick, PoseStack.Pose pose, VertexConsumer atlasConsumer, Frustum frustum, FramePreparation preparation) {
         frameFrustum = frustum;
-        renderInternal(visuals, level, blockEntity, partialTick, pose, atlasConsumer, DISTANCE_TIER_UNCLASSIFIED);
+        renderInternal(visuals, level, blockEntity, partialTick, pose, atlasConsumer, DISTANCE_TIER_UNCLASSIFIED, preparation);
     }
 
     /**
@@ -168,59 +175,59 @@ final class ExcavatorTransportRenderer {
             float partialTick,
             PoseStack.Pose basePose,
             VertexConsumer providedAtlasConsumer,
-            byte forcedTier
+            byte forcedTier,
+            FramePreparation preparation
     ) {
         frameFrustum = ExcavatorViewFrustum.current(Minecraft.getInstance().gameRenderer.getMainCamera());
-        renderInternal(visuals, level, blockEntity, partialTick, basePose, providedAtlasConsumer, forcedTier);
+        renderInternal(visuals, level, blockEntity, partialTick, basePose, providedAtlasConsumer, forcedTier, preparation);
     }
 
     void renderItemBillboards(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
-                              float partialTick, PoseStack.Pose pose, VertexConsumer consumer, Frustum frustum) {
-        renderItemBillboardsInternal(visuals, level, blockEntity, partialTick, pose, consumer, frustum, DISTANCE_TIER_UNCLASSIFIED);
+                              float partialTick, PoseStack.Pose pose, VertexConsumer consumer, Frustum frustum, FramePreparation preparation) {
+        renderItemBillboardsInternal(visuals, level, blockEntity, partialTick, pose, consumer, frustum, DISTANCE_TIER_UNCLASSIFIED, preparation);
     }
 
     void renderItemBillboardsForStressTest(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
-                                          float partialTick, PoseStack.Pose pose, VertexConsumer consumer, byte forcedTier) {
+                                          float partialTick, PoseStack.Pose pose, VertexConsumer consumer, byte forcedTier,
+                                          FramePreparation preparation) {
         renderItemBillboardsInternal(visuals, level, blockEntity, partialTick, pose, consumer,
-                ExcavatorViewFrustum.current(Minecraft.getInstance().gameRenderer.getMainCamera()), forcedTier);
+                ExcavatorViewFrustum.current(Minecraft.getInstance().gameRenderer.getMainCamera()), forcedTier, preparation);
     }
 
     private void renderItemBillboardsInternal(ExcavatorClientVisuals.VisualSet visuals, ClientLevel level, ExcavatorBlockEntity blockEntity,
-                                              float partialTick, PoseStack.Pose pose, VertexConsumer consumer, Frustum frustum, byte forcedTier) {
-        if (visuals.transports().isEmpty() || forcedTier == DISTANCE_TIER_HIDDEN) return;
-        TransportDebugMode mode = LaserExcavatorClientConfig.transportDebugMode();
-        if (mode != TransportDebugMode.NORMAL) return;
-
+                                              float partialTick, PoseStack.Pose pose, VertexConsumer consumer, Frustum frustum,
+                                              byte forcedTier, FramePreparation preparation) {
+        if (visuals.transports().isEmpty() || forcedTier == DISTANCE_TIER_HIDDEN
+                || LaserExcavatorClientConfig.transportDebugMode() != TransportDebugMode.NORMAL) return;
+        boolean profiling = ExcavatorProfiler.isEnabled();
+        long itemProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.Section.TRANSPORT_RENDER);
         long gameTime = level.getGameTime();
         double renderGameTime = gameTime + partialTick;
-        prepareSharedFrameState(gameTime, renderGameTime);
-        if (isAutomaticTierMode(forcedTier) && isWholeTransportEnvelopeHidden(blockEntity)) return;
-
         BlockPos origin = blockEntity.getBlockPos();
-        TransportRenderState state = transportStates.computeIfAbsent(blockEntity, ignored -> new TransportRenderState());
-        syncNewTransports(state, visuals.transports(), gameTime, renderGameTime, origin, false);
-        updateSpatialRegionMembership(state, gameTime, renderGameTime, origin, false);
-        classifySpatialRegions(state, forcedTier, false);
-
-        float cameraX = (float) (frameCameraWorldX - origin.getX());
-        float cameraY = (float) (frameCameraWorldY - origin.getY());
-        float cameraZ = (float) (frameCameraWorldZ - origin.getZ());
-        frameFrustum = frustum;
-        for (TransportRegion region : state.individualRegions) {
-            if (!isTransportRegionVisible(region, null)) continue;
-            for (CachedTransport cached : region.members) {
-                if (cached.blockItem) continue;
-                calculateCachedTransportPosition(cached, renderGameTime);
-                float dx = cameraX - transportPosition.x;
-                float dy = cameraY - transportPosition.y;
-                float dz = cameraZ - transportPosition.z;
-                if (dx * dx + dy * dy + dz * dz >= smallMarkerDistanceSq || !ensureTransportAppearance(cached, level)
-                        || cached.itemTexture.blockAtlas()) continue;
-                renderTexturedItemBillboard(pose, consumer, cached.itemTexture,
-                        transportPosition.x, transportPosition.y, transportPosition.z,
-                        resolveRegionPackedLight(cached.region, level, origin, false));
+        TransportRenderState state = prepareTransportState(preparation, visuals, blockEntity,
+                gameTime, renderGameTime, origin, forcedTier, profiling);
+        if (state != null) {
+            float cameraX = (float) (frameCameraWorldX - origin.getX());
+            float cameraY = (float) (frameCameraWorldY - origin.getY());
+            float cameraZ = (float) (frameCameraWorldZ - origin.getZ());
+            frameFrustum = frustum;
+            for (TransportRegion region : state.individualRegions) {
+                if (!isTransportRegionVisible(region, null)) continue;
+                for (CachedTransport cached : region.members) {
+                    if (cached.blockItem) continue;
+                    calculateCachedTransportPosition(cached, renderGameTime);
+                    float dx = cameraX - transportPosition.x;
+                    float dy = cameraY - transportPosition.y;
+                    float dz = cameraZ - transportPosition.z;
+                    if (dx * dx + dy * dy + dz * dz >= smallMarkerDistanceSq || !ensureTransportAppearance(cached, level)
+                            || cached.itemTexture.blockAtlas()) continue;
+                    renderTexturedItemBillboard(pose, consumer, cached.itemTexture,
+                            transportPosition.x, transportPosition.y, transportPosition.z,
+                            resolveRegionPackedLight(cached.region, level, origin, profiling));
+                }
             }
         }
+        ExcavatorProfiler.end(ExcavatorProfiler.Section.TRANSPORT_RENDER, itemProfile);
     }
 
     void clearCachedState(ExcavatorBlockEntity blockEntity) {
@@ -243,7 +250,8 @@ final class ExcavatorTransportRenderer {
             float partialTick,
             PoseStack.Pose basePose,
             VertexConsumer providedAtlasConsumer,
-            byte forcedTier
+            byte forcedTier,
+            FramePreparation preparation
     ) {
         List<ExcavatorClientVisuals.TransportVisual> transports = visuals.transports();
         if (transports.isEmpty()) {
@@ -253,81 +261,26 @@ final class ExcavatorTransportRenderer {
 
         boolean profiling = ExcavatorProfiler.isEnabled();
         long transportProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.Section.TRANSPORT_RENDER);
-        long frameSetupProfile = ExcavatorProfiler.begin(
-                profiling, ExcavatorProfiler.TransportSubsection.FRAME_SETUP
-        );
         long gameTime = level.getGameTime();
         double renderGameTime = gameTime + partialTick;
-        prepareSharedFrameState(gameTime, renderGameTime);
-
         BlockPos origin = blockEntity.getBlockPos();
+        TransportRenderState state = prepareTransportState(preparation, visuals, blockEntity,
+                gameTime, renderGameTime, origin, forcedTier, profiling);
+        if (state == null) {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.TRANSPORT_RENDER, transportProfile);
+            return;
+        }
+
         float cameraX = (float) (frameCameraWorldX - origin.getX());
         float cameraY = (float) (frameCameraWorldY - origin.getY());
         float cameraZ = (float) (frameCameraWorldZ - origin.getZ());
-        ExcavatorProfiler.end(ExcavatorProfiler.TransportSubsection.FRAME_SETUP, frameSetupProfile);
-
-        // A fully hidden effect does not need a renderer-side transport cache at all.
-        // The VisualSet remains authoritative, so when the camera comes back in range the
-        // current live transports are materialized lazily in one normal sync pass. This
-        // removes per-frame CachedTransport creation, spatial grouping and cleanup
-        // and tier-list traversal for excavators whose complete possible transport envelope
-        // is farther away than the maximum transport render distance.
-        long hiddenBoundsProfile = ExcavatorProfiler.begin(
-                profiling, ExcavatorProfiler.TransportSubsection.HIDDEN_WHOLE_EFFECT_TEST
-        );
-        boolean wholeEffectHidden = forcedTier == DISTANCE_TIER_HIDDEN
-                || (isAutomaticTierMode(forcedTier) && isWholeTransportEnvelopeHidden(blockEntity));
-        ExcavatorProfiler.end(
-                ExcavatorProfiler.TransportSubsection.HIDDEN_WHOLE_EFFECT_TEST, hiddenBoundsProfile
-        );
-        if (wholeEffectHidden) {
-            transportStates.remove(blockEntity);
-            if (profiling) {
-                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TRANSPORT_HIDDEN_WHOLE_EFFECT_REJECTS);
-                ExcavatorProfiler.add(
-                        ExcavatorProfiler.Counter.TRANSPORT_HIDDEN_WHOLE_EFFECT_VISUALS_SKIPPED,
-                        transports.size()
-                );
-            }
-            ExcavatorProfiler.end(ExcavatorProfiler.Section.TRANSPORT_RENDER, transportProfile);
-            return;
-        }
-
         blockNormalsPrepared = false;
         VertexConsumer atlasConsumer = null;
-
-        TransportRenderState state = transportStates.computeIfAbsent(
-                blockEntity, ignored -> new TransportRenderState()
-        );
-        long cacheSyncProfile = ExcavatorProfiler.begin(
-                profiling, ExcavatorProfiler.TransportSubsection.CACHE_SYNC
-        );
-        syncNewTransports(state, transports, gameTime, renderGameTime, origin, profiling);
-        ExcavatorProfiler.end(ExcavatorProfiler.TransportSubsection.CACHE_SYNC, cacheSyncProfile);
-        cleanupTransportCacheBounded(state, transports, gameTime, profiling);
-
         TransportDebugMode debugMode = LaserExcavatorClientConfig.transportDebugMode();
         if (debugMode == TransportDebugMode.DISABLED) {
-            // Keep transport lifetime/cache state active while skipping LOD and geometry.
             ExcavatorProfiler.end(ExcavatorProfiler.Section.TRANSPORT_RENDER, transportProfile);
             return;
         }
-
-        long regionMembershipProfile = ExcavatorProfiler.begin(
-                profiling, ExcavatorProfiler.TransportSubsection.REGION_MEMBERSHIP
-        );
-        updateSpatialRegionMembership(state, gameTime, renderGameTime, origin, profiling);
-        ExcavatorProfiler.end(
-                ExcavatorProfiler.TransportSubsection.REGION_MEMBERSHIP, regionMembershipProfile
-        );
-
-        long regionLodProfile = ExcavatorProfiler.begin(
-                profiling, ExcavatorProfiler.TransportSubsection.SPATIAL_REGION_LOD
-        );
-        classifySpatialRegions(state, forcedTier, profiling);
-        ExcavatorProfiler.end(
-                ExcavatorProfiler.TransportSubsection.SPATIAL_REGION_LOD, regionLodProfile
-        );
 
         // Fixed current-position regions are deliberately classified conservatively from
         // their nearest point. If every occupied region is HIDDEN, every current transport
@@ -461,6 +414,50 @@ final class ExcavatorTransportRenderer {
         }
 
         ExcavatorProfiler.end(ExcavatorProfiler.Section.TRANSPORT_RENDER, transportProfile);
+    }
+
+    private TransportRenderState prepareTransportState(FramePreparation preparation, ExcavatorClientVisuals.VisualSet visuals,
+                                                        ExcavatorBlockEntity blockEntity, long gameTime,
+                                                        double renderGameTime, BlockPos origin, byte forcedTier, boolean profiling) {
+        if (preparation.prepared) return preparation.state;
+        preparation.prepared = true;
+        long frameProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.TransportSubsection.FRAME_SETUP);
+        prepareSharedFrameState(gameTime, renderGameTime);
+        ExcavatorProfiler.end(ExcavatorProfiler.TransportSubsection.FRAME_SETUP, frameProfile);
+
+        List<ExcavatorClientVisuals.TransportVisual> transports = visuals.transports();
+        if (transports.isEmpty()) {
+            transportStates.remove(blockEntity);
+            return null;
+        }
+        long hiddenProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.TransportSubsection.HIDDEN_WHOLE_EFFECT_TEST);
+        boolean wholeEffectHidden = forcedTier == DISTANCE_TIER_HIDDEN
+                || (isAutomaticTierMode(forcedTier) && isWholeTransportEnvelopeHidden(blockEntity));
+        ExcavatorProfiler.end(ExcavatorProfiler.TransportSubsection.HIDDEN_WHOLE_EFFECT_TEST, hiddenProfile);
+        if (wholeEffectHidden) {
+            transportStates.remove(blockEntity);
+            if (profiling) {
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TRANSPORT_HIDDEN_WHOLE_EFFECT_REJECTS);
+                ExcavatorProfiler.add(ExcavatorProfiler.Counter.TRANSPORT_HIDDEN_WHOLE_EFFECT_VISUALS_SKIPPED, transports.size());
+            }
+            return null;
+        }
+
+        TransportRenderState state = transportStates.computeIfAbsent(blockEntity, ignored -> new TransportRenderState());
+        long cacheProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.TransportSubsection.CACHE_SYNC);
+        syncNewTransports(state, transports, gameTime, renderGameTime, origin, profiling);
+        ExcavatorProfiler.end(ExcavatorProfiler.TransportSubsection.CACHE_SYNC, cacheProfile);
+        cleanupTransportCacheBounded(state, transports, gameTime, profiling);
+        if (LaserExcavatorClientConfig.transportDebugMode() != TransportDebugMode.DISABLED) {
+            long membershipProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.TransportSubsection.REGION_MEMBERSHIP);
+            updateSpatialRegionMembership(state, gameTime, renderGameTime, origin, profiling);
+            ExcavatorProfiler.end(ExcavatorProfiler.TransportSubsection.REGION_MEMBERSHIP, membershipProfile);
+            long lodProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.TransportSubsection.SPATIAL_REGION_LOD);
+            classifySpatialRegions(state, forcedTier, profiling);
+            ExcavatorProfiler.end(ExcavatorProfiler.TransportSubsection.SPATIAL_REGION_LOD, lodProfile);
+        }
+        preparation.state = state;
+        return state;
     }
 
     private void renderMarkersOnlyDiagnostic(

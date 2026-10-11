@@ -140,6 +140,7 @@ public final class ExcavatorTransportStressHarness {
                     lane.anchor.getY() - camera.y,
                     lane.anchor.getZ() - camera.z
             );
+            var transportPreparation = RENDERER.newFramePreparation();
             RENDERER.renderForStressTest(
                     visuals,
                     level,
@@ -147,10 +148,11 @@ public final class ExcavatorTransportStressHarness {
                     partialTick,
                     poseStack.last(),
                     buffers.getBuffer(ExcavatorTransportRenderer.atlasRenderType()),
-                    forcedTier
+                    forcedTier,
+                    transportPreparation
             );
             RENDERER.renderItemBillboardsForStressTest(visuals, level, lane.fakeBlockEntity, partialTick,
-                    poseStack.last(), buffers.getBuffer(ExcavatorTransportRenderer.itemAtlasRenderType()), forcedTier);
+                    poseStack.last(), buffers.getBuffer(ExcavatorTransportRenderer.itemAtlasRenderType()), forcedTier, transportPreparation);
             poseStack.popPose();
         }
     }

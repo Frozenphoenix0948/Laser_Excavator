@@ -147,10 +147,11 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
         float partialTick = renderState.partialTick;
         collector.submitCustomGeometry(poseStack, OPAQUE_DEPTH_LINES,
                 (pose, consumer) -> renderLines(blockEntity, clientLevel, partialTick, pose, consumer, area, scanState, energized, visuals, profiling));
+        var transportPreparation = transportRenderer.newFramePreparation();
         collector.submitCustomGeometry(poseStack, ExcavatorTransportRenderer.atlasRenderType(),
-                (pose, consumer) -> transportRenderer.render(visuals, clientLevel, blockEntity, partialTick, pose, consumer, frustum));
+                (pose, consumer) -> transportRenderer.render(visuals, clientLevel, blockEntity, partialTick, pose, consumer, frustum, transportPreparation));
         collector.submitCustomGeometry(poseStack, ExcavatorTransportRenderer.itemAtlasRenderType(),
-                (pose, consumer) -> transportRenderer.renderItemBillboards(visuals, clientLevel, blockEntity, partialTick, pose, consumer, frustum));
+                (pose, consumer) -> transportRenderer.renderItemBillboards(visuals, clientLevel, blockEntity, partialTick, pose, consumer, frustum, transportPreparation));
     }
 
     private void renderLines(ExcavatorBlockEntity blockEntity, ClientLevel level, float partialTick, PoseStack.Pose pose,
