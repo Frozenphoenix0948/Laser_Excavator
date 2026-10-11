@@ -1,7 +1,7 @@
 package de.balto.laserexcavator.screen;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -42,7 +42,7 @@ final class ExcavatorStyledButton extends Button {
     }
 
     @Override
-    protected void renderContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         boolean chosen = selected.getAsBoolean(), iconButton = icon != Icon.NONE, lockedNow = locked.getAsBoolean();
         boolean hovered = iconButton ? isHovered() : isHoveredOrFocused();
         int x = getX(), y = getY(), fill = !active ? BUTTON_DISABLED : chosen ? BUTTON_SELECTED : hovered ? BUTTON_HOVER : BUTTON_BG;
@@ -53,17 +53,17 @@ final class ExcavatorStyledButton extends Button {
         if (lockedNow) ExcavatorUiStyle.drawLock(graphics, x + (getWidth() - 6) / 2, y + (getHeight() - 7) / 2, color);
         else if (icon == Icon.GEAR) drawGear(graphics, color, fill);
         else if (icon == Icon.FILTER) drawFilter(graphics, color);
-        else graphics.drawCenteredString(Minecraft.getInstance().font, getMessage(), x + getWidth() / 2, y + (getHeight() - 8) / 2 + dy, color);
+        else graphics.centeredText(Minecraft.getInstance().font, getMessage(), x + getWidth() / 2, y + (getHeight() - 8) / 2 + dy, color);
     }
 
-    private void drawGear(GuiGraphics graphics, int color, int fill) {
+    private void drawGear(GuiGraphicsExtractor graphics, int color, int fill) {
         int cx = getX() + getWidth() / 2, cy = getY() + getHeight() / 2;
         graphics.fill(cx - 1, cy - 2, cx + 2, cy + 3, color);
         graphics.fill(cx - 2, cy - 1, cx + 3, cy + 2, color);
         graphics.fill(cx, cy, cx + 1, cy + 1, fill);
     }
 
-    private void drawFilter(GuiGraphics graphics, int color) {
+    private void drawFilter(GuiGraphicsExtractor graphics, int color) {
         int cx = getX() + getWidth() / 2, cy = getY() + getHeight() / 2;
         graphics.fill(cx - 2, cy - 2, cx + 3, cy - 1, color);
         graphics.fill(cx - 1, cy - 1, cx + 2, cy, color);

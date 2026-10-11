@@ -2,7 +2,7 @@ package de.balto.laserexcavator.screen;
 
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig.RenderPreset;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -42,23 +42,23 @@ public final class ExcavatorRenderSettingsScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {}
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(graphics, mouseX, mouseY, partialTick);
         int panelW = Math.min(width - 24, 390), left = (width - panelW) / 2, top = Math.max(12, height / 2 - 86), bottom = top + 164;
         graphics.fill(0, 0, width, height, 0x33000000);
         graphics.fill(left, top, left + panelW, bottom, FRAME);
         graphics.fill(left + 1, top + 1, left + panelW - 1, bottom - 1, SCREEN_BG);
         graphics.fill(left + 1, top + 1, left + panelW - 1, top + 25, PANEL_HEADER);
         graphics.fill(left + 9, top + 78, left + panelW - 9, top + 122, PANEL_INNER);
-        graphics.drawCenteredString(font, title, width / 2, top + 8, TEXT);
-        graphics.drawCenteredString(font, "Client-side visual settings", width / 2, top + 30, MUTED);
+        graphics.centeredText(font, title, width / 2, top + 8, TEXT);
+        graphics.centeredText(font, "Client-side visual settings", width / 2, top + 30, MUTED);
         RenderPreset preset = LaserExcavatorClientConfig.renderPreset();
-        graphics.drawCenteredString(font, preset == RenderPreset.CUSTOM ? "Custom" : preset.label(), width / 2, top + 87, preset == RenderPreset.CUSTOM ? GOLD : ACCENT);
-        graphics.drawCenteredString(font, description(preset), width / 2, top + 102, MUTED);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.centeredText(font, preset == RenderPreset.CUSTOM ? "Custom" : preset.label(), width / 2, top + 87, preset == RenderPreset.CUSTOM ? GOLD : ACCENT);
+        graphics.centeredText(font, description(preset), width / 2, top + 102, MUTED);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
     private String description(RenderPreset preset) {

@@ -49,7 +49,7 @@ public final class ExcavatorAutoSmelter {
         SingleRecipeInput recipeInput = new SingleRecipeInput(singleInput);
 
         return SMELTING_CHECK.getRecipeFor(recipeInput, level)
-                .map(holder -> holder.value().assemble(recipeInput, level.registryAccess()))
+                .map(holder -> holder.value().assemble(recipeInput))
                 .filter(stack -> !stack.isEmpty())
                 .map(output -> multiplyAndSplit(output, input.getCount()))
                 .orElse(null);

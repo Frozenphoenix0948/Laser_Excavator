@@ -74,7 +74,8 @@ public final class ExcavatorFuelManager {
         int burnTime = stack.getBurnTime(RecipeType.SMELTING, fuelValues.get());
         if (burnTime <= 0) return false;
 
-        ItemStack remainder = stack.copyWithCount(1).getCraftingRemainder();
+        var remainderTemplate = stack.copyWithCount(1).getCraftingRemainder();
+        ItemStack remainder = remainderTemplate == null ? ItemStack.EMPTY : remainderTemplate.create();
         if (!canStoreRemainderAfterConsumption(stack, remainder)) return false;
 
         ItemStack consumed = inventory.extractItem(0, 1, false);

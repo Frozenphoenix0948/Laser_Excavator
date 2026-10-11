@@ -3,7 +3,7 @@ package de.balto.laserexcavator.screen;
 import de.balto.laserexcavator.block.blockentities.ExcavatorBlockEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
@@ -51,7 +51,7 @@ final class ExcavatorFilterPanel {
     private int inventoryY() { return screen.guiTop() + ExcavatorScreen.PLAYER_GRID_Y; }
     private int hotbarY() { return screen.guiTop() + ExcavatorScreen.PLAYER_HOTBAR_Y; }
 
-    void render(GuiGraphics graphics, Font font, int mouseX, int mouseY, float partialTick) {
+    void render(GuiGraphicsExtractor graphics, Font font, int mouseX, int mouseY, float partialTick) {
         int x = x(), y = y(), bottom = bottom(), capacity = menu().getFilterCapacity();
 
         graphics.fill(x + 4, y + 4, x + W + 4, bottom + 4, SHADOW);
@@ -60,7 +60,7 @@ final class ExcavatorFilterPanel {
         graphics.fill(x + 2, y + 2, x + W - 2, y + HEADER_H, PANEL_HEADER);
         graphics.fill(x + 2, y + HEADER_H, x + W - 2, y + HEADER_H + 1, ACCENT);
 
-        graphics.drawString(font, "Block Filter", x + 8, y + 7, TEXT, false);
+        graphics.text(font, "Block Filter", x + 8, y + 7, TEXT, false);
         drawClose(graphics, x + W - 15, y + 4, mouseX, mouseY);
         ExcavatorUiStyle.drawScaledString(graphics, font, capacity + "/" + ExcavatorBlockEntity.MAX_FILTER_SLOTS, x + W - 39, y + 8, MUTED, .68F);
 
@@ -76,7 +76,7 @@ final class ExcavatorFilterPanel {
             Block block = menu().getFilterBlock(slot);
             if (block != null) {
                 ItemStack stack = block.asItem().getDefaultInstance();
-                if (!stack.isEmpty()) graphics.renderItem(stack, sx, sy);
+                if (!stack.isEmpty()) graphics.item(stack, sx, sy);
             }
         }
 
@@ -104,7 +104,7 @@ final class ExcavatorFilterPanel {
         screen.renderFilterInventoryTooltip(graphics, mouseX, mouseY);
     }
 
-    private void drawInventoryBackground(GuiGraphics graphics) {
+    private void drawInventoryBackground(GuiGraphicsExtractor graphics) {
         int x = inventoryX(), y = inventoryY();
         for (int row = 0; row < 3; row++) for (int col = 0; col < 9; col++)
             ExcavatorUiStyle.drawSlot(graphics, x + col * ExcavatorScreen.SLOT_STEP, y + row * ExcavatorScreen.SLOT_STEP);
@@ -112,23 +112,23 @@ final class ExcavatorFilterPanel {
             ExcavatorUiStyle.drawSlot(graphics, x + col * ExcavatorScreen.SLOT_STEP, hotbarY());
     }
 
-    private static void drawFilterSlot(GuiGraphics graphics, int x, int y, boolean active, boolean hovered) {
+    private static void drawFilterSlot(GuiGraphicsExtractor graphics, int x, int y, boolean active, boolean hovered) {
         graphics.fill(x - 1, y - 1, x + 17, y + 17, hovered ? ACCENT : FRAME);
         graphics.fill(x, y, x + 16, y + 16, active ? hovered ? FILTER_HOVER : SLOT_INNER : FILTER_DISABLED);
         if (!active) graphics.fill(x + 3, y + 7, x + 13, y + 9, FRAME);
     }
 
-    private void drawModeButton(GuiGraphics graphics, Font font, int x, int y, int w, int h, boolean active, boolean hovered) {
+    private void drawModeButton(GuiGraphicsExtractor graphics, Font font, int x, int y, int w, int h, boolean active, boolean hovered) {
         boolean whitelist = menu().isFilterWhitelist();
         drawButton(graphics, font, x, y, w, h, whitelist ? "Whitelist" : "Blacklist", active, hovered);
     }
 
-    private static void drawButton(GuiGraphics graphics, Font font, int x, int y, int w, int h, String text, boolean active, boolean hovered) {
+    private static void drawButton(GuiGraphicsExtractor graphics, Font font, int x, int y, int w, int h, String text, boolean active, boolean hovered) {
         ExcavatorUiStyle.drawButton(graphics, x, y, w, h, active, hovered, false, true);
-        graphics.drawCenteredString(font, text, x + w / 2, y + 4, active ? hovered ? ACCENT : TEXT : BUTTON_DISABLED_TEXT);
+        graphics.centeredText(font, text, x + w / 2, y + 4, active ? hovered ? ACCENT : TEXT : BUTTON_DISABLED_TEXT);
     }
 
-    private static void drawClose(GuiGraphics graphics, int x, int y, int mouseX, int mouseY) {
+    private static void drawClose(GuiGraphicsExtractor graphics, int x, int y, int mouseX, int mouseY) {
         boolean hovered = inside(mouseX, mouseY, x, y, 11, 11);
         ExcavatorUiStyle.drawButton(graphics, x, y, 11, 11, true, hovered, false, false);
         int color = hovered ? ACCENT : TEXT;
@@ -138,7 +138,7 @@ final class ExcavatorFilterPanel {
         }
     }
 
-    private void renderTooltip(GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+    private void renderTooltip(GuiGraphicsExtractor graphics, Font font, int mouseX, int mouseY) {
         int x = x(), y = y(), capacity = menu().getFilterCapacity();
         for (int slot = 0; slot < capacity; slot++) {
             int sx = x + GRID_X + slot % 4 * GRID_STEP, sy = y + GRID_Y + slot / 4 * GRID_STEP;

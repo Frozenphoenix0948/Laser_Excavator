@@ -1,7 +1,9 @@
 package de.balto.laserexcavator.block.renderer;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
+import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -28,10 +30,9 @@ public final class ExcavatorTransportMarkerRenderer {
     private static final RenderPipeline MARKER_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath("laserexcavator", "pipeline/transport_markers"))
             .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
-            .withoutBlend()
+            .withColorTargetState(ColorTargetState.DEFAULT)
             .withCull(false)
-            .withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-            .withDepthWrite(true)
+            .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, true))
             .build();
 
     private static final RenderType MARKER_RENDER_TYPE = RenderType.create("laser_excavator_transport_marker", RenderSetup.builder(MARKER_PIPELINE).createRenderSetup());
@@ -100,7 +101,7 @@ public final class ExcavatorTransportMarkerRenderer {
         batchedSmallMarkerCount = index + 1;
     }
 
-    public static void flush(RenderLevelStageEvent.AfterEntities event) {
+    public static void flush(RenderLevelStageEvent.AfterOpaqueFeatures event) {
         
         // A disabled renderer discards any markers queued earlier in the frame.
         if (LaserExcavatorClientConfig.isAllRenderingDisabled()) {

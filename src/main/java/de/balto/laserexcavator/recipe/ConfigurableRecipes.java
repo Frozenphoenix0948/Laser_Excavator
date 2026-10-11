@@ -15,7 +15,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -121,6 +123,9 @@ public final class ConfigurableRecipes {
         }
         ItemStack result = new ItemStack(resultItem, resultCount);
 
+        Recipe.CommonInfo common = new Recipe.CommonInfo(true);
+        CraftingRecipe.CraftingBookInfo book = new CraftingRecipe.CraftingBookInfo(definition.category(), definition.group());
+        ItemStackTemplate output = ItemStackTemplate.fromNonEmptyStack(result);
         if (config.shapeless().get()) {
             if (configuredIngredients.isEmpty() || configuredIngredients.size() > 9) {
                 throw new IllegalArgumentException("Shapeless recipes require 1-9 ingredients");
@@ -133,7 +138,7 @@ public final class ConfigurableRecipes {
                 }
                 ingredients.add(parseIngredient(entry, registries));
             }
-            return new ShapelessRecipe(definition.group(), definition.category(), result, ingredients);
+            return new ShapelessRecipe(common, book, output, ingredients);
         }
 
         if (configuredIngredients.size() != 9) {
@@ -147,7 +152,7 @@ public final class ConfigurableRecipes {
         }
 
         ShapedRecipePattern pattern = new ShapedRecipePattern(3, 3, ingredients, Optional.empty());
-        return new ShapedRecipe(definition.group(), definition.category(), pattern, result);
+        return new ShapedRecipe(common, book, pattern, output);
     }
 
     private static Ingredient parseIngredient(String raw, HolderLookup.Provider registries) {

@@ -1,7 +1,7 @@
 package de.balto.laserexcavator.screen;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * This class contains mostly constants and basic functions used by other screen elements.
@@ -42,12 +42,12 @@ final class ExcavatorUiStyle {
 
     private ExcavatorUiStyle() {}
 
-    static void drawSlot(GuiGraphics graphics, int x, int y) {
+    static void drawSlot(GuiGraphicsExtractor graphics, int x, int y) {
         graphics.fill(x - 1, y - 1, x + 17, y + 17, FRAME);
         graphics.fill(x, y, x + 16, y + 16, SLOT_INNER);
     }
 
-    static void drawButton(GuiGraphics graphics, int x, int y, int w, int h,
+    static void drawButton(GuiGraphicsExtractor graphics, int x, int y, int w, int h,
                            boolean active, boolean hovered, boolean selected, boolean shadow) {
         int bodyBottom = shadow ? y + h - 1 : y + h;
         int fill = !active ? BUTTON_DISABLED : selected ? BUTTON_SELECTED : hovered ? BUTTON_HOVER : BUTTON_BG;
@@ -70,7 +70,7 @@ final class ExcavatorUiStyle {
         }
     }
 
-    static void drawLock(GuiGraphics graphics, int x, int y, int color) {
+    static void drawLock(GuiGraphicsExtractor graphics, int x, int y, int color) {
         graphics.fill(x + 1, y + 2, x + 6, y + 7, color);
         graphics.fill(x + 2, y, x + 5, y + 1, color);
         graphics.fill(x + 1, y + 1, x + 2, y + 3, color);
@@ -78,15 +78,15 @@ final class ExcavatorUiStyle {
         graphics.fill(x + 3, y + 4, x + 4, y + 6, FRAME);
     }
 
-    static void drawScaledString(GuiGraphics graphics, Font font, String text, float x, float y, int color, float scale) {
+    static void drawScaledString(GuiGraphicsExtractor graphics, Font font, String text, float x, float y, int color, float scale) {
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
-        graphics.drawString(font, text, 0, 0, color, false);
+        graphics.text(font, text, 0, 0, color, false);
         graphics.pose().popMatrix();
     }
 
-    static void drawCenteredScaledString(GuiGraphics graphics, Font font, String text, float centerX, float y, int color, float scale) {
+    static void drawCenteredScaledString(GuiGraphicsExtractor graphics, Font font, String text, float centerX, float y, int color, float scale) {
         drawScaledString(graphics, font, text, centerX - font.width(text) * scale * .5F, y, color, scale);
     }
 }

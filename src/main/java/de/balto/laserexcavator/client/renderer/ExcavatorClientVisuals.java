@@ -111,7 +111,7 @@ public final class ExcavatorClientVisuals {
     }
 
     public record BlockCubeTexture(float u0, float u1, float v0, float v1, int markerRgb) {}
-    public record ItemBillboardTexture(float u0, float u1, float v0, float v1) {}
+    public record ItemBillboardTexture(float u0, float u1, float v0, float v1, boolean blockAtlas) {}
 
     /**
      * Reusable precomputed transport slot. Lighting is deliberately absent here:
@@ -764,10 +764,7 @@ public final class ExcavatorClientVisuals {
         }
 
         BlockState state = block.defaultBlockState();
-        TextureAtlasSprite sprite = Minecraft.getInstance()
-                .getBlockRenderer()
-                .getBlockModelShaper()
-                .getParticleIcon(state);
+        TextureAtlasSprite sprite = Minecraft.getInstance().getModelManager().getBlockStateModelSet().getParticleMaterial(state).sprite();
 
         BlockCubeTexture resolved = new BlockCubeTexture(
                 sprite.getU0(),
@@ -862,7 +859,8 @@ public final class ExcavatorClientVisuals {
         ItemStackRenderState state = new ItemStackRenderState();
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.getItemModelResolver().updateForTopItem(state, stack, ItemDisplayContext.NONE, level, null, seed);
-        TextureAtlasSprite sprite = state.pickParticleIcon(RandomSource.create(seed));
+        var material = state.pickParticleMaterial(RandomSource.create(seed));
+        TextureAtlasSprite sprite = material == null ? null : material.sprite();
         if (sprite == null) {
             sprite = minecraft.getAtlasManager().getAtlasOrThrow(TextureAtlas.LOCATION_ITEMS)
                     .getSprite(MissingTextureAtlasSprite.getLocation());
@@ -873,7 +871,8 @@ public final class ExcavatorClientVisuals {
     public static ItemBillboardTexture resolveItemTexture(ItemStack stack, ClientLevel level, int seed) {
         TextureAtlasSprite sprite = resolveItemParticleSprite(stack, level, seed);
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.CLIENT_VISUAL_ITEM_TEXTURE_RESOLVES);
-        return new ItemBillboardTexture(sprite.getU0(), sprite.getU1(), sprite.getV0(), sprite.getV1());
+        return new ItemBillboardTexture(sprite.getU0(), sprite.getU1(), sprite.getV0(), sprite.getV1(),
+                TextureAtlas.LOCATION_BLOCKS.equals(sprite.atlasLocation()));
     }
 
     private static void clearPendingNetworkVisuals() {

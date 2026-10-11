@@ -10,8 +10,8 @@ import de.balto.laserexcavator.config.LaserExcavatorClientConfig.TransportDebugM
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.culling.Frustum;
@@ -77,7 +77,7 @@ final class ExcavatorTransportRenderer {
     private static final double ITEM_ROTATION_RADIANS_PER_TICK = Math.toRadians(9.0D);
 
     private static final RenderType TRANSPORT_ATLAS_RENDER_TYPE = RenderTypes.entityCutout(TextureAtlas.LOCATION_BLOCKS);
-    private static final RenderType ITEM_ATLAS_RENDER_TYPE = RenderTypes.entityCutoutNoCull(TextureAtlas.LOCATION_ITEMS);
+    private static final RenderType ITEM_ATLAS_RENDER_TYPE = RenderTypes.entityCutout(TextureAtlas.LOCATION_ITEMS);
 
     private final ExcavatorTransportGeometry.Position transportPosition = new ExcavatorTransportGeometry.Position();
     private final BlockPos.MutableBlockPos regionLightSamplePos = new BlockPos.MutableBlockPos();
@@ -214,7 +214,8 @@ final class ExcavatorTransportRenderer {
                 float dx = cameraX - transportPosition.x;
                 float dy = cameraY - transportPosition.y;
                 float dz = cameraZ - transportPosition.z;
-                if (dx * dx + dy * dy + dz * dz >= smallMarkerDistanceSq || !ensureTransportAppearance(cached, level)) continue;
+                if (dx * dx + dy * dy + dz * dz >= smallMarkerDistanceSq || !ensureTransportAppearance(cached, level)
+                        || cached.itemTexture.blockAtlas()) continue;
                 renderTexturedItemBillboard(pose, consumer, cached.itemTexture,
                         transportPosition.x, transportPosition.y, transportPosition.z,
                         resolveRegionPackedLight(cached.region, level, origin, false));
@@ -1634,7 +1635,7 @@ final class ExcavatorTransportRenderer {
         if (cached >= 0) return cached;
 
         int packedLight = resolveRegionPackedLight(region, level, origin, profiling);
-        int lightLevel = Math.max(LightTexture.block(packedLight), LightTexture.sky(packedLight));
+        int lightLevel = Math.max(LightCoordsUtil.block(packedLight), LightCoordsUtil.sky(packedLight));
 
         // Intentionally keep markers darker than the represented block/item. Bright
         // markers stand out too strongly at dot LOD, while slightly dark markers blend
@@ -1686,7 +1687,7 @@ final class ExcavatorTransportRenderer {
             boolean profiling
     ) {
         if (region == null) {
-            return LightTexture.pack(LaserExcavatorClientConfig.MIN_TRANSPORT_BLOCK_LIGHT.get(), 15);
+            return LightCoordsUtil.pack(LaserExcavatorClientConfig.MIN_TRANSPORT_BLOCK_LIGHT.get(), 15);
         }
 
         int packed = region.cachedPackedLight;
@@ -1702,13 +1703,9 @@ final class ExcavatorTransportRenderer {
                 origin.getY() + Mth.floor(region.lightSampleLocalY),
                 origin.getZ() + Mth.floor(region.lightSampleLocalZ)
         );
-        int sampledLight = LevelRenderer.getLightColor(level, regionLightSamplePos);
-        packed = LightTexture.pack(
-                Math.max(
-                        LaserExcavatorClientConfig.MIN_TRANSPORT_BLOCK_LIGHT.get(),
-                        LightTexture.block(sampledLight)
-                ),
-                LightTexture.sky(sampledLight)
+        packed = LightCoordsUtil.pack(
+                Math.max(LaserExcavatorClientConfig.MIN_TRANSPORT_BLOCK_LIGHT.get(), level.getBrightness(LightLayer.BLOCK, regionLightSamplePos)),
+                level.getBrightness(LightLayer.SKY, regionLightSamplePos)
         );
         region.cachedPackedLight = packed;
 
@@ -1816,6 +1813,11 @@ final class ExcavatorTransportRenderer {
             return VISUAL_ITEM_MARKER;
         }
 
+        if (emitGeometry && ensureTransportAppearance(cached, level) && cached.itemTexture.blockAtlas()) {
+            renderTexturedItemBillboard(basePose, consumer, cached.itemTexture,
+                    transportPosition.x, transportPosition.y, transportPosition.z,
+                    resolveRegionPackedLight(cached.region, level, origin, profiling));
+        }
         return VISUAL_ITEM_BILLBOARD;
     }
 

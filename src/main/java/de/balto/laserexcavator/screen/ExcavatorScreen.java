@@ -4,7 +4,7 @@ import de.balto.laserexcavator.block.blockentities.ExcavatorBlockEntity;
 import de.balto.laserexcavator.block.excavator.ExcavatorScanState;
 import de.balto.laserexcavator.block.excavator.ExcavatorSolarManager;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.components.EditBox;
@@ -126,9 +126,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
 
 
     public ExcavatorScreen(ExcavatorMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-        imageWidth = GUI_WIDTH;
-        imageHeight = GUI_HEIGHT;
+        super(menu, inventory, title, GUI_WIDTH, GUI_HEIGHT);
         titleLabelX = 10;
         titleLabelY = 8;
         inventoryLabelY = 1000;
@@ -141,8 +139,6 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
 
     @Override
     protected void init() {
-        imageWidth = GUI_WIDTH;
-        imageHeight = GUI_HEIGHT;
         super.init();
 
         configurationFields.clear();
@@ -330,7 +326,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     }
 
     @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         int x = leftPos;
         int y = topPos;
 
@@ -377,7 +373,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     }
 
     @Override
-    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
+    protected void extractLabels(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         drawScaledString(graphics, getTitle().getString(), GAP + 5, TITLE_Y, TEXT, TITLE_SCALE);
 
         drawScaledString(graphics, "X:", CONTROL_START_X + 1, AXIS_LABEL_Y, TEXT, LABEL_SCALE);
@@ -398,14 +394,14 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         return active >= allowed ? ERROR : active > 0 && active * 2 >= allowed ? WARNING : GOOD;
     }
 
-    private void drawRunningLimitTile(GuiGraphics graphics, int x, int y) {
+    private void drawRunningLimitTile(GuiGraphicsExtractor graphics, int x, int y) {
         int color = runningLimitColor();
         graphics.fill(x, y, x + LIMIT_TILE_W, y + LIMIT_TILE_H, FRAME);
         graphics.fill(x + 1, y + 1, x + LIMIT_TILE_W - 1, y + LIMIT_TILE_H - 1, PANEL_HEADER);
         graphics.fill(x + 2, y + 2, x + LIMIT_TILE_W - 2, y + LIMIT_TILE_H - 2, color);
     }
 
-    private void renderRunningLimitTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderRunningLimitTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (!menu.areRunningLimitsEnabled() || !isInside(mouseX, mouseY, leftPos + LIMIT_TILE_X, topPos + LIMIT_TILE_Y, LIMIT_TILE_W, LIMIT_TILE_H)) return;
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal("Server limits active").withStyle(ChatFormatting.GOLD));
@@ -418,7 +414,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         graphics.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
     }
 
-    private void renderExcavationLimitTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderExcavationLimitTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (!menu.isRunningLimitReached(menu.getRunningLimitTier()) || (menu.getScanState() != ExcavatorScanState.READY || menu.isOverheating())
                 || !isInside(mouseX, mouseY, excavationButton.getX(), excavationButton.getY(), excavationButton.getWidth(), excavationButton.getHeight())) return;
         int tier = menu.getRunningLimitTier();
@@ -428,11 +424,11 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
                 Component.literal("Pause another excavator of this tier first.").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
     }
 
-    private void drawSlot(GuiGraphics graphics, int x, int y) {
+    private void drawSlot(GuiGraphicsExtractor graphics, int x, int y) {
         ExcavatorUiStyle.drawSlot(graphics, x, y);
     }
 
-    private void drawFuelProgressBar(GuiGraphics graphics, int x, int y) {
+    private void drawFuelProgressBar(GuiGraphicsExtractor graphics, int x, int y) {
         graphics.fill(x, y, x + FUEL_BAR_W, y + FUEL_BAR_H, FRAME);
         graphics.fill(x + 1, y + 1, x + FUEL_BAR_W - 1, y + FUEL_BAR_H - 1, FUEL_BAR_EMPTY);
 
@@ -445,7 +441,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         drawSolarStatusIcon(graphics, x + FUEL_BAR_W - 5, y, menu.getSolarStatus());
     }
 
-    private void drawSolarStatusIcon(GuiGraphics graphics, int x, int y, int status) {
+    private void drawSolarStatusIcon(GuiGraphicsExtractor graphics, int x, int y, int status) {
         if (status == ExcavatorSolarManager.STATUS_NONE) return;
         graphics.fill(x, y, x + 5, y + 5, 0xDD111820);
         if (status == ExcavatorSolarManager.STATUS_NIGHT) {
@@ -464,7 +460,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
     }
 
-    private void drawSlotGrid(GuiGraphics graphics, int x, int y, int columns, int rows) {
+    private void drawSlotGrid(GuiGraphicsExtractor graphics, int x, int y, int columns, int rows) {
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < columns; col++) {
                 drawSlot(graphics, x + col * SLOT_STEP, y + row * SLOT_STEP);
@@ -472,7 +468,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
     }
 
-    private void drawProgress(GuiGraphics graphics, int x, int y, int width, int height, float progress) {
+    private void drawProgress(GuiGraphicsExtractor graphics, int x, int y, int width, int height, float progress) {
         graphics.fill(x, y, x + width, y + height, FRAME);
         graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, PANEL_INNER);
         int fill = Math.max(0, Math.round((width - 2) * progress));
@@ -481,7 +477,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
     }
 
-    private void drawEnergyBar(GuiGraphics graphics, int x, int y, int width, int height) {
+    private void drawEnergyBar(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
         graphics.fill(x, y, x + width, y + height, FRAME);
         graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, ENERGY_EMPTY);
 
@@ -533,15 +529,15 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         return pending > 0 ? "  |  " + pending + " transit" : "";
     }
 
-    private void drawScaledString(GuiGraphics graphics, String text, float x, float y, int color, float scale) {
+    private void drawScaledString(GuiGraphicsExtractor graphics, String text, float x, float y, int color, float scale) {
         ExcavatorUiStyle.drawScaledString(graphics, font, text, x, y, color, scale);
     }
 
-    private void drawCenteredScaledString(GuiGraphics graphics, String text, float centerX, float y, int color, float scale) {
+    private void drawCenteredScaledString(GuiGraphicsExtractor graphics, String text, float centerX, float y, int color, float scale) {
         ExcavatorUiStyle.drawCenteredScaledString(graphics, font, text, centerX, y, color, scale);
     }
 
-    private void renderLockedUpgradeIndicators(GuiGraphics graphics) {
+    private void renderLockedUpgradeIndicators(GuiGraphicsExtractor graphics) {
         graphics.nextStratum();
         int y = topPos + (menu.isFuelSlotEnabled() ? UPGRADE_Y_WITH_FUEL : UPGRADE_Y_NO_FUEL);
         for (int slot = 0; slot < menu.getUpgradeSlotCount(); slot++) {
@@ -564,7 +560,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         return false;
     }
 
-    private void renderConfigurationLockTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderConfigurationLockTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (!menu.isUpgradeConfigurationLocked()) return;
 
         if (filterButton.visible && isInside(mouseX, mouseY, filterButton.getX(), filterButton.getY(),
@@ -578,7 +574,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
     }
 
-    private void renderLockTooltip(GuiGraphics graphics, int mouseX, int mouseY, String target) {
+    private void renderLockTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY, String target) {
         graphics.setComponentTooltipForNextFrame(font, List.of(
                 Component.literal("Locked while active").withStyle(ChatFormatting.GOLD),
                 Component.literal("Pause the excavator and wait for all transports").withStyle(ChatFormatting.GRAY),
@@ -586,7 +582,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         ), mouseX, mouseY);
     }
 
-    private void renderUnsavedSelectionIcons(GuiGraphics graphics) {
+    private void renderUnsavedSelectionIcons(GuiGraphicsExtractor graphics) {
         for (EditBox field : configurationFields) {
             if (!hasUnsavedSelection(field)) continue;
             int x = field.getX() + field.getWidth() - 12;
@@ -601,7 +597,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
     }
 
-    private void renderUnsavedSelectionTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderUnsavedSelectionTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         for (EditBox field : configurationFields) {
             if (!hasUnsavedSelection(field)) continue;
             int x = field.getX() + field.getWidth() - 12;
@@ -615,7 +611,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         }
     }
 
-    private void renderEnergyTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderEnergyTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         int x = leftPos + ENERGY_BAR_X;
         int y = topPos + ENERGY_BAR_Y;
         if (!isInside(mouseX, mouseY, x, y, ENERGY_BAR_W, ENERGY_BAR_H)) return;
@@ -636,7 +632,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         );
     }
 
-    private void renderSolarTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderSolarTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         int status = menu.getSolarStatus();
         if (!menu.isFuelSlotEnabled() || status == ExcavatorSolarManager.STATUS_NONE) return;
         int x = leftPos + FUEL_X - 1 + FUEL_BAR_W - 5, y = topPos + FUEL_BAR_Y;
@@ -649,7 +645,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         graphics.setTooltipForNextFrame(font, Component.literal(text), mouseX, mouseY);
     }
 
-    private void renderEmptySlotTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderEmptySlotTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (hoveredSlot == null || hoveredSlot.hasItem()) return;
 
         List<Component> tooltip = null;
@@ -699,13 +695,13 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         if (filterButton != null) filterButton.setFocused(false);
     }
 
-    void renderFilterInventory(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    void renderFilterInventory(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         hoveredSlot = null;
         graphics.pose().pushMatrix();
         graphics.pose().translate(leftPos, topPos);
         for (Slot slot : menu.slots) {
             if (!isPlayerInventorySlot(slot) || !slot.isActive()) continue;
-            renderSlot(graphics, slot, mouseX, mouseY);
+            extractSlot(graphics, slot, mouseX, mouseY);
             if (mouseX >= leftPos + slot.x && mouseX < leftPos + slot.x + 16
                     && mouseY >= topPos + slot.y && mouseY < topPos + slot.y + 16) hoveredSlot = slot;
         }
@@ -713,8 +709,8 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         graphics.pose().popMatrix();
     }
 
-    void renderFilterInventoryTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (hoveredSlot != null) renderTooltip(graphics, mouseX, mouseY);
+    void renderFilterInventoryTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        if (hoveredSlot != null) extractTooltip(graphics, mouseX, mouseY);
     }
 
     boolean isFilterInventoryPosition(double mouseX, double mouseY) {
@@ -812,13 +808,13 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         if (!filterPanel.isOpen()) {
-            super.render(graphics, mouseX, mouseY, partialTick);
+            super.extractRenderState(graphics, mouseX, mouseY, partialTick);
             renderLockedUpgradeIndicators(graphics);
             renderUnsavedSelectionIcons(graphics);
 
-            if (!isOverLockedUpgradeLock(mouseX, mouseY)) renderTooltip(graphics, mouseX, mouseY);
+            if (!isOverLockedUpgradeLock(mouseX, mouseY)) extractTooltip(graphics, mouseX, mouseY);
             renderEmptySlotTooltip(graphics, mouseX, mouseY);
             renderEnergyTooltip(graphics, mouseX, mouseY);
             renderRunningLimitTooltip(graphics, mouseX, mouseY);
@@ -827,9 +823,9 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             renderUnsavedSelectionTooltip(graphics, mouseX, mouseY);
             renderConfigurationLockTooltip(graphics, mouseX, mouseY);
         } else {
-            super.render(graphics, -10000, -10000, partialTick);
+            super.extractRenderState(graphics, -10000, -10000, partialTick);
             graphics.nextStratum();
-            renderBlurredBackground(graphics);
+            extractBlurredBackground(graphics);
             graphics.fill(0, 0, width, height, 0x44000000);
             filterPanel.render(graphics, font, mouseX, mouseY, partialTick);
         }
@@ -837,8 +833,8 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         ItemStack carried = menu.getCarried();
         if (filterPanel.isOpen() && !carried.isEmpty()) {
             graphics.nextStratum();
-            graphics.renderItem(carried, mouseX - 8, mouseY - 8);
-            graphics.renderItemDecorations(font, carried, mouseX - 8, mouseY - 8);
+            graphics.item(carried, mouseX - 8, mouseY - 8);
+            graphics.itemDecorations(font, carried, mouseX - 8, mouseY - 8);
         }
 
         if (!filterPanel.isOpen()) {

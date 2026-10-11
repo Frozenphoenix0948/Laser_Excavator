@@ -7,6 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
@@ -21,7 +22,7 @@ public final class ExcavatorRunningLimits extends SavedData {
     private final Map<String, Entry> running = new HashMap<>();
 
     private static final SavedDataType<ExcavatorRunningLimits> DATA_TYPE = new SavedDataType<>(
-            "laserexcavator_running_limits",
+            Identifier.withDefaultNamespace("laserexcavator_running_limits"),
             ExcavatorRunningLimits::new,
             CompoundTag.CODEC.xmap(ExcavatorRunningLimits::load, ExcavatorRunningLimits::save)
     );

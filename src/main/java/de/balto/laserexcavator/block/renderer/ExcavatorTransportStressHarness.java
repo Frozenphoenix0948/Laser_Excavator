@@ -115,7 +115,7 @@ public final class ExcavatorTransportStressHarness {
         }
     }
 
-    public static void render(RenderLevelStageEvent.AfterEntities event) {
+    public static void render(RenderLevelStageEvent.AfterOpaqueFeatures event) {
         if (!running) return;
         if (!LaserExcavatorConfig.stressTestCommandsEnabled()) return;
         if (LaserExcavatorClientConfig.isAllRenderingDisabled()) return;

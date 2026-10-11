@@ -3,7 +3,7 @@ package de.balto.laserexcavator.screen;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig.RenderPreset;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig.TransportRenderMode;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.components.EditBox;
@@ -214,11 +214,11 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
     public void onClose() { cancel(); }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {}
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(graphics, mouseX, mouseY, partialTick);
         int top = 8, bottom = height - 6;
         graphics.fill(0, 0, width, height, 0x33000000);
         graphics.fill(panelLeft, top, panelLeft + panelWidth, bottom, FRAME);
@@ -226,8 +226,8 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
         graphics.fill(panelLeft + 1, top + 1, panelLeft + panelWidth - 1, top + 22, PANEL_HEADER);
         graphics.fill(panelLeft + 7, contentTop, panelLeft + 12 + columnWidth, contentBottom, PANEL_INNER);
         graphics.fill(panelLeft + 14 + columnWidth, contentTop, panelLeft + panelWidth - 7, contentBottom, PANEL_INNER);
-        graphics.drawCenteredString(font, title, width / 2, top + 7, TEXT);
-        graphics.drawString(font, "Changes apply live", panelLeft + 10, top + 7, ACCENT, false);
+        graphics.centeredText(font, title, width / 2, top + 7, TEXT);
+        graphics.text(font, "Changes apply live", panelLeft + 10, top + 7, ACCENT, false);
 
         graphics.enableScissor(panelLeft + 7, contentTop, panelLeft + panelWidth - 7, contentBottom);
         for (int g = 0; g < GROUPS.size(); g++) {
@@ -236,7 +236,7 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
             graphics.pose().pushMatrix();
             graphics.pose().translate(x, y);
             graphics.pose().scale(.85F, .85F);
-            graphics.drawString(font, group.name, 0, 0, ACCENT, false);
+            graphics.text(font, group.name, 0, 0, ACCENT, false);
             graphics.pose().popMatrix();
             int lineEnd = x + columnWidth - 14;
             graphics.fill(x + (int) (font.width(group.name) * .85F) + 5, y + 3, lineEnd, y + 4, ACCENT_DIM);
@@ -245,9 +245,9 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
             int y = rowY[i] - scroll;
             Setting setting = SETTINGS.get(i);
             drawImpactBlock(graphics, rowX[i], y + 4, setting.impact);
-            graphics.drawString(font, setting.name, rowX[i] + 9, y + 3, MUTED, false);
+            graphics.text(font, setting.name, rowX[i] + 9, y + 3, MUTED, false);
             EditBox box = fields.get(i);
-            if (box.visible) box.render(graphics, mouseX, mouseY, partialTick);
+            if (box.visible) box.extractRenderState(graphics, mouseX, mouseY, partialTick);
         }
         graphics.disableScissor();
 
@@ -256,7 +256,7 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
             visible[i] = fields.get(i).visible;
             fields.get(i).visible = false;
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         for (int i = 0; i < fields.size(); i++) fields.get(i).visible = visible[i];
 
         if (maxScroll > 0) {
@@ -367,7 +367,7 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
         return text.endsWith(".0") ? text.substring(0, text.length() - 2) : text;
     }
 
-    private static void drawImpactBlock(GuiGraphics graphics, int x, int y, Impact impact) {
+    private static void drawImpactBlock(GuiGraphicsExtractor graphics, int x, int y, Impact impact) {
         graphics.fill(x, y, x + 6, y + 6, DIVIDER);
         graphics.fill(x + 1, y + 1, x + 5, y + 5, impact.color);
     }

@@ -127,7 +127,7 @@ public final class ExcavatorNetworking {
 
     private static PendingChunkVisuals getOrCreatePendingChunk(ServerLevel level, BlockPos excavatorPos) {
         Map<ChunkPos, PendingChunkVisuals> byChunk = PENDING_VISUALS_BY_LEVEL.computeIfAbsent(level, ignored -> new HashMap<>());
-        ChunkPos chunkPos = new ChunkPos(excavatorPos);
+        ChunkPos chunkPos = new ChunkPos(excavatorPos.getX() >> 4, excavatorPos.getZ() >> 4);
         return byChunk.computeIfAbsent(chunkPos, ignored -> new PendingChunkVisuals(level.getGameTime()));
     }
 

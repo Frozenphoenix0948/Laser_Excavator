@@ -33,7 +33,7 @@ public final class LaserExcavatorClient {
         event.register(ModMenuTypes.EXCAVATOR_MENU.get(), ExcavatorScreen::new);
     }
 
-    public static void renderExcavatorTransportMarkers(RenderLevelStageEvent.AfterEntities event) {
+    public static void renderExcavatorTransportMarkers(RenderLevelStageEvent.AfterOpaqueFeatures event) {
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.CLIENT_FRAMES);
         ExcavatorTransportMarkerRenderer.flush(event);
     }
