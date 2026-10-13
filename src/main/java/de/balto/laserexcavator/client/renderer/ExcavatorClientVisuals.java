@@ -1,5 +1,7 @@
 package de.balto.laserexcavator.client.renderer;
 
+import net.minecraftforge.fml.common.Mod;
+
 import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.block.renderer.ExcavatorForceFieldRenderer;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
@@ -16,11 +18,11 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.TextureStitchEvent;
 
 import java.util.AbstractList;
 import java.util.ArrayDeque;
@@ -38,7 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.ToLongFunction;
 
 /** Stores transient client visuals and precomputed render data. */
-@EventBusSubscriber(modid = LaserExcavator.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = LaserExcavator.MODID, value = Dist.CLIENT)
 public final class ExcavatorClientVisuals {
     private ExcavatorClientVisuals() {}
 
@@ -477,7 +479,8 @@ public final class ExcavatorClientVisuals {
     }
 
     @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         ClientLevel level = Minecraft.getInstance().level;
         if (level == null) {
             clearPendingNetworkVisuals();
@@ -893,15 +896,16 @@ public final class ExcavatorClientVisuals {
     }
 
     /** Atlas rebuilds invalidate cached UV coordinates. */
-    @EventBusSubscriber(
+    @Mod.EventBusSubscriber(
             modid = LaserExcavator.MODID,
-            value = Dist.CLIENT
+            value = Dist.CLIENT,
+            bus = Mod.EventBusSubscriber.Bus.MOD
     )
     public static final class ModEvents {
         private ModEvents() {}
 
         @SubscribeEvent
-        public static void onTextureAtlasStitched(TextureAtlasStitchedEvent event) {
+        public static void onTextureAtlasStitched(TextureStitchEvent.Post event) {
             if (!TextureAtlas.LOCATION_BLOCKS.equals(event.getAtlas().location())) return;
             BLOCK_TEXTURE_CACHE.clear();
             ITEM_MARKER_COLOR_CACHE.clear();
@@ -955,7 +959,6 @@ public final class ExcavatorClientVisuals {
         long laserAllocations;
         long transportAllocations;
     }
-
 
     private static void ensurePruneScratch(int required) {
         if (pruneScratch.length >= required) return;

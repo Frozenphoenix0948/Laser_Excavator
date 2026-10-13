@@ -6,7 +6,6 @@ import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.item.ModItems;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -18,16 +17,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.ShapedRecipe;
-import net.minecraft.world.item.crafting.ShapedRecipePattern;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.neoforged.neoforge.common.crafting.DataComponentIngredient;
-import net.neoforged.neoforge.event.OnDatapackSyncEvent;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.minecraft.world.item.enchantment.EnchantmentInstance;
+import net.minecraft.world.item.EnchantedBookItem;
+import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.event.OnDatapackSyncEvent;
+import net.minecraftforge.event.server.ServerStartedEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,21 +81,21 @@ public final class ConfigurableRecipes {
     }
 
     private static void apply(RecipeManager manager, RegistryAccess registryAccess) {
-        List<RecipeHolder<?>> recipes = new ArrayList<>(manager.getRecipes());
+        List<Recipe<?>> recipes = new ArrayList<>(manager.getRecipes());
         boolean changed = false;
 
         for (Definition definition : DEFINITIONS) {
             LaserExcavatorConfig.RecipeConfig config = definition.config();
 
             if (!config.enabled().get()) {
-                changed |= recipes.removeIf(holder -> holder.id().equals(definition.id()));
+                changed |= recipes.removeIf(recipe -> recipe.getId().equals(definition.id()));
                 continue;
             }
 
             try {
                 Recipe<?> configured = createRecipe(definition, registryAccess);
-                recipes.removeIf(holder -> holder.id().equals(definition.id()));
-                recipes.add(new RecipeHolder<>(definition.id(), configured));
+                recipes.removeIf(recipe -> recipe.getId().equals(definition.id()));
+                recipes.add(configured);
                 changed = true;
             } catch (RuntimeException ex) {
                 LaserExcavator.LOGGER.error(
@@ -117,9 +116,9 @@ public final class ConfigurableRecipes {
         List<? extends String> configuredIngredients = config.ingredients().get();
         ItemLike resultItem = definition.result().get();
         int resultCount = config.resultCount().get();
-        if (resultCount > resultItem.asItem().getDefaultMaxStackSize()) {
+        if (resultCount > resultItem.asItem().getMaxStackSize()) {
             throw new IllegalArgumentException(
-                    "resultCount " + resultCount + " exceeds this item's max stack size " + resultItem.asItem().getDefaultMaxStackSize()
+                    "resultCount " + resultCount + " exceeds this item's max stack size " + resultItem.asItem().getMaxStackSize()
             );
         }
         ItemStack result = new ItemStack(resultItem, resultCount);
@@ -136,7 +135,11 @@ public final class ConfigurableRecipes {
                 }
                 ingredients.add(parseIngredient(entry, registryAccess));
             }
-            return new ShapelessRecipe(definition.group(), definition.category(), result, ingredients);
+            if (configuredIngredients.contains("@silk_touch_book")) {
+                return new SilkTouchShapelessRecipe(definition.id(), definition.group(), definition.category(), result, ingredients,
+                        (int) configuredIngredients.stream().filter("@silk_touch_book"::equals).count());
+            }
+            return new ShapelessRecipe(definition.id(), definition.group(), definition.category(), result, ingredients);
         }
 
         if (configuredIngredients.size() != 9) {
@@ -149,22 +152,19 @@ public final class ConfigurableRecipes {
             ingredients.set(i, entry == null || entry.isBlank() ? Ingredient.EMPTY : parseIngredient(entry, registryAccess));
         }
 
-        ShapedRecipePattern pattern = new ShapedRecipePattern(3, 3, ingredients, Optional.empty());
-        return new ShapedRecipe(definition.group(), definition.category(), pattern, result);
+        if (configuredIngredients.contains("@silk_touch_book")) {
+            return new SilkTouchShapedRecipe(definition.id(), definition.group(), definition.category(), 3, 3, ingredients, result,
+                    configuredIngredients.indexOf("@silk_touch_book"));
+        }
+        return new ShapedRecipe(definition.id(), definition.group(), definition.category(), 3, 3, ingredients, result);
     }
 
     private static Ingredient parseIngredient(String raw, RegistryAccess registryAccess) {
         String value = raw.trim();
         if (value.equals("@silk_touch_book")) {
-            var silkTouch = registryAccess.lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SILK_TOUCH);
-            ItemEnchantments.Mutable enchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-            enchantments.set(silkTouch, 1);
-            return DataComponentIngredient.of(
-                    false,
-                    DataComponents.STORED_ENCHANTMENTS,
-                    enchantments.toImmutable(),
-                    Items.ENCHANTED_BOOK
-            );
+            ItemStack enchantedBook = new ItemStack(Items.ENCHANTED_BOOK);
+            EnchantedBookItem.addEnchantment(enchantedBook, new EnchantmentInstance(Enchantments.SILK_TOUCH, 1));
+            return Ingredient.of(enchantedBook);
         }
 
         boolean isTag = value.startsWith("#");
@@ -183,6 +183,55 @@ public final class ConfigurableRecipes {
         return Ingredient.of(item);
     }
 
+    private static boolean isExactSilkTouchBook(ItemStack stack) {
+        if (!stack.is(Items.ENCHANTED_BOOK)) return false;
+        ItemStack required = new ItemStack(Items.ENCHANTED_BOOK);
+        EnchantedBookItem.addEnchantment(required, new EnchantmentInstance(Enchantments.SILK_TOUCH, 1));
+        return ItemStack.isSameItemSameTags(required, stack);
+    }
+
+    private static final class SilkTouchShapedRecipe extends ShapedRecipe {
+        private final int bookIndex;
+
+        SilkTouchShapedRecipe(ResourceLocation id, String group, CraftingBookCategory category,
+                int width, int height, NonNullList<Ingredient> items, ItemStack result, int bookIndex) {
+            super(id, group, category, width, height, items, result);
+            this.bookIndex = bookIndex;
+        }
+
+        @Override
+        public boolean matches(CraftingContainer container, Level level) {
+            if (!super.matches(container, level)) return false;
+            int localX = bookIndex % 3;
+            int localY = bookIndex / 3;
+            for (int mirror = 0; mirror <= 1; mirror++) {
+                int x = mirror == 0 ? localX : 2 - localX;
+                if (isExactSilkTouchBook(container.getItem(x + localY * container.getWidth()))) return true;
+            }
+            return false;
+        }
+    }
+
+    private static final class SilkTouchShapelessRecipe extends ShapelessRecipe {
+        private final int requiredCount;
+
+        SilkTouchShapelessRecipe(ResourceLocation id, String group, CraftingBookCategory category,
+                ItemStack result, NonNullList<Ingredient> ingredients, int requiredCount) {
+            super(id, group, category, result, ingredients);
+            this.requiredCount = requiredCount;
+        }
+
+        @Override
+        public boolean matches(CraftingContainer container, Level level) {
+            if (!super.matches(container, level)) return false;
+            int matches = 0;
+            for (int slot = 0; slot < container.getContainerSize(); slot++) {
+                if (isExactSilkTouchBook(container.getItem(slot))) matches++;
+            }
+            return matches >= requiredCount;
+        }
+    }
+
     private static Definition definition(
             String path,
             LaserExcavatorConfig.RecipeConfig config,
@@ -191,7 +240,7 @@ public final class ConfigurableRecipes {
             String group
     ) {
         return new Definition(
-                ResourceLocation.fromNamespaceAndPath(LaserExcavator.MODID, path),
+                new ResourceLocation(LaserExcavator.MODID, path),
                 config,
                 result,
                 category,

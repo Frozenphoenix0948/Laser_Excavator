@@ -121,8 +121,6 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private static final int SETTINGS_BUTTON_X = GUI_WIDTH - GAP - FILTER_BUTTON_MARGIN - SETTINGS_BUTTON_W;
     private static final int FILTER_BUTTON_X = SETTINGS_BUTTON_X - FILTER_BUTTON_W - 3;
 
-
-
     public ExcavatorScreen(ExcavatorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         imageWidth = GUI_WIDTH;
@@ -708,11 +706,15 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         graphics.pose().translate(leftPos, topPos, 0);
         for (Slot slot : menu.slots) {
             if (!isPlayerInventorySlot(slot) || !slot.isActive()) continue;
-            renderSlot(graphics, slot);
+            ItemStack stack = slot.getItem();
+            if (!stack.isEmpty()) {
+                graphics.renderItem(stack, slot.x, slot.y);
+                graphics.renderItemDecorations(font, stack, slot.x, slot.y);
+            }
             if (mouseX >= leftPos + slot.x && mouseX < leftPos + slot.x + 16
                     && mouseY >= topPos + slot.y && mouseY < topPos + slot.y + 16) hoveredSlot = slot;
         }
-        if (hoveredSlot != null) renderSlotHighlight(graphics, hoveredSlot, mouseX, mouseY, partialTick);
+        if (hoveredSlot != null) renderSlotHighlight(graphics, hoveredSlot.x, hoveredSlot.y, 0);
         graphics.pose().popPose();
     }
 
@@ -829,7 +831,6 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             graphics.pose().popPose();
         } else {
             super.render(graphics, -10000, -10000, partialTick);
-            renderBlurredBackground(partialTick);
             graphics.fill(0, 0, width, height, 0x44000000);
             filterPanel.render(graphics, font, mouseX, mouseY, partialTick);
         }

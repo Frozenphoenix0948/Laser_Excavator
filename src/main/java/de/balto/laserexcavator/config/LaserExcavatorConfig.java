@@ -3,7 +3,7 @@ package de.balto.laserexcavator.config;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 import java.util.HashSet;
 import java.util.List;
@@ -16,72 +16,71 @@ public final class LaserExcavatorConfig {
         DISABLED
     }
 
-    public static final ModConfigSpec SPEC;
+    public static final ForgeConfigSpec SPEC;
 
-    public static final ModConfigSpec.IntValue DEFAULT_WIDTH;
-    public static final ModConfigSpec.IntValue DEFAULT_HEIGHT;
-    public static final ModConfigSpec.IntValue DEFAULT_LENGTH;
-    public static final ModConfigSpec.IntValue MIN_SELECTION_SIZE;
-    public static final ModConfigSpec.IntValue MAX_HORIZONTAL_SIZE;
-    public static final ModConfigSpec.IntValue MAX_VERTICAL_SIZE;
-    public static final ModConfigSpec.IntValue SCAN_COLUMNS_PER_TICK;
-    public static final ModConfigSpec.IntValue FORCE_FIELD_HEIGHT;
-    public static final ModConfigSpec.IntValue TRANSPORT_TICKS_PER_BLOCK;
-    public static final ModConfigSpec.IntValue DELIVERY_RETRY_TICKS;
-    public static final ModConfigSpec.IntValue ENERGY_CAPACITY;
-    public static final ModConfigSpec.IntValue ENERGY_MAX_RECEIVE;
-    public static final ModConfigSpec.IntValue ENERGY_PER_BLOCK;
-    public static final ModConfigSpec.BooleanValue FUEL_SLOT_ENABLED;
-    public static final ModConfigSpec.IntValue FUEL_ENERGY_PER_BURN_TICK;
-    public static final ModConfigSpec.IntValue FUEL_BURN_TICKS_PER_SERVER_TICK;
-    public static final ModConfigSpec.BooleanValue SUPPRESS_NEIGHBOR_UPDATES;
-    public static final ModConfigSpec.BooleanValue ENABLE_DETERMINISTIC_LOOT_CACHE;
-    public static final ModConfigSpec.BooleanValue ENABLE_DIRECT_TERRAIN_REMOVAL;
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> UNBREAKABLE_BLOCKS;
-    public static final ModConfigSpec.IntValue VISUAL_BATCH_TICKS;
-    public static final ModConfigSpec.IntValue VISUAL_BATCH_MAX_EVENTS;
-    public static final ModConfigSpec.EnumValue<NetworkDebugMode> NETWORK_DEBUG_MODE;
-    public static final ModConfigSpec.BooleanValue ENABLE_STRESS_TEST_COMMANDS;
+    public static final ForgeConfigSpec.IntValue DEFAULT_WIDTH;
+    public static final ForgeConfigSpec.IntValue DEFAULT_HEIGHT;
+    public static final ForgeConfigSpec.IntValue DEFAULT_LENGTH;
+    public static final ForgeConfigSpec.IntValue MIN_SELECTION_SIZE;
+    public static final ForgeConfigSpec.IntValue MAX_HORIZONTAL_SIZE;
+    public static final ForgeConfigSpec.IntValue MAX_VERTICAL_SIZE;
+    public static final ForgeConfigSpec.IntValue SCAN_COLUMNS_PER_TICK;
+    public static final ForgeConfigSpec.IntValue FORCE_FIELD_HEIGHT;
+    public static final ForgeConfigSpec.IntValue TRANSPORT_TICKS_PER_BLOCK;
+    public static final ForgeConfigSpec.IntValue DELIVERY_RETRY_TICKS;
+    public static final ForgeConfigSpec.IntValue ENERGY_CAPACITY;
+    public static final ForgeConfigSpec.IntValue ENERGY_MAX_RECEIVE;
+    public static final ForgeConfigSpec.IntValue ENERGY_PER_BLOCK;
+    public static final ForgeConfigSpec.BooleanValue FUEL_SLOT_ENABLED;
+    public static final ForgeConfigSpec.IntValue FUEL_ENERGY_PER_BURN_TICK;
+    public static final ForgeConfigSpec.IntValue FUEL_BURN_TICKS_PER_SERVER_TICK;
+    public static final ForgeConfigSpec.BooleanValue SUPPRESS_NEIGHBOR_UPDATES;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_DETERMINISTIC_LOOT_CACHE;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_DIRECT_TERRAIN_REMOVAL;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> UNBREAKABLE_BLOCKS;
+    public static final ForgeConfigSpec.IntValue VISUAL_BATCH_TICKS;
+    public static final ForgeConfigSpec.IntValue VISUAL_BATCH_MAX_EVENTS;
+    public static final ForgeConfigSpec.EnumValue<NetworkDebugMode> NETWORK_DEBUG_MODE;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_STRESS_TEST_COMMANDS;
 
-    public static final ModConfigSpec.IntValue UPGRADE_SLOT_COUNT;
-    public static final ModConfigSpec.BooleanValue RUNNING_LIMITS_ENABLED;
-    public static final ModConfigSpec.IntValue[] RUNNING_LIMITS = new ModConfigSpec.IntValue[6];
-    public static final ModConfigSpec.IntValue SPEED_BASE_INTERVAL;
-    public static final ModConfigSpec.IntValue SPEED_TIER_1_INTERVAL;
-    public static final ModConfigSpec.IntValue SPEED_TIER_2_INTERVAL;
-    public static final ModConfigSpec.IntValue SPEED_TIER_3_INTERVAL;
-    public static final ModConfigSpec.IntValue SPEED_TIER_4_INTERVAL;
-    public static final ModConfigSpec.IntValue SPEED_TIER_5_INTERVAL;
-    public static final ModConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_1_REDUCTION;
-    public static final ModConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_2_REDUCTION;
-    public static final ModConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_3_REDUCTION;
-    public static final ModConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_4_REDUCTION;
-    public static final ModConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_5_REDUCTION;
-    public static final ModConfigSpec.IntValue BASE_HORIZONTAL_SIZE;
-    public static final ModConfigSpec.IntValue AREA_TIER_1_SIZE;
-    public static final ModConfigSpec.IntValue AREA_TIER_2_SIZE;
-    public static final ModConfigSpec.IntValue AREA_TIER_3_SIZE;
-    public static final ModConfigSpec.BooleanValue AUTO_SMELTING_ENABLED;
-    public static final ModConfigSpec.IntValue LUCK_TIER_1_LEVEL;
-    public static final ModConfigSpec.IntValue LUCK_TIER_2_LEVEL;
-    public static final ModConfigSpec.IntValue LUCK_TIER_3_LEVEL;
-    public static final ModConfigSpec.IntValue FILTER_TIER_1_CAPACITY;
-    public static final ModConfigSpec.IntValue FILTER_TIER_2_CAPACITY;
-    public static final ModConfigSpec.IntValue FILTER_TIER_3_CAPACITY;
-    public static final ModConfigSpec.IntValue FILTER_TIER_4_CAPACITY;
-    public static final ModConfigSpec.IntValue FILTER_TIER_5_CAPACITY;
-    public static final ModConfigSpec.IntValue FILTER_TIER_1_COOLDOWN_REDUCTION;
-    public static final ModConfigSpec.IntValue FILTER_TIER_2_COOLDOWN_REDUCTION;
-    public static final ModConfigSpec.IntValue FILTER_TIER_3_COOLDOWN_REDUCTION;
-    public static final ModConfigSpec.IntValue FILTER_TIER_4_COOLDOWN_REDUCTION;
-    public static final ModConfigSpec.IntValue FILTER_TIER_5_COOLDOWN_REDUCTION;
-    public static final ModConfigSpec.BooleanValue SILK_TOUCH_ENABLED;
-    public static final ModConfigSpec.IntValue SOLAR_TIER_1_ENERGY_PER_TICK;
-    public static final ModConfigSpec.IntValue SOLAR_TIER_2_ENERGY_PER_TICK;
-    public static final ModConfigSpec.IntValue SOLAR_TIER_3_ENERGY_PER_TICK;
-    public static final ModConfigSpec.IntValue SOLAR_SKY_CHECK_INTERVAL;
-    public static final ModConfigSpec.IntValue SOLAR_MAX_WATER_BLOCKS;
-
+    public static final ForgeConfigSpec.IntValue UPGRADE_SLOT_COUNT;
+    public static final ForgeConfigSpec.BooleanValue RUNNING_LIMITS_ENABLED;
+    public static final ForgeConfigSpec.IntValue[] RUNNING_LIMITS = new ForgeConfigSpec.IntValue[6];
+    public static final ForgeConfigSpec.IntValue SPEED_BASE_INTERVAL;
+    public static final ForgeConfigSpec.IntValue SPEED_TIER_1_INTERVAL;
+    public static final ForgeConfigSpec.IntValue SPEED_TIER_2_INTERVAL;
+    public static final ForgeConfigSpec.IntValue SPEED_TIER_3_INTERVAL;
+    public static final ForgeConfigSpec.IntValue SPEED_TIER_4_INTERVAL;
+    public static final ForgeConfigSpec.IntValue SPEED_TIER_5_INTERVAL;
+    public static final ForgeConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_1_REDUCTION;
+    public static final ForgeConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_2_REDUCTION;
+    public static final ForgeConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_3_REDUCTION;
+    public static final ForgeConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_4_REDUCTION;
+    public static final ForgeConfigSpec.IntValue ENERGY_EFFICIENCY_TIER_5_REDUCTION;
+    public static final ForgeConfigSpec.IntValue BASE_HORIZONTAL_SIZE;
+    public static final ForgeConfigSpec.IntValue AREA_TIER_1_SIZE;
+    public static final ForgeConfigSpec.IntValue AREA_TIER_2_SIZE;
+    public static final ForgeConfigSpec.IntValue AREA_TIER_3_SIZE;
+    public static final ForgeConfigSpec.BooleanValue AUTO_SMELTING_ENABLED;
+    public static final ForgeConfigSpec.IntValue LUCK_TIER_1_LEVEL;
+    public static final ForgeConfigSpec.IntValue LUCK_TIER_2_LEVEL;
+    public static final ForgeConfigSpec.IntValue LUCK_TIER_3_LEVEL;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_1_CAPACITY;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_2_CAPACITY;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_3_CAPACITY;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_4_CAPACITY;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_5_CAPACITY;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_1_COOLDOWN_REDUCTION;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_2_COOLDOWN_REDUCTION;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_3_COOLDOWN_REDUCTION;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_4_COOLDOWN_REDUCTION;
+    public static final ForgeConfigSpec.IntValue FILTER_TIER_5_COOLDOWN_REDUCTION;
+    public static final ForgeConfigSpec.BooleanValue SILK_TOUCH_ENABLED;
+    public static final ForgeConfigSpec.IntValue SOLAR_TIER_1_ENERGY_PER_TICK;
+    public static final ForgeConfigSpec.IntValue SOLAR_TIER_2_ENERGY_PER_TICK;
+    public static final ForgeConfigSpec.IntValue SOLAR_TIER_3_ENERGY_PER_TICK;
+    public static final ForgeConfigSpec.IntValue SOLAR_SKY_CHECK_INTERVAL;
+    public static final ForgeConfigSpec.IntValue SOLAR_MAX_WATER_BLOCKS;
 
     public static final RecipeConfig EXCAVATOR_RECIPE;
     public static final RecipeConfig SPEED_TIER_1_RECIPE;
@@ -123,7 +122,7 @@ public final class LaserExcavatorConfig {
     private static volatile NetworkDebugMode networkDebugModeOverride;
 
     static {
-        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+        ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
         builder.comment(" Core excavator behavior.").push("machine");
         DEFAULT_WIDTH = builder.comment(" Default horizontal width of a newly placed excavator.")
@@ -180,7 +179,6 @@ public final class LaserExcavatorConfig {
                 .defineList(
                         "unbreakableBlocks",
                         List.of("minecraft:bedrock"),
-                        () -> "minecraft:bedrock",
                         value -> value instanceof String id && ResourceLocation.tryParse(id) != null
                 );
         builder.pop();
@@ -500,16 +498,16 @@ public final class LaserExcavatorConfig {
 
     private LaserExcavatorConfig() {}
 
-    private static RecipeConfig recipe(ModConfigSpec.Builder builder, String key, boolean shapeless, List<String> ingredients) {
+    private static RecipeConfig recipe(ForgeConfigSpec.Builder builder, String key, boolean shapeless, List<String> ingredients) {
         builder.push(key);
-        ModConfigSpec.BooleanValue enabled = builder.comment(" Whether this recipe exists.").define("enabled", true);
-        ModConfigSpec.BooleanValue shapelessValue = builder.comment(" false = shaped 3x3, true = shapeless.").define("shapeless", shapeless);
-        ModConfigSpec.ConfigValue<List<? extends String>> ingredientList = builder.comment(
+        ForgeConfigSpec.BooleanValue enabled = builder.comment(" Whether this recipe exists.").define("enabled", true);
+        ForgeConfigSpec.BooleanValue shapelessValue = builder.comment(" false = shaped 3x3, true = shapeless.").define("shapeless", shapeless);
+        ForgeConfigSpec.ConfigValue<List<? extends String>> ingredientList = builder.comment(
                         " Item IDs or #item_tags. For shaped recipes use nine entries; empty string is an empty slot. " +
                                 "Special ingredient @silk_touch_book requires an enchanted book containing Silk Touch I."
                 )
-                .defineList("ingredients", ingredients, () -> "minecraft:stone", value -> value instanceof String);
-        ModConfigSpec.IntValue resultCount = builder.defineInRange("resultCount", 1, 1, 64);
+                .defineList("ingredients", ingredients, value -> value instanceof String);
+        ForgeConfigSpec.IntValue resultCount = builder.defineInRange("resultCount", 1, 1, 64);
         builder.pop();
         return new RecipeConfig(enabled, shapelessValue, ingredientList, resultCount);
     }
@@ -723,9 +721,9 @@ public final class LaserExcavatorConfig {
     }
 
     public record RecipeConfig(
-            ModConfigSpec.BooleanValue enabled,
-            ModConfigSpec.BooleanValue shapeless,
-            ModConfigSpec.ConfigValue<List<? extends String>> ingredients,
-            ModConfigSpec.IntValue resultCount
+            ForgeConfigSpec.BooleanValue enabled,
+            ForgeConfigSpec.BooleanValue shapeless,
+            ForgeConfigSpec.ConfigValue<List<? extends String>> ingredients,
+            ForgeConfigSpec.IntValue resultCount
     ) {}
 }

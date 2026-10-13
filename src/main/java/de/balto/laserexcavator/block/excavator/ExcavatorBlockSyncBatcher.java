@@ -11,7 +11,7 @@ import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
-import net.neoforged.neoforge.network.PacketDistributor;
+import de.balto.laserexcavator.network.excavator.ExcavatorNetworking;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -176,7 +176,7 @@ public final class ExcavatorBlockSyncBatcher {
             );
 
             for (ServerPlayer player : players) {
-                PacketDistributor.sendToPlayer(player, payload);
+                ExcavatorNetworking.sendToPlayer(player, payload);
             }
 
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.BLOCK_UPDATE_SECTION_PACKETS);

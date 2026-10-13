@@ -26,7 +26,6 @@ import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -49,10 +48,14 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
-import net.neoforged.neoforge.energy.IEnergyStorage;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemStackHandler;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.phys.AABB;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemStackHandler;
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -190,6 +193,37 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
      * cannot extract it back out of the excavator.
      */
     private final ExcavatorEnergyStorage energyStorage;
+
+    private LazyOptional<IItemHandler> outputCap = LazyOptional.of(() -> getExternalItemHandler(Direction.DOWN));
+    private LazyOptional<IItemHandler> automationCap = LazyOptional.of(() -> getExternalItemHandler(null));
+    private LazyOptional<IEnergyStorage> energyCap = LazyOptional.of(this::getEnergyStorage);
+
+    @Override
+    public <T> LazyOptional<T> getCapability(Capability<T> cap, @Nullable Direction side) {
+        if (cap == ForgeCapabilities.ITEM_HANDLER) {
+            return (side == Direction.DOWN ? outputCap : automationCap).cast();
+        }
+        if (cap == ForgeCapabilities.ENERGY) {
+            return energyCap.cast();
+        }
+        return super.getCapability(cap, side);
+    }
+
+    @Override
+    public void invalidateCaps() {
+        super.invalidateCaps();
+        outputCap.invalidate();
+        automationCap.invalidate();
+        energyCap.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        outputCap = LazyOptional.of(() -> getExternalItemHandler(Direction.DOWN));
+        automationCap = LazyOptional.of(() -> getExternalItemHandler(null));
+        energyCap = LazyOptional.of(this::getEnergyStorage);
+    }
 
     private final ContainerData menuData = new ContainerData() {
         @Override
@@ -593,6 +627,19 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
     public boolean hasPendingDeliveries() {
         return level != null && level.isClientSide ? syncedPendingDeliveryCount > 0 : deliveries.hasPending();
+    }
+
+    @Override
+    public AABB getRenderBoundingBox() {
+        ExcavatorArea area = getExcavatorArea();
+        BlockPos pos = getBlockPos();
+        double minX = Math.min(area.min().getX(), pos.getX());
+        double minY = Math.min(area.min().getY(), pos.getY());
+        double minZ = Math.min(area.min().getZ(), pos.getZ());
+        double maxX = Math.max(area.max().getX() + 1.0D, pos.getX() + 1.0D);
+        double maxY = Math.max(pos.getY() + 1.0D, getForceFieldY() + 1.0D);
+        double maxZ = Math.max(area.max().getZ() + 1.0D, pos.getZ() + 1.0D);
+        return new AABB(minX, minY, minZ, maxX, maxY, maxZ).inflate(4.0D);
     }
 
     public ExcavatorArea getExcavatorArea() {
@@ -1489,16 +1536,16 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
 
         tag.putInt(TAG_DATA_VERSION, PERSISTENCE_VERSION);
         writeCommonData(tag, false);
         saveExcavationState(tag);
-        saveInventories(tag, registries);
-        fuel.save(tag, registries);
+        saveInventories(tag);
+        fuel.save(tag);
         upgrades.saveFilter(tag);
-        deliveries.save(tag, registries);
+        deliveries.save(tag);
     }
 
     private void saveExcavationState(CompoundTag tag) {
@@ -1512,14 +1559,14 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         }
     }
 
-    private void saveInventories(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.put(TAG_OUTPUT_INVENTORY, outputInventory.serializeNBT(registries));
-        tag.put(TAG_UPGRADE_INVENTORY, upgrades.inventory().serializeNBT(registries));
+    private void saveInventories(CompoundTag tag) {
+        tag.put(TAG_OUTPUT_INVENTORY, outputInventory.serializeNBT());
+        tag.put(TAG_UPGRADE_INVENTORY, upgrades.inventory().serializeNBT());
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
+    public void load(CompoundTag tag) {
+        super.load(tag);
 
         loadCommonState(tag);
         if (tag.getBoolean(TAG_CLIENT_SYNC_ONLY)) {
@@ -1529,11 +1576,11 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         int persistenceVersion = readPersistenceVersion(tag);
         loadExcavationState(tag);
-        loadInventories(tag, registries);
-        fuel.load(tag, registries);
+        loadInventories(tag);
+        fuel.load(tag);
         upgrades.loadFilter(tag);
         clampSelectionToAreaUpgrade();
-        deliveries.load(tag, registries);
+        deliveries.load(tag);
         rebuildRuntimeStateAfterLoad();
         validateLoadedWorkState(persistenceVersion);
     }
@@ -1616,17 +1663,17 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         );
     }
 
-    private void loadInventories(CompoundTag tag, HolderLookup.Provider registries) {
+    private void loadInventories(CompoundTag tag) {
         if (tag.contains(TAG_OUTPUT_INVENTORY, Tag.TAG_COMPOUND)) {
             CompoundTag inventoryTag = tag.getCompound(TAG_OUTPUT_INVENTORY);
             if (inventoryTag.getInt(TAG_INVENTORY_SIZE) == OUTPUT_SLOTS) {
-                outputInventory.deserializeNBT(registries, inventoryTag);
+                outputInventory.deserializeNBT(inventoryTag);
             }
         }
         if (tag.contains(TAG_UPGRADE_INVENTORY, Tag.TAG_COMPOUND)) {
             CompoundTag inventoryTag = tag.getCompound(TAG_UPGRADE_INVENTORY);
             if (inventoryTag.getInt(TAG_INVENTORY_SIZE) == ExcavatorUpgradeManager.STORED_UPGRADE_SLOTS) {
-                upgrades.deserializeInventory(inventoryTag, registries);
+                upgrades.deserializeInventory(inventoryTag);
             }
         }
     }
@@ -1682,7 +1729,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+    public CompoundTag getUpdateTag() {
         CompoundTag tag = new CompoundTag();
         writeCommonData(tag, true);
         return tag;

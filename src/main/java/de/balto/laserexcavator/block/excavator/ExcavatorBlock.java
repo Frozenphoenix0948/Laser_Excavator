@@ -1,6 +1,5 @@
 package de.balto.laserexcavator.block.excavator;
 
-import com.mojang.serialization.MapCodec;
 import de.balto.laserexcavator.block.blockentities.ExcavatorBlockEntity;
 import de.balto.laserexcavator.block.blockentities.ModBlockEntities;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
@@ -16,6 +15,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -24,16 +24,15 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraftforge.items.ItemStackHandler;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
 import java.util.List;
 
 public class ExcavatorBlock extends BaseEntityBlock {
-    public static final MapCodec<ExcavatorBlock> CODEC = simpleCodec(ExcavatorBlock::new);
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
 
     public ExcavatorBlock(Properties properties) {
@@ -42,18 +41,13 @@ public class ExcavatorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
-    }
-
-    @Override
     public void appendHoverText(
             ItemStack stack,
-            Item.TooltipContext context,
+            BlockGetter level,
             List<Component> tooltipComponents,
             TooltipFlag tooltipFlag
     ) {
-        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
+        super.appendHoverText(stack, level, tooltipComponents, tooltipFlag);
 
         tooltipComponents.add(description("Base performance without upgrades."));
         tooltipComponents.add(value("Mining interval", LaserExcavatorConfig.speedInterval(0) + " ticks"));
@@ -87,7 +81,7 @@ public class ExcavatorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
+    public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
     }
 
@@ -95,7 +89,6 @@ public class ExcavatorBlock extends BaseEntityBlock {
     public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new ExcavatorBlockEntity(pos, state);
     }
-
 
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
@@ -113,7 +106,7 @@ public class ExcavatorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected void onRemove(
+    public void onRemove(
             BlockState state,
             Level level,
             BlockPos pos,
@@ -144,23 +137,24 @@ public class ExcavatorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected @Nullable MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
+    public @Nullable MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
         return null;
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
+    public InteractionResult use(
             BlockState state,
             Level level,
             BlockPos pos,
             Player player,
+            net.minecraft.world.InteractionHand hand,
             BlockHitResult hitResult
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
 
             if (blockEntity instanceof ExcavatorBlockEntity excavator) {
-                serverPlayer.openMenu(excavator, buffer -> {
+                net.minecraftforge.network.NetworkHooks.openScreen(serverPlayer, excavator, buffer -> {
                     buffer.writeBlockPos(pos);
                     buffer.writeVarInt(excavator.getUpgradeSlotCount());
                     buffer.writeBoolean(excavator.isFuelSlotEnabled());

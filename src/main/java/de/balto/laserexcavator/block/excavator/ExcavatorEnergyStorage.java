@@ -3,7 +3,7 @@ package de.balto.laserexcavator.block.excavator;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.util.Mth;
-import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.minecraftforge.energy.IEnergyStorage;
 
 import java.util.function.LongSupplier;
 

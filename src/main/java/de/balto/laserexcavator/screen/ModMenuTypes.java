@@ -4,24 +4,24 @@ import de.balto.laserexcavator.LaserExcavator;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
-import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
-import net.neoforged.neoforge.network.IContainerFactory;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.common.extensions.IForgeMenuType;
+import net.minecraftforge.network.IContainerFactory;
+import net.minecraftforge.registries.RegistryObject;
+import net.minecraftforge.registries.DeferredRegister;
 
 public final class ModMenuTypes {
     private ModMenuTypes() {}
 
     public static final DeferredRegister<MenuType<?>> MENUS =
-            DeferredRegister.create(Registries.MENU, LaserExcavator.MODID);
+            DeferredRegister.create(net.minecraftforge.registries.ForgeRegistries.MENU_TYPES, LaserExcavator.MODID);
 
-    public static final DeferredHolder<MenuType<?>, MenuType<ExcavatorMenu>> EXCAVATOR_MENU =
+    public static final RegistryObject<MenuType<ExcavatorMenu>> EXCAVATOR_MENU =
             registerMenuType("excavator_menu", ExcavatorMenu::new);
 
-    private static <T extends AbstractContainerMenu> DeferredHolder<MenuType<?>, MenuType<T>> registerMenuType(
+    private static <T extends AbstractContainerMenu> RegistryObject<MenuType<T>> registerMenuType(
             String name,
             IContainerFactory<T> factory
     ) {
-        return MENUS.register(name, () -> IMenuTypeExtension.create(factory));
+        return MENUS.register(name, () -> IForgeMenuType.create(factory));
     }
 }

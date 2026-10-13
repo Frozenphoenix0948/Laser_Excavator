@@ -4,13 +4,12 @@ import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraftforge.items.ItemStackHandler;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -183,7 +182,7 @@ public final class ExcavatorDeliveryManager {
         for (int i = variants.size() - 1; i >= 0; i--) {
             ItemStack cached = variants.get(i).get();
             if (cached == null) variants.remove(i);
-            else if (ItemStack.isSameItemSameComponents(cached, stack)) return cached;
+            else if (ItemStack.isSameItemSameTags(cached, stack)) return cached;
         }
         ItemStack cached = stack.copy();
         cached.setCount(1);
@@ -201,14 +200,14 @@ public final class ExcavatorDeliveryManager {
         }
     }
 
-    public void save(CompoundTag tag, HolderLookup.Provider registries) {
+    public void save(CompoundTag tag) {
         if (pendingDeliveryCount == 0) return;
         ListTag deliveriesTag = new ListTag();
         for (var entry : pendingByTick.long2ObjectEntrySet()) {
             for (Delivery delivery : entry.getValue()) {
                 CompoundTag deliveryTag = new CompoundTag();
                 deliveryTag.putLong(NBT_ARRIVAL, entry.getLongKey());
-                Tag saved = materialize(delivery).save(registries);
+                Tag saved = materialize(delivery).save(new CompoundTag());
                 if (saved instanceof CompoundTag compound) {
                     deliveryTag.put(NBT_STACK, compound);
                     deliveriesTag.add(deliveryTag);
@@ -218,7 +217,7 @@ public final class ExcavatorDeliveryManager {
         if (!deliveriesTag.isEmpty()) tag.put(NBT_DELIVERIES, deliveriesTag);
     }
 
-    public void load(CompoundTag tag, HolderLookup.Provider registries) {
+    public void load(CompoundTag tag) {
         pendingByTick.clear();
         catchUpTicks.clear();
         pendingDeliveryCount = 0;
@@ -232,14 +231,14 @@ public final class ExcavatorDeliveryManager {
             CompoundTag deliveryTag = deliveriesTag.getCompound(i);
             long tick = deliveryTag.getLong(NBT_ARRIVAL);
             if (deliveryTag.contains(NBT_STACK, Tag.TAG_COMPOUND)) {
-                ItemStack stack = ItemStack.parseOptional(registries, deliveryTag.getCompound(NBT_STACK));
+                ItemStack stack = ItemStack.of(deliveryTag.getCompound(NBT_STACK));
                 if (!stack.isEmpty()) addNew(tick, stack);
                 continue;
             }
             if (!deliveryTag.contains(NBT_STACKS, Tag.TAG_LIST)) continue;
             ListTag stacksTag = deliveryTag.getList(NBT_STACKS, Tag.TAG_COMPOUND);
             for (int j = 0; j < stacksTag.size(); j++) {
-                ItemStack stack = ItemStack.parseOptional(registries, stacksTag.getCompound(j));
+                ItemStack stack = ItemStack.of(stacksTag.getCompound(j));
                 if (!stack.isEmpty()) addNew(tick, stack);
             }
         }
@@ -252,7 +251,7 @@ public final class ExcavatorDeliveryManager {
             candidates &= candidates - 1;
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_INDEX_ITEM_SLOT_CHECKS);
             ItemStack existing = outputInventory.getStackInSlot(slot);
-            if (ItemStack.isSameItemSameComponents(existing, stack)
+            if (ItemStack.isSameItemSameTags(existing, stack)
                     && existing.getCount() < Math.min(outputInventory.getSlotLimit(slot), existing.getMaxStackSize())) return true;
         }
         return false;
@@ -268,7 +267,7 @@ public final class ExcavatorDeliveryManager {
             candidates &= candidates - 1;
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DELIVERY_INDEX_ITEM_SLOT_CHECKS);
             ItemStack existing = outputInventory.getStackInSlot(slot);
-            if (!ItemStack.isSameItemSameComponents(existing, remainder)) continue;
+            if (!ItemStack.isSameItemSameTags(existing, remainder)) continue;
             if (existing.getCount() >= Math.min(outputInventory.getSlotLimit(slot), existing.getMaxStackSize())) continue;
             remainder = insertIntoKnownSlot(slot, remainder);
         }

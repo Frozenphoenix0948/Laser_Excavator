@@ -2,7 +2,7 @@ package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandler;
 
 /**
  * Automation-facing item handler for the excavator.

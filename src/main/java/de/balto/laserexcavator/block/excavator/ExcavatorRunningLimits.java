@@ -2,7 +2,6 @@ package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -19,18 +18,13 @@ import java.util.UUID;
 public final class ExcavatorRunningLimits extends SavedData {
     private static final String DATA_NAME = "laserexcavator_running_limits";
 
-    private static final Factory<ExcavatorRunningLimits> FACTORY = new Factory<>(
-            ExcavatorRunningLimits::new,
-            ExcavatorRunningLimits::load
-    );
-
     private record Entry(UUID owner, int tier) {}
 
     private final Map<String, Entry> running = new HashMap<>();
 
     public static ExcavatorRunningLimits get(ServerLevel level) {
         return level.getServer().overworld().getDataStorage()
-                .computeIfAbsent(FACTORY, DATA_NAME);
+                .computeIfAbsent(ExcavatorRunningLimits::load, ExcavatorRunningLimits::new, DATA_NAME);
     }
 
     private static String key(ServerLevel level, BlockPos pos) {
@@ -105,7 +99,7 @@ public final class ExcavatorRunningLimits extends SavedData {
     }
 
     private static ExcavatorRunningLimits load(
-            CompoundTag tag, HolderLookup.Provider registries) {
+            CompoundTag tag) {
 
         ExcavatorRunningLimits data = new ExcavatorRunningLimits();
 
@@ -129,7 +123,7 @@ public final class ExcavatorRunningLimits extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public CompoundTag save(CompoundTag tag) {
         ListTag list = new ListTag();
 
         running.forEach((key, entry) -> {

@@ -6,7 +6,6 @@ import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeItem;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -18,9 +17,9 @@ import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.items.ItemStackHandler;
-import org.jetbrains.annotations.Nullable;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.items.ItemStackHandler;
+import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -342,7 +341,7 @@ public final class ExcavatorUpgradeManager {
         }
 
         ItemStack tool = new ItemStack(Items.NETHERITE_PICKAXE);
-        tool.enchant(level.registryAccess().holderOrThrow(Enchantments.SILK_TOUCH), 1);
+        tool.enchant(Enchantments.SILK_TOUCH, 1);
         cachedFilterSilkTouchTool = tool;
         return tool;
     }
@@ -380,9 +379,9 @@ public final class ExcavatorUpgradeManager {
 
         ItemStack tool = new ItemStack(Items.NETHERITE_PICKAXE);
         if (silkTouch) {
-            tool.enchant(level.registryAccess().holderOrThrow(Enchantments.SILK_TOUCH), 1);
+            tool.enchant(Enchantments.SILK_TOUCH, 1);
         } else if (luckLevel > 0) {
-            tool.enchant(level.registryAccess().holderOrThrow(Enchantments.FORTUNE), luckLevel);
+            tool.enchant(Enchantments.BLOCK_FORTUNE, luckLevel);
         }
         cachedLootTool = tool;
         cachedLootToolLuckLevel = luckLevel;
@@ -422,8 +421,8 @@ public final class ExcavatorUpgradeManager {
         rebuildFilterLookup();
     }
 
-    public void deserializeInventory(CompoundTag inventoryTag, HolderLookup.Provider registries) {
-        inventory.deserializeNBT(registries, inventoryTag);
+    public void deserializeInventory(CompoundTag inventoryTag) {
+        inventory.deserializeNBT(inventoryTag);
         refreshCache();
     }
 }

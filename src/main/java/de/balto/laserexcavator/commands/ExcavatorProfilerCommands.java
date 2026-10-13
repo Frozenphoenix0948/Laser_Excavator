@@ -1,16 +1,18 @@
 package de.balto.laserexcavator.commands;
 
+import net.minecraftforge.fml.common.Mod;
+
 import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 
-@EventBusSubscriber(modid = LaserExcavator.MODID)
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.TickEvent;
+
+@Mod.EventBusSubscriber(modid = LaserExcavator.MODID)
 public final class ExcavatorProfilerCommands {
     private ExcavatorProfilerCommands() {}
 
@@ -55,12 +57,14 @@ public final class ExcavatorProfilerCommands {
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public static void onServerTickPre(ServerTickEvent.Pre event) {
+    public static void onServerTickPre(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.START) return;
         ExcavatorProfiler.beginServerTick();
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onServerTickPost(ServerTickEvent.Post event) {
+    public static void onServerTickPost(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         ExcavatorProfiler.endServerTick();
     }
 

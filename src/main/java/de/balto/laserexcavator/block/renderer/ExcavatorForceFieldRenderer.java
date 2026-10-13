@@ -45,13 +45,7 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
             8_192,
             false,
             false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderType.RENDERTYPE_LINES_SHADER)
-                    .setTransparencyState(RenderType.NO_TRANSPARENCY)
-                    .setCullState(RenderType.NO_CULL)
-                    .setWriteMaskState(RenderType.COLOR_DEPTH_WRITE)
-                    .setLightmapState(RenderType.NO_LIGHTMAP)
-                    .createCompositeState(false)
+            ExcavatorRenderStates.opaqueLines()
     );
 
     private static final float MEDIUM_LASER_SIDE_OFFSET = 0.056F;
@@ -641,7 +635,6 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
         // looking cleaner, this removes three otherwise redundant full-laser lines.
         lineY(pose, lines, x, bottomY - 0.02F, topY + 0.02F, z, 224, 255, 255, 255);
 
-
     }
 
     /**
@@ -777,12 +770,12 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
             float normalY,
             float normalZ
     ) {
-        consumer.addVertex(pose, x, y, z)
-                .setColor(red, green, blue, alpha)
-                .setNormal(pose, normalX, normalY, normalZ);
+        consumer.vertex(pose.pose(), x, y, z)
+                .color(red, green, blue, alpha)
+                .normal(pose.normal(), normalX, normalY, normalZ)
+                .endVertex();
     }
 
-    @Override
     public AABB getRenderBoundingBox(ExcavatorBlockEntity blockEntity) {
         BlockPos pos = blockEntity.getBlockPos();
         ExcavatorArea area = resolveRenderArea(blockEntity, findOpenExcavatorMenu(blockEntity));
@@ -834,6 +827,16 @@ public class ExcavatorForceFieldRenderer implements BlockEntityRenderer<Excavato
         // Keep the dispatcher permissive; render() performs the exact complete-effect
         // hull test itself so vanilla block-entity culling cannot create edge/below-field false negatives.
         return true;
+    }
+
+    @Override
+    public boolean shouldRender(ExcavatorBlockEntity blockEntity, Vec3 cameraPos) {
+        AABB bounds = getRenderBoundingBox(blockEntity);
+        double dx = Math.max(0.0D, Math.max(bounds.minX - cameraPos.x, cameraPos.x - bounds.maxX));
+        double dy = Math.max(0.0D, Math.max(bounds.minY - cameraPos.y, cameraPos.y - bounds.maxY));
+        double dz = Math.max(0.0D, Math.max(bounds.minZ - cameraPos.z, cameraPos.z - bounds.maxZ));
+        double distance = getViewDistance();
+        return dx * dx + dy * dy + dz * dz <= distance * distance;
     }
 
     @Override

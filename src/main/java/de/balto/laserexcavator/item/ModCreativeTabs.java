@@ -5,8 +5,8 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.registries.RegistryObject;
+import net.minecraftforge.registries.DeferredRegister;
 
 public final class ModCreativeTabs {
     private ModCreativeTabs() {}
@@ -14,7 +14,7 @@ public final class ModCreativeTabs {
     public static final DeferredRegister<CreativeModeTab> TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, LaserExcavator.MODID);
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> LASER_EXCAVATOR =
+    public static final RegistryObject<CreativeModeTab> LASER_EXCAVATOR =
             TABS.register("laser_excavator", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.laserexcavator"))
                     .withTabsBefore(CreativeModeTabs.FUNCTIONAL_BLOCKS)

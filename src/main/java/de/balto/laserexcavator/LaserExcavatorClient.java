@@ -7,32 +7,27 @@ import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import de.balto.laserexcavator.screen.ExcavatorScreen;
 import de.balto.laserexcavator.screen.ModMenuTypes;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.client.event.EntityRenderersEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 
-@Mod(value = LaserExcavator.MODID, dist = Dist.CLIENT)
-@EventBusSubscriber(modid = LaserExcavator.MODID, value = Dist.CLIENT)
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+
+@Mod.EventBusSubscriber(modid = LaserExcavator.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class LaserExcavatorClient {
-    public LaserExcavatorClient(ModContainer container) {
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
-        container.registerConfig(ModConfig.Type.CLIENT, LaserExcavatorClientConfig.SPEC, "laserexcavator-client.toml");
-    }
+    private LaserExcavatorClient() {}
 
     @SubscribeEvent
-    public static void registerScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenuTypes.EXCAVATOR_MENU.get(), ExcavatorScreen::new);
+    public static void registerScreens(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> MenuScreens.register(ModMenuTypes.EXCAVATOR_MENU.get(), ExcavatorScreen::new));
+        MinecraftForge.EVENT_BUS.addListener(LaserExcavatorClient::renderExcavatorTransportMarkers);
+        de.balto.laserexcavator.dev.stress.client.ExcavatorStressClientHooks.register();
     }
 
-    @SubscribeEvent
     public static void renderExcavatorTransportMarkers(RenderLevelStageEvent event) {
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) {
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.CLIENT_FRAMES);

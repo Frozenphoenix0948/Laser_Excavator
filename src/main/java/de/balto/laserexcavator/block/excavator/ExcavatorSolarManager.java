@@ -7,7 +7,9 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.neoforged.neoforge.common.Tags;
+import net.minecraft.world.level.block.AbstractGlassBlock;
+import net.minecraft.world.level.block.StainedGlassPaneBlock;
+import net.minecraft.world.level.block.Blocks;
 
 /**
  * This class takes care of the Solar Upgrades.
@@ -68,7 +70,7 @@ public final class ExcavatorSolarManager {
         int water = 0, maxWater = LaserExcavatorConfig.solarMaxWaterBlocks();
         for (int y = pos.getY() + 1; y < topY; y++) {
             BlockState state = level.getBlockState(cursor.set(pos.getX(), y, pos.getZ()));
-            if (state.isAir() || state.is(Tags.Blocks.GLASS_BLOCKS) || state.is(Tags.Blocks.GLASS_PANES)) continue;
+            if (state.isAir() || (state.getBlock() instanceof AbstractGlassBlock) || (state.getBlock() instanceof StainedGlassPaneBlock) || state.is(Blocks.GLASS_PANE)) continue;
             if (isWaterBlock(state) && ++water <= maxWater) continue;
             return false;
         }

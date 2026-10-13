@@ -1,12 +1,11 @@
 package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraftforge.items.ItemStackHandler;
 
 /** Furnace-fuel slot and fuel-to-FE conversion. */
 public final class ExcavatorFuelManager {
@@ -94,21 +93,21 @@ public final class ExcavatorFuelManager {
         if (remainder.isEmpty()) return true;
         int limit = inventory.getSlotLimit(0);
         if (fuel.getCount() == 1) return remainder.getCount() <= Math.min(limit, remainder.getMaxStackSize());
-        return ItemStack.isSameItemSameComponents(fuel, remainder)
+        return ItemStack.isSameItemSameTags(fuel, remainder)
                 && fuel.getCount() - 1 + remainder.getCount() <= Math.min(limit, fuel.getMaxStackSize());
     }
 
-    public void save(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.put(TAG_FUEL_INVENTORY, inventory.serializeNBT(registries));
+    public void save(CompoundTag tag) {
+        tag.put(TAG_FUEL_INVENTORY, inventory.serializeNBT());
         if (burnTicksRemaining > 0) {
             tag.putInt(TAG_BURN_TICKS_REMAINING, burnTicksRemaining);
             tag.putInt(TAG_BURN_TICKS_TOTAL, Math.max(burnTicksRemaining, burnTicksTotal));
         }
     }
 
-    public void load(CompoundTag tag, HolderLookup.Provider registries) {
+    public void load(CompoundTag tag) {
         burnTicksRemaining = Math.max(0, tag.getInt(TAG_BURN_TICKS_REMAINING));
         burnTicksTotal = Math.max(burnTicksRemaining, tag.getInt(TAG_BURN_TICKS_TOTAL));
-        if (tag.contains(TAG_FUEL_INVENTORY, Tag.TAG_COMPOUND)) inventory.deserializeNBT(registries, tag.getCompound(TAG_FUEL_INVENTORY));
+        if (tag.contains(TAG_FUEL_INVENTORY, Tag.TAG_COMPOUND)) inventory.deserializeNBT(tag.getCompound(TAG_FUEL_INVENTORY));
     }
 }

@@ -7,7 +7,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -211,11 +211,11 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
     public void onClose() { cancel(); }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
+    public void renderBackground(GuiGraphics graphics) {}
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        renderBackground(graphics);
         int top = 8, bottom = height - 6;
         graphics.fill(0, 0, width, height, 0x33000000);
         graphics.fill(panelLeft, top, panelLeft + panelWidth, bottom, FRAME);
@@ -294,12 +294,12 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaY) {
         if (mouseX >= panelLeft + 7 && mouseX < panelLeft + panelWidth - 7 && mouseY >= contentTop && mouseY < contentBottom) {
             setScroll(scroll - (int) Math.round(deltaY * 24));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        return super.mouseScrolled(mouseX, mouseY, deltaY);
     }
 
     @Override
@@ -365,8 +365,8 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
     }
 
     private static Group group(String name, int column, Setting... settings) { return new Group(name, column, List.of(settings)); }
-    private static Setting ints(String name, String tooltip, Impact impact, ModConfigSpec.IntValue value, double min, double max) { return new Setting(name, tooltip, impact, min, max, true, value::get, v -> value.set((int) Math.round(v))); }
-    private static Setting doubles(String name, String tooltip, Impact impact, ModConfigSpec.DoubleValue value, double min, double max) { return new Setting(name, tooltip, impact, min, max, false, value::get, value::set); }
+    private static Setting ints(String name, String tooltip, Impact impact, ForgeConfigSpec.IntValue value, double min, double max) { return new Setting(name, tooltip, impact, min, max, true, value::get, v -> value.set((int) Math.round(v))); }
+    private static Setting doubles(String name, String tooltip, Impact impact, ForgeConfigSpec.DoubleValue value, double min, double max) { return new Setting(name, tooltip, impact, min, max, false, value::get, value::set); }
     private enum Impact {
         NONE("No Impact", 0xFF050607), LOW("Low Impact", GOOD), MEDIUM("Medium Impact", WARNING), HIGH("High Impact", ERROR);
 

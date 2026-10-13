@@ -1,5 +1,7 @@
 package de.balto.laserexcavator.dev.stress.server;
 
+import net.minecraftforge.fml.common.Mod;
+
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.block.ModBlocks;
@@ -21,18 +23,18 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.items.ItemStackHandler;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@EventBusSubscriber(modid = LaserExcavator.MODID)
+@Mod.EventBusSubscriber(modid = LaserExcavator.MODID)
 public final class ExcavatorTrailerCommands {
     private static final int EXCAVATION_WIDTH = 32;
     private static final int EXCAVATION_HEIGHT = 256;
@@ -75,7 +77,8 @@ public final class ExcavatorTrailerCommands {
     }
 
     @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         if (activeBuild == null && activeRun == null) return;
         long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.TEST_GRID_MAINTENANCE);
         try {
@@ -345,7 +348,7 @@ public final class ExcavatorTrailerCommands {
             this.foundation = foundation;
             this.machines = machines;
             this.run = run;
-            this.foundationX = foundation.isEmpty() ? 0 : foundation.getFirst().minX;
+            this.foundationX = foundation.isEmpty() ? 0 : foundation.get(0).minX;
 
             long total = 0L;
             for (FoundationRow row : foundation) total += row.maxX - row.minX + 1L;

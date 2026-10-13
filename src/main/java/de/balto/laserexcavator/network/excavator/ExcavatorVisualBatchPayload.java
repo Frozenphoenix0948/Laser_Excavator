@@ -1,9 +1,7 @@
 package de.balto.laserexcavator.network.excavator;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -23,15 +21,11 @@ import static de.balto.laserexcavator.LaserExcavator.MODID;
  * Per-event positions remain signed VarInt deltas from the excavator, so
  * excavation areas are not constrained to a fixed size.
  */
-public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
+public final class ExcavatorVisualBatchPayload {
     /** Hard protocol safety bound. The configurable packet cap may be lower. */
     public static final int MAX_TOTAL_EVENTS = 4096;
     private static final int MAX_GROUPS = MAX_TOTAL_EVENTS;
     private static final int MAX_STACK_PALETTE = MAX_TOTAL_EVENTS;
-
-    public static final Type<ExcavatorVisualBatchPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(MODID, "excavator_visual_batch")
-    );
 
     private final long serverGameTime;
 
@@ -60,16 +54,13 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
 
     private final int eventCount;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, ExcavatorVisualBatchPayload> STREAM_CODEC =
-            new StreamCodec<>() {
-                @Override
-                public ExcavatorVisualBatchPayload decode(RegistryFriendlyByteBuf buf) {
+    public static ExcavatorVisualBatchPayload decode(FriendlyByteBuf buf) {
                     long serverGameTime = buf.readVarLong();
 
                     int paletteSize = readBoundedCount(buf, "visual stack palette", MAX_STACK_PALETTE);
                     ItemStack[] palette = new ItemStack[paletteSize];
                     for (int i = 0; i < paletteSize; i++) {
-                        palette[i] = ItemStack.STREAM_CODEC.decode(buf);
+                        palette[i] = buf.readItem();
                     }
 
                     int groupCount = readBoundedCount(buf, "excavator visual groups", MAX_GROUPS);
@@ -82,7 +73,7 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                     int totalLasers = 0;
                     int totalTransports = 0;
                     for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-                        excavatorPositions[groupIndex] = BlockPos.STREAM_CODEC.decode(buf).immutable();
+                        excavatorPositions[groupIndex] = buf.readBlockPos().immutable();
 
                         int remaining = MAX_TOTAL_EVENTS - totalLasers - totalTransports;
                         int laserCount = readBoundedCount(buf, "laser events", remaining);
@@ -163,14 +154,13 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                     );
                 }
 
-                @Override
-                public void encode(RegistryFriendlyByteBuf buf, ExcavatorVisualBatchPayload payload) {
+    public static void encode(ExcavatorVisualBatchPayload payload, FriendlyByteBuf buf) {
                     buf.writeVarLong(payload.serverGameTime);
 
                     List<ItemStack> palette = buildStackPalette(payload.transportStacks);
                     buf.writeVarInt(palette.size());
                     for (ItemStack stack : palette) {
-                        ItemStack.STREAM_CODEC.encode(buf, stack);
+                        buf.writeItem(stack);
                     }
 
                     int groupCount = payload.groupCount();
@@ -179,7 +169,7 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                     // Metadata precedes event bodies so the decoder can allocate exact
                     // payload-wide array sizes before reading events.
                     for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-                        BlockPos.STREAM_CODEC.encode(buf, payload.excavatorPositions[groupIndex]);
+                        buf.writeBlockPos(payload.excavatorPositions[groupIndex]);
                         buf.writeVarInt(payload.groupLaserCount[groupIndex]);
                         buf.writeVarInt(payload.groupTransportCount[groupIndex]);
                     }
@@ -207,7 +197,6 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                         }
                     }
                 }
-            };
 
     public ExcavatorVisualBatchPayload(
             long serverGameTime,
@@ -315,12 +304,7 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
     public int transportForceFieldYOffset(int eventIndex) { return transportForceFieldYOffset[eventIndex]; }
     public int transportAgeTicks(int eventIndex) { return transportAgeTicks[eventIndex]; }
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
-
-    private static int readBoundedCount(RegistryFriendlyByteBuf buf, String label, int max) {
+    private static int readBoundedCount(FriendlyByteBuf buf, String label, int max) {
         int value = buf.readVarInt();
         if (value < 0 || value > max) {
             throw new IllegalArgumentException("Invalid " + label + " count: " + value + " (max " + max + ")");
@@ -328,23 +312,23 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
         return value;
     }
 
-    private static int readPositiveVarInt(RegistryFriendlyByteBuf buf, String label) {
+    private static int readPositiveVarInt(FriendlyByteBuf buf, String label) {
         int value = buf.readVarInt();
         if (value <= 0) throw new IllegalArgumentException("Invalid " + label + ": " + value);
         return value;
     }
 
-    private static int readNonNegativeVarInt(RegistryFriendlyByteBuf buf, String label) {
+    private static int readNonNegativeVarInt(FriendlyByteBuf buf, String label) {
         int value = buf.readVarInt();
         if (value < 0) throw new IllegalArgumentException("Invalid " + label + ": " + value);
         return value;
     }
 
-    private static void writeSignedVarInt(RegistryFriendlyByteBuf buf, int value) {
+    private static void writeSignedVarInt(FriendlyByteBuf buf, int value) {
         buf.writeVarInt((value << 1) ^ (value >> 31));
     }
 
-    private static int readSignedVarInt(RegistryFriendlyByteBuf buf) {
+    private static int readSignedVarInt(FriendlyByteBuf buf) {
         int encoded = buf.readVarInt();
         return (encoded >>> 1) ^ -(encoded & 1);
     }
@@ -377,7 +361,7 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
 
     private static int findPaletteIndexOrMinusOne(List<ItemStack> palette, ItemStack stack) {
         for (int i = 0; i < palette.size(); i++) {
-            if (ItemStack.isSameItemSameComponents(palette.get(i), stack)) return i;
+            if (ItemStack.isSameItemSameTags(palette.get(i), stack)) return i;
         }
         return -1;
     }

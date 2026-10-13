@@ -6,7 +6,7 @@ import de.balto.laserexcavator.config.LaserExcavatorClientConfig.BlockUpdateDebu
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig.RenderingDebugMode;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 
 public final class ExcavatorRenderDebugCommands {
     private ExcavatorRenderDebugCommands() {}

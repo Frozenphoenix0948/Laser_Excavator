@@ -10,10 +10,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.network.PacketDistributor;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.simple.SimpleChannel;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,27 +37,40 @@ public final class ExcavatorNetworking {
 
     private ExcavatorNetworking() {}
 
-    public static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("6");
+    private static final String PROTOCOL_VERSION = "6";
+    private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
+            new ResourceLocation("laserexcavator", "main"),
+            () -> PROTOCOL_VERSION,
+            PROTOCOL_VERSION::equals,
+            PROTOCOL_VERSION::equals
+    );
 
-        registrar.playToClient(
-                ExcavatorSectionBlockUpdatePayload.TYPE,
-                ExcavatorSectionBlockUpdatePayload.STREAM_CODEC,
-                (payload, context) -> context.enqueueWork(() ->
-                        ExcavatorClientBlockUpdates.applySectionRemovals(payload)
-                )
-        );
-
-        registrar.playToClient(
-                ExcavatorVisualBatchPayload.TYPE,
-                ExcavatorVisualBatchPayload.STREAM_CODEC,
-                // Decoded payloads enter the client queue directly and are materialized
-                // together during the client tick.
-                (payload, context) -> ExcavatorClientVisuals.enqueueVisualBatch(payload)
-        );
+    public static void sendToPlayer(net.minecraft.server.level.ServerPlayer player, ExcavatorSectionBlockUpdatePayload payload) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
     }
 
-    public static void onServerTickPost(ServerTickEvent.Post event) {
+    public static void registerPackets() {
+        CHANNEL.messageBuilder(ExcavatorSectionBlockUpdatePayload.class, 0, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(ExcavatorSectionBlockUpdatePayload::encode)
+                .decoder(ExcavatorSectionBlockUpdatePayload::decode)
+                .consumerMainThread((payload, ctx) -> {
+                    ExcavatorClientBlockUpdates.applySectionRemovals(payload);
+                    ctx.get().setPacketHandled(true);
+                })
+                .add();
+
+        CHANNEL.messageBuilder(ExcavatorVisualBatchPayload.class, 1, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(ExcavatorVisualBatchPayload::encode)
+                .decoder(ExcavatorVisualBatchPayload::decode)
+                .consumerMainThread((payload, ctx) -> {
+                    ExcavatorClientVisuals.enqueueVisualBatch(payload);
+                    ctx.get().setPacketHandled(true);
+                })
+                .add();
+    }
+
+    public static void onServerTickPost(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         long postProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.SERVER_POST_TICK);
         try {
             MinecraftServer server = event.getServer();
@@ -329,7 +344,7 @@ public final class ExcavatorNetworking {
         ExcavatorProfiler.end(ExcavatorProfiler.Section.VISUAL_PAYLOAD_BUILD, buildProfile);
 
         long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.VISUAL_PACKET_SEND);
-        PacketDistributor.sendToPlayersTrackingChunk(level, chunkPos, payload);
+        CHANNEL.send(PacketDistributor.TRACKING_CHUNK.with(() -> level.getChunk(chunkPos.x, chunkPos.z)), payload);
         ExcavatorProfiler.end(ExcavatorProfiler.Section.VISUAL_PACKET_SEND, profile);
 
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.VISUAL_BATCH_PACKETS_SENT);

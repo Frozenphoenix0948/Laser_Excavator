@@ -7,7 +7,7 @@ import de.balto.laserexcavator.block.renderer.ExcavatorTransportStressHarness.Lo
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 
 public final class ExcavatorTransportStressCommands {
     private ExcavatorTransportStressCommands() {}

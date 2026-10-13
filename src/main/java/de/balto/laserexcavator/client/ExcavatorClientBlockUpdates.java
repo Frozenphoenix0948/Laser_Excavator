@@ -1,5 +1,7 @@
 package de.balto.laserexcavator.client;
 
+import net.minecraftforge.fml.common.Mod;
+
 import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import de.balto.laserexcavator.config.LaserExcavatorClientConfig.BlockUpdateDebugMode;
@@ -15,10 +17,10 @@ import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+import net.minecraftforge.event.TickEvent;
 
 import java.util.List;
 
@@ -35,7 +37,7 @@ import java.util.List;
  * is air, and moving into a new 16-block camera region can only promote pending refreshes
  * earlier; it never postpones already scheduled work.
  */
-@EventBusSubscriber(modid = LaserExcavator.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = LaserExcavator.MODID, value = Dist.CLIENT)
 public final class ExcavatorClientBlockUpdates {
     private static final int SILENT_CLIENT_FLAGS =
             Block.UPDATE_CLIENTS | Block.UPDATE_INVISIBLE | Block.UPDATE_KNOWN_SHAPE;
@@ -316,7 +318,8 @@ public final class ExcavatorClientBlockUpdates {
      * each dirty section waits in the wheel slot for its chosen visual snapshot time.
      */
     @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         Minecraft minecraft = Minecraft.getInstance();
         ClientLevel level = minecraft.level;
         clientTickIndex++;

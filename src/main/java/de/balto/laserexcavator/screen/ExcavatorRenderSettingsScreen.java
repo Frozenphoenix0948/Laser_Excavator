@@ -41,11 +41,11 @@ public final class ExcavatorRenderSettingsScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
+    public void renderBackground(GuiGraphics graphics) {}
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        renderBackground(graphics);
         int panelW = Math.min(width - 24, 390), left = (width - panelW) / 2, top = Math.max(12, height / 2 - 86), bottom = top + 164;
         graphics.fill(0, 0, width, height, 0x33000000);
         graphics.fill(left, top, left + panelW, bottom, FRAME);

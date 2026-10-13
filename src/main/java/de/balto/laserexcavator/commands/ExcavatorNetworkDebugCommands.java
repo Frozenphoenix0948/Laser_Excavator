@@ -5,7 +5,7 @@ import de.balto.laserexcavator.config.LaserExcavatorConfig.NetworkDebugMode;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 
 public final class ExcavatorNetworkDebugCommands {
     private ExcavatorNetworkDebugCommands() {}

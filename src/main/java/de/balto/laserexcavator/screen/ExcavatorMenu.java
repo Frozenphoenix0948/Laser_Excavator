@@ -8,7 +8,7 @@ import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.item.upgrade.ExcavatorUpgradeType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
@@ -24,9 +24,9 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.items.ItemStackHandler;
-import net.neoforged.neoforge.items.SlotItemHandler;
-import org.jetbrains.annotations.Nullable;
+import net.minecraftforge.items.ItemStackHandler;
+import net.minecraftforge.items.SlotItemHandler;
+import javax.annotation.Nullable;
 
 /**
  * This class contains the general menu of the Mod and takes care
@@ -92,7 +92,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     private record OpenData(BlockPos pos, int upgradeSlots, boolean fuelSlotEnabled) {
     }
 
-    public ExcavatorMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf extraData) {
+    public ExcavatorMenu(int containerId, Inventory inventory, FriendlyByteBuf extraData) {
         this(containerId, inventory, readOpenData(extraData));
     }
 
@@ -112,7 +112,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
         );
     }
 
-    private static OpenData readOpenData(RegistryFriendlyByteBuf extraData) {
+    private static OpenData readOpenData(FriendlyByteBuf extraData) {
         BlockPos pos = extraData.readBlockPos();
         int upgradeSlots = Mth.clamp(extraData.readVarInt(), 0, ExcavatorBlockEntity.UPGRADE_SLOTS);
         boolean fuelSlotEnabled = extraData.readBoolean();

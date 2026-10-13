@@ -1,13 +1,15 @@
 package de.balto.laserexcavator.commands;
 
+import net.minecraftforge.fml.common.Mod;
+
 import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.block.excavator.ExcavatorRunningLimits;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+import net.minecraftforge.event.RegisterCommandsEvent;
 
 import java.util.Comparator;
 
@@ -15,7 +17,7 @@ import java.util.Comparator;
  * Adds  command to allow each player to check their running excavators.
  */
 
-@EventBusSubscriber(modid = LaserExcavator.MODID)
+@Mod.EventBusSubscriber(modid = LaserExcavator.MODID)
 public final class ExcavatorRunningCommands {
     private ExcavatorRunningCommands() {}
 

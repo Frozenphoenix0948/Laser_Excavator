@@ -8,7 +8,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -145,7 +145,7 @@ public final class ExcavatorLootCache {
         for (ItemStack observedStack : observed) {
             if (observedStack.isEmpty()) continue;
             ItemStack cachedStack = cached.get(cachedIndex++);
-            if (cachedStack.getCount() != observedStack.getCount() || !ItemStack.isSameItemSameComponents(cachedStack, observedStack)) return false;
+            if (cachedStack.getCount() != observedStack.getCount() || !ItemStack.isSameItemSameTags(cachedStack, observedStack)) return false;
         }
         return true;
     }
@@ -156,7 +156,7 @@ public final class ExcavatorLootCache {
         if (cache.silkTouchFilterEquivalents.containsKey(state)) return cache.silkTouchFilterEquivalents.get(state);
 
         List<ItemStack> drops = Block.getDrops(state, level, pos, state.hasBlockEntity() ? level.getBlockEntity(pos) : null, null, silkTouchTool);
-        Block equivalent = drops.size() == 1 && drops.getFirst().getItem() instanceof BlockItem blockItem ? blockItem.getBlock() : null;
+        Block equivalent = drops.size() == 1 && drops.get(0).getItem() instanceof BlockItem blockItem ? blockItem.getBlock() : null;
         cache.silkTouchFilterEquivalents.put(state, equivalent);
         return equivalent;
     }

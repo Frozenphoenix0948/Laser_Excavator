@@ -1,5 +1,7 @@
 package de.balto.laserexcavator.dev.stress.server;
 
+import net.minecraftforge.fml.common.Mod;
+
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import de.balto.laserexcavator.LaserExcavator;
 import de.balto.laserexcavator.block.ModBlocks;
@@ -26,12 +28,12 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.items.ItemStackHandler;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -51,7 +53,7 @@ import java.util.UUID;
  * External AE2, Oritech and Mekanism content is resolved through registries/reflection so
  * the benchmark does not add hard compile-time dependencies on those mods.
  */
-@EventBusSubscriber(modid = LaserExcavator.MODID)
+@Mod.EventBusSubscriber(modid = LaserExcavator.MODID)
 public final class ExcavatorStressGridCommands {
     private static final int GRID_SIZE = 3;
 
@@ -169,7 +171,8 @@ public final class ExcavatorStressGridCommands {
     }
 
     @SubscribeEvent
-    public static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         if (activeBuild == null && activeRun == null) return;
         long profile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.TEST_GRID_MAINTENANCE);
         try {

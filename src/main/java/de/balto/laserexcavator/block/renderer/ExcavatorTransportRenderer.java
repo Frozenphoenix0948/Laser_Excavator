@@ -1835,17 +1835,17 @@ final class ExcavatorTransportRenderer {
             float v,
             int packedLight
     ) {
-        consumer.addVertex(
-                        basePose,
+        consumer.vertex(
+                        basePose.pose(),
                         centerX + cornerX[corner],
                         centerY + cornerY[corner],
                         centerZ + cornerZ[corner]
                 )
-                .setColor(255, 255, 255, 255)
-                .setUv(u, v)
-                .setOverlay(OverlayTexture.NO_OVERLAY)
-                .setLight(packedLight)
-                .setNormal(blockBillboardNormalX, blockBillboardNormalY, blockBillboardNormalZ);
+                .color(255, 255, 255, 255)
+                .uv(u, v)
+                .overlayCoords(OverlayTexture.NO_OVERLAY)
+                .uv2(packedLight)
+                .normal(blockBillboardNormalX, blockBillboardNormalY, blockBillboardNormalZ).endVertex();
     }
 
     private static float[] createBlockBillboardTaperScales() {
@@ -1889,22 +1889,22 @@ final class ExcavatorTransportRenderer {
             float v,
             int packedLight
     ) {
-        consumer.addVertex(
-                        basePose,
+        consumer.vertex(
+                        basePose.pose(),
                         centerX + itemBillboardGeometry.cornerX[corner],
                         centerY + itemBillboardGeometry.cornerY[corner],
                         centerZ + itemBillboardGeometry.cornerZ[corner]
                 )
-                .setColor(255, 255, 255, 255)
-                .setUv(u, v)
-                .setOverlay(OverlayTexture.NO_OVERLAY)
-                .setLight(packedLight)
-                .setNormal(
-                        basePose,
+                .color(255, 255, 255, 255)
+                .uv(u, v)
+                .overlayCoords(OverlayTexture.NO_OVERLAY)
+                .uv2(packedLight)
+                .normal(
+                        basePose.normal(),
                         itemBillboardGeometry.normalX,
                         itemBillboardGeometry.normalY,
                         itemBillboardGeometry.normalZ
-                );
+                ).endVertex();
     }
 
     private void renderTexturedCube(
@@ -1987,19 +1987,18 @@ final class ExcavatorTransportRenderer {
             float normalZ,
             int packedLight
     ) {
-        consumer.addVertex(
-                        basePose,
+        consumer.vertex(
+                        basePose.pose(),
                         centerX + rotatingCubeGeometry.cornerX[horizontalCorner],
                         centerY + yOffset,
                         centerZ + rotatingCubeGeometry.cornerZ[horizontalCorner]
                 )
-                .setColor(255, 255, 255, 255)
-                .setUv(u, v)
-                .setOverlay(OverlayTexture.NO_OVERLAY)
-                .setLight(packedLight)
-                .setNormal(normalX, normalY, normalZ);
+                .color(255, 255, 255, 255)
+                .uv(u, v)
+                .overlayCoords(OverlayTexture.NO_OVERLAY)
+                .uv2(packedLight)
+                .normal(normalX, normalY, normalZ).endVertex();
     }
-
 
     private void ensureTransformedBlockNormals(PoseStack.Pose basePose) {
         if (blockNormalsPrepared) return;
@@ -2014,7 +2013,7 @@ final class ExcavatorTransportRenderer {
     }
 
     private void transformBlockNormal(PoseStack.Pose basePose, float x, float y, float z, int normalIndex) {
-        basePose.transformNormal(x, y, z, normalScratch);
+        basePose.normal().transform(x, y, z, normalScratch);
         float nx = normalScratch.x;
         float ny = normalScratch.y;
         float nz = normalScratch.z;
@@ -2219,8 +2218,5 @@ final class ExcavatorTransportRenderer {
         }
         return phase;
     }
-
-
-
 
 }

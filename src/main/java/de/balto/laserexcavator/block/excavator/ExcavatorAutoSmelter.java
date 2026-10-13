@@ -4,14 +4,15 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.Container;
 import net.minecraft.world.item.crafting.SmeltingRecipe;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class ExcavatorAutoSmelter {
-    private static final RecipeManager.CachedCheck<SingleRecipeInput, SmeltingRecipe> SMELTING_CHECK =
+    private static final RecipeManager.CachedCheck<Container, SmeltingRecipe> SMELTING_CHECK =
             RecipeManager.createCheck(RecipeType.SMELTING);
 
     private ExcavatorAutoSmelter() {}
@@ -46,10 +47,10 @@ public final class ExcavatorAutoSmelter {
 
         ItemStack singleInput = input.copy();
         singleInput.setCount(1);
-        SingleRecipeInput recipeInput = new SingleRecipeInput(singleInput);
+        Container recipeInput = new SimpleContainer(singleInput);
 
         return SMELTING_CHECK.getRecipeFor(recipeInput, level)
-                .map(holder -> holder.value().assemble(recipeInput, level.registryAccess()))
+                .map(recipe -> recipe.assemble(recipeInput, level.registryAccess()))
                 .filter(stack -> !stack.isEmpty())
                 .map(output -> multiplyAndSplit(output, input.getCount()))
                 .orElse(null);

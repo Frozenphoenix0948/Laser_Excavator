@@ -15,8 +15,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -70,7 +70,8 @@ public final class ExcavatorTransportStressHarness {
 
     private ExcavatorTransportStressHarness() {}
 
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
         if (!running) return;
         if (!LaserExcavatorConfig.stressTestCommandsEnabled()) {
             stop();
@@ -131,7 +132,7 @@ public final class ExcavatorTransportStressHarness {
         ClientLevel level = minecraft.level;
         if (level == null || level != activeLevel || LANES.isEmpty()) return;
 
-        float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(true);
+        float partialTick = event.getPartialTick();
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         PoseStack poseStack = event.getPoseStack();
         Vec3 camera = event.getCamera().getPosition();

@@ -16,7 +16,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.Palette;
 import net.minecraft.world.level.chunk.PalettedContainer;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.IdentityHashMap;
@@ -219,52 +219,23 @@ final class ExcavatorTargetScanner {
             }
 
             cursor.set(x, start, z);
-            int localColumnIndex = ((z & 15) << 4) | (x & 15);
+            int localX = x & 15;
+            int localZ = z & 15;
             int y = start;
-
             while (y >= min) {
                 LevelChunkSection section = loadedChunk.getSection(loadedChunk.getSectionIndex(y));
-                PalettedContainer.Data<BlockState> data = section.getStates().data;
-                BitStorage storage = data.storage();
-                Palette<BlockState> palette = data.palette();
-                PaletteClassification classification = classificationFor(palette);
                 int sectionBottom = Math.max(min, y & ~15);
-                int storageIndex = ((y & 15) << 8) | localColumnIndex;
-
-                for (; y >= sectionBottom; y--, storageIndex -= 256) {
-                    int paletteId = storage.get(storageIndex);
+                for (; y >= sectionBottom; y--) {
+                    BlockState state = section.getBlockState(localX, y & 15, localZ);
                     lookups++;
-
-                    if (paletteId >= classification.size()) {
-                        classification.ensureCapacity(Math.max(palette.getSize(), paletteId + 1));
-                    }
-
-                    byte handling = classification.handling(paletteId);
-                    BlockState state = null;
-                    if (handling == UNKNOWN) {
-                        state = palette.valueFor(paletteId);
-                        handling = classifyCacheableState(state, unbreakable, fluidIgnore, filterEnabled);
-                        if (handling != UNKNOWN) {
-                            classification.set(paletteId, handling, state);
-                        } else {
-                            cursor.setY(y);
-                            handling = upgrades.isFilteredBlockForTargetScan(level, cursor, state) ? FILTERED : NORMAL;
-                        }
-                    }
-
+                    byte handling = classifyState(level, y, state, unbreakable, fluidIgnore, filterEnabled);
                     if (handling == AIR || handling == IGNORED) continue;
                     if (handling == FILTERED) {
                         filterSkips++;
                         continue;
                     }
-
                     returned = NORMAL;
-                    Block normalBlock = classification.normalBlock(paletteId);
-                    if (normalBlock == null) {
-                        if (state == null) state = palette.valueFor(paletteId);
-                        normalBlock = state.getBlock();
-                    }
-                    return Result.normal(y, normalBlock);
+                    return Result.normal(y, state.getBlock());
                 }
             }
 

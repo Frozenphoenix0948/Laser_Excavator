@@ -1,6 +1,6 @@
 package de.balto.laserexcavator.config;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 public final class LaserExcavatorClientConfig {
     public enum RenderPreset {
@@ -25,45 +25,45 @@ public final class LaserExcavatorClientConfig {
     public enum BlockUpdateDebugMode { NORMAL, NO_REMESH, NO_BLOCK_SYNC }
     public enum RenderingDebugMode { NORMAL, ALL_DISABLED }
 
-    public static final ModConfigSpec SPEC;
+    public static final ForgeConfigSpec SPEC;
 
-    public static final ModConfigSpec.EnumValue<RenderPreset> RENDER_PRESET;
-    public static final ModConfigSpec.IntValue LASER_VISUAL_DURATION_TICKS;
-    public static final ModConfigSpec.BooleanValue EMIT_VANILLA_BREAK_EFFECTS;
-    public static final ModConfigSpec.BooleanValue TRANSPORTS_ENABLED;
-    public static final ModConfigSpec.BooleanValue TRANSPORT_MARKERS_ONLY;
-    public static final ModConfigSpec.IntValue MAX_LASERS_PER_EXCAVATOR;
-    public static final ModConfigSpec.IntValue MAX_TRANSPORTS_PER_EXCAVATOR;
-    public static final ModConfigSpec.IntValue MIN_TRANSPORT_BLOCK_LIGHT;
-    public static final ModConfigSpec.DoubleValue BLOCK_VISUAL_HALF_SIZE;
-    public static final ModConfigSpec.DoubleValue ITEM_VISUAL_HALF_SIZE;
-    public static final ModConfigSpec.DoubleValue TRANSPORT_MARKER_HALF_SIZE;
-    public static final ModConfigSpec.DoubleValue BILLBOARD_DISTANCE;
-    public static final ModConfigSpec.DoubleValue LASER_MID_LOD_DISTANCE;
-    public static final ModConfigSpec.DoubleValue LASER_FAR_LOD_DISTANCE;
-    public static final ModConfigSpec.DoubleValue TRANSPORT_LARGE_MARKER_DISTANCE;
-    public static final ModConfigSpec.DoubleValue TRANSPORT_SMALL_MARKER_DISTANCE;
-    public static final ModConfigSpec.DoubleValue TRANSPORT_BATCH_DISTANCE;
-    public static final ModConfigSpec.IntValue TRANSPORT_BATCH_MAX_MARKERS;
-    public static final ModConfigSpec.IntValue TRANSPORT_BATCH_MIN_MARKERS;
-    public static final ModConfigSpec.DoubleValue TRANSPORT_BATCH_FALLOFF_EXPONENT;
-    public static final ModConfigSpec.DoubleValue TRANSPORT_MAX_RENDER_DISTANCE;
-    public static final ModConfigSpec.IntValue FORCE_FIELD_GRID_SPACING;
-    public static final ModConfigSpec.DoubleValue PILLAR_OUTER_RADIUS;
-    public static final ModConfigSpec.DoubleValue PILLAR_CORE_RADIUS;
-    public static final ModConfigSpec.IntValue RENDER_DISTANCE;
+    public static final ForgeConfigSpec.EnumValue<RenderPreset> RENDER_PRESET;
+    public static final ForgeConfigSpec.IntValue LASER_VISUAL_DURATION_TICKS;
+    public static final ForgeConfigSpec.BooleanValue EMIT_VANILLA_BREAK_EFFECTS;
+    public static final ForgeConfigSpec.BooleanValue TRANSPORTS_ENABLED;
+    public static final ForgeConfigSpec.BooleanValue TRANSPORT_MARKERS_ONLY;
+    public static final ForgeConfigSpec.IntValue MAX_LASERS_PER_EXCAVATOR;
+    public static final ForgeConfigSpec.IntValue MAX_TRANSPORTS_PER_EXCAVATOR;
+    public static final ForgeConfigSpec.IntValue MIN_TRANSPORT_BLOCK_LIGHT;
+    public static final ForgeConfigSpec.DoubleValue BLOCK_VISUAL_HALF_SIZE;
+    public static final ForgeConfigSpec.DoubleValue ITEM_VISUAL_HALF_SIZE;
+    public static final ForgeConfigSpec.DoubleValue TRANSPORT_MARKER_HALF_SIZE;
+    public static final ForgeConfigSpec.DoubleValue BILLBOARD_DISTANCE;
+    public static final ForgeConfigSpec.DoubleValue LASER_MID_LOD_DISTANCE;
+    public static final ForgeConfigSpec.DoubleValue LASER_FAR_LOD_DISTANCE;
+    public static final ForgeConfigSpec.DoubleValue TRANSPORT_LARGE_MARKER_DISTANCE;
+    public static final ForgeConfigSpec.DoubleValue TRANSPORT_SMALL_MARKER_DISTANCE;
+    public static final ForgeConfigSpec.DoubleValue TRANSPORT_BATCH_DISTANCE;
+    public static final ForgeConfigSpec.IntValue TRANSPORT_BATCH_MAX_MARKERS;
+    public static final ForgeConfigSpec.IntValue TRANSPORT_BATCH_MIN_MARKERS;
+    public static final ForgeConfigSpec.DoubleValue TRANSPORT_BATCH_FALLOFF_EXPONENT;
+    public static final ForgeConfigSpec.DoubleValue TRANSPORT_MAX_RENDER_DISTANCE;
+    public static final ForgeConfigSpec.IntValue FORCE_FIELD_GRID_SPACING;
+    public static final ForgeConfigSpec.DoubleValue PILLAR_OUTER_RADIUS;
+    public static final ForgeConfigSpec.DoubleValue PILLAR_CORE_RADIUS;
+    public static final ForgeConfigSpec.IntValue RENDER_DISTANCE;
 
-    public static final ModConfigSpec.EnumValue<TransportDebugMode> TRANSPORT_DEBUG_MODE;
-    public static final ModConfigSpec.EnumValue<BlockUpdateDebugMode> BLOCK_UPDATE_DEBUG_MODE;
-    public static final ModConfigSpec.EnumValue<RenderingDebugMode> RENDERING_DEBUG_MODE;
-    public static final ModConfigSpec.IntValue VISUAL_INGESTION_BUDGET_MICROS;
+    public static final ForgeConfigSpec.EnumValue<TransportDebugMode> TRANSPORT_DEBUG_MODE;
+    public static final ForgeConfigSpec.EnumValue<BlockUpdateDebugMode> BLOCK_UPDATE_DEBUG_MODE;
+    public static final ForgeConfigSpec.EnumValue<RenderingDebugMode> RENDERING_DEBUG_MODE;
+    public static final ForgeConfigSpec.IntValue VISUAL_INGESTION_BUDGET_MICROS;
 
     private static volatile TransportDebugMode transportDebugModeOverride;
     private static volatile BlockUpdateDebugMode blockUpdateDebugModeOverride;
     private static volatile RenderingDebugMode renderingDebugModeOverride;
 
     static {
-        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+        ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
         builder.comment(
                 " Client-local excavator rendering limits and visual tuning.",

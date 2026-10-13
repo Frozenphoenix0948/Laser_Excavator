@@ -9,7 +9,7 @@ import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
 
 import java.util.Arrays;
 
@@ -27,13 +27,7 @@ public final class ExcavatorTransportMarkerRenderer {
             16_384,
             false,
             false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderType.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderType.NO_TRANSPARENCY)
-                    .setDepthTestState(RenderType.LEQUAL_DEPTH_TEST)
-                    .setCullState(RenderType.NO_CULL)
-                    .setWriteMaskState(RenderType.COLOR_DEPTH_WRITE)
-                    .createCompositeState(false)
+            ExcavatorRenderStates.opaqueMarkers()
     );
 
     private static final int ALPHA = 255;
@@ -234,7 +228,7 @@ public final class ExcavatorTransportMarkerRenderer {
             int green,
             int blue
     ) {
-        consumer.addVertex(pose, vx, vy, vz).setColor(red, green, blue, ALPHA);
+        consumer.vertex(pose.pose(), vx, vy, vz).color(red, green, blue, ALPHA).endVertex();
     }
 
     private static void ensureLargeMarkerCapacity(int requiredMarkers) {
