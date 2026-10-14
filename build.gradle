@@ -14,7 +14,7 @@ java {
 
 legacyForge {
     enable {
-        neoForgeVersion = project.neo_version
+        forgeVersion = project.forge_version
     }
     runs {
         client { client() }
@@ -43,6 +43,9 @@ repositories {
 // compile-time compatibility using modCompileOnly, not a required dependency.
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+// Minecraft 1.20.1 discovers this mod through the plain META-INF/mods.toml
+// in src/main/resources. Keep it there for predictable Gradle and IDE runs.
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
