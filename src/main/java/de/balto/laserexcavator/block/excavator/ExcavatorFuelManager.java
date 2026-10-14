@@ -5,6 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.items.ItemStackHandler;
 
 /** Furnace-fuel slot and fuel-to-FE conversion. */
@@ -42,7 +43,7 @@ public final class ExcavatorFuelManager {
     public int burnTicksRemaining() { return Math.max(0, burnTicksRemaining); }
     public int burnTicksTotal() { return Math.max(0, burnTicksTotal); }
 
-    public static boolean isFuel(ItemStack stack) { return !stack.isEmpty() && stack.getBurnTime(RecipeType.SMELTING) > 0; }
+    public static boolean isFuel(ItemStack stack) { return !stack.isEmpty() && ForgeHooks.getBurnTime(stack, RecipeType.SMELTING) > 0; }
 
     public void tick(int priorInternalGeneration) {
         if (!isEnabled() || burnTicksRemaining <= 0 && inventory.getStackInSlot(0).isEmpty()) return;
@@ -65,7 +66,7 @@ public final class ExcavatorFuelManager {
 
     private boolean consumeFuelItem() {
         ItemStack stack = inventory.getStackInSlot(0);
-        int burnTime = stack.getBurnTime(RecipeType.SMELTING);
+        int burnTime = ForgeHooks.getBurnTime(stack, RecipeType.SMELTING);
         if (burnTime <= 0) return false;
 
         ItemStack remainder = stack.copyWithCount(1).getCraftingRemainingItem();
