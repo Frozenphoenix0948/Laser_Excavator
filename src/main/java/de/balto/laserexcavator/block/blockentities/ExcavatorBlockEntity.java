@@ -896,10 +896,13 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                     continue;
                 }
 
-                Block targetBlock = target.block();
-                if (targetBlock == null) continue;
-                beginLaserShot(level, columnIndex, new BlockPos(worldX, y, worldZ), targetBlock);
-                setChanged();
+                BlockState targetState = target.state();
+                if (targetState == null) continue;
+                BlockPos targetPos = new BlockPos(worldX, y, worldZ);
+
+                ExcavatorProfiler.end(ExcavatorProfiler.Section.TARGET_SELECTION, targetProfile);
+                targetProfile = 0L;
+                beginLaserShot(level, columnIndex, targetPos, targetState, false);
                 return;
             }
 
@@ -968,34 +971,34 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
     private record LoadedColumnSelection(int slot, LevelChunk chunk) {}
 
-    private void beginLaserShot(ServerLevel level, int columnIndex, BlockPos target, Block targetBlock) {
-        if (!hasEnergyForLaserShot()) return;
-        activeColumnIndex = columnIndex;
-        activeTarget = target;
-        activeTargetBlock = targetBlock;
+    private void beginLaserShot(ServerLevel level, int columnIndex, BlockPos target, BlockState targetState, boolean storageRetry) {
+        long shotProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.LASER_SHOT_COMPLETION);
+        try {
+            activeColumnIndex = columnIndex;
+            activeTarget = target;
+            activeTargetBlock = targetState.getBlock();
 
-        // Resolve drops, storage capacity and removal in this same server tick.
-        // A failed/unloaded/storage-blocked target neither costs FE nor triggers cooldown.
-        if (!completeActiveTarget(level)) return;
+            BlockState state = storageRetry ? resolveActiveTargetForCompletion(level) : targetState;
+            if (state == null || !completeActiveTarget(level, state)) return;
 
-        if (!developmentBenchmarkResourceBypass) {
-            // Server BE tick is single-threaded: the prechecked budget remains available.
-            energyStorage.consumeInternal(getEnergyPerBlock());
+            if (!developmentBenchmarkResourceBypass) {
+                energyStorage.consumeInternal(getEnergyPerBlock());
+            }
+            nextLaserReadyTick = level.getGameTime() + Math.max(1, getLaserWorkDurationTicks());
+            startLaserVisual(level, target);
+            setChanged();
+        } finally {
+            ExcavatorProfiler.end(ExcavatorProfiler.Section.LASER_SHOT_COMPLETION, shotProfile);
         }
-        nextLaserReadyTick = level.getGameTime() + Math.max(1, getLaserWorkDurationTicks());
-        startLaserVisual(level, target);
-        setChanged();
     }
 
-    private boolean completeActiveTarget(ServerLevel level) {
+    private boolean completeActiveTarget(ServerLevel level, BlockState state) {
         if (activeTarget == null || activeColumnIndex < 0) {
             clearActiveAnimation();
             return false;
         }
 
         ExcavatorArea area = getExcavatorArea();
-        BlockState state = resolveActiveTargetForCompletion(level);
-        if (state == null || activeTarget == null) return false;
 
         BlockPos target = activeTarget;
         if (isFluidBlock(state)) {
@@ -1216,7 +1219,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
     private void resumeBlockedTargetLaser(ServerLevel level) {
         scanState = ExcavatorScanState.EXCAVATING;
-        beginLaserShot(level, storageBlockedColumnIndex, storageBlockedTarget, storageBlockedState.getBlock());
+        beginLaserShot(level, storageBlockedColumnIndex, storageBlockedTarget, storageBlockedState, true);
         setChangedAndSync();
     }
 

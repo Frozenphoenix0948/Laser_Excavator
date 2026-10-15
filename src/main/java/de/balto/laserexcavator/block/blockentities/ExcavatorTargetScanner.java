@@ -44,9 +44,9 @@ final class ExcavatorTargetScanner {
         IGNORED
     }
 
-    record Result(int y, Handling targetHandling, @Nullable Block block) {
-        static Result normal(int y, Block block) {
-            return new Result(y, Handling.NORMAL, block);
+    record Result(int y, Handling targetHandling, @Nullable BlockState state) {
+        static Result normal(int y, BlockState state) {
+            return new Result(y, Handling.NORMAL, state);
         }
 
         static Result filtered(int y) {
@@ -66,7 +66,7 @@ final class ExcavatorTargetScanner {
         }
     }
 
-    private record NormalTarget(int y, @Nullable Block block) {}
+    private record NormalTarget(int y, @Nullable BlockState state) {}
 
     private final ExcavatorUpgradeManager upgrades;
     private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
@@ -110,7 +110,7 @@ final class ExcavatorTargetScanner {
         BlockState state = loadedChunk.getBlockState(cursor);
         Block block = state.getBlock();
         if (!state.isAir() && !LaserExcavatorConfig.unbreakableBlocks().contains(block)) {
-            return Result.normal(currentY, block);
+            return Result.normal(currentY, state);
         }
 
         int scanMinY = sharedColumn ? ExcavatorSharedColumnHeights.getRegisteredMinY(level, x, z, minY) : minY;
@@ -157,7 +157,7 @@ final class ExcavatorTargetScanner {
                 BlockState state = loadedChunk.getBlockState(cursor);
                 lookups++;
                 if (state.isAir() || unbreakable.contains(state.getBlock())) continue;
-                result = new NormalTarget(y, state.getBlock());
+                result = new NormalTarget(y, state);
                 return result;
             }
             return result;
@@ -170,8 +170,8 @@ final class ExcavatorTargetScanner {
     }
 
     private Result normalResult(NormalTarget target) {
-        if (target.y() == ExcavationScanner.NO_SURFACE || target.block() == null) return noSurface();
-        return Result.normal(target.y(), target.block());
+        if (target.y() == ExcavationScanner.NO_SURFACE || target.state() == null) return noSurface();
+        return Result.normal(target.y(), target.state());
     }
 
     private Result scanPrivate(ServerLevel level, int x, int z, int startY, int minY, LevelChunk loadedChunk) {
@@ -213,7 +213,7 @@ final class ExcavatorTargetScanner {
                     }
 
                     returned = NORMAL;
-                    return Result.normal(y, state.getBlock());
+                    return Result.normal(y, state);
                 }
                 return noSurface();
             }
@@ -259,12 +259,12 @@ final class ExcavatorTargetScanner {
                     }
 
                     returned = NORMAL;
-                    Block normalBlock = classification.normalBlock(paletteId);
-                    if (normalBlock == null) {
+                    BlockState normalState = classification.normalState(paletteId);
+                    if (normalState == null) {
                         if (state == null) state = palette.valueFor(paletteId);
-                        normalBlock = state.getBlock();
+                        normalState = state;
                     }
-                    return Result.normal(y, normalBlock);
+                    return Result.normal(y, normalState);
                 }
             }
 
@@ -339,11 +339,11 @@ final class ExcavatorTargetScanner {
 
     private static final class PaletteClassification {
         private byte[] handling;
-        private Block[] normalBlocks;
+        private BlockState[] normalStates;
 
         private PaletteClassification(int size) {
             handling = new byte[Math.max(1, size)];
-            normalBlocks = new Block[handling.length];
+            normalStates = new BlockState[handling.length];
         }
 
         private int size() {
@@ -353,20 +353,20 @@ final class ExcavatorTargetScanner {
         private void ensureCapacity(int size) {
             if (size <= handling.length) return;
             handling = Arrays.copyOf(handling, size);
-            normalBlocks = Arrays.copyOf(normalBlocks, size);
+            normalStates = Arrays.copyOf(normalStates, size);
         }
 
         private byte handling(int paletteId) {
             return handling[paletteId];
         }
 
-        private Block normalBlock(int paletteId) {
-            return normalBlocks[paletteId];
+        private BlockState normalState(int paletteId) {
+            return normalStates[paletteId];
         }
 
         private void set(int paletteId, byte targetHandling, BlockState state) {
             handling[paletteId] = targetHandling;
-            if (targetHandling == NORMAL) normalBlocks[paletteId] = state.getBlock();
+            if (targetHandling == NORMAL) normalStates[paletteId] = state;
         }
     }
 }

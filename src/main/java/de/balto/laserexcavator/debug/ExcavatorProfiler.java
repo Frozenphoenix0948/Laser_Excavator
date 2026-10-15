@@ -32,6 +32,7 @@ public final class ExcavatorProfiler {
         TARGET_SELECTION_SETUP("03b Target-selection setup", Side.SERVER),
         TARGET_COLUMN_CHOICE("03c Loaded-column choice", Side.SERVER),
         TARGET_RESOLUTION("03d Target resolution", Side.SERVER),
+        LASER_SHOT_COMPLETION("03e Immediate shot completion", Side.SERVER),
         LOOT_GENERATION("04 Loot generation", Side.SERVER),
         STORAGE_RESERVATION("05 Storage capacity check", Side.SERVER),
         BLOCK_REMOVAL("06 setBlock / block removal", Side.SERVER),
