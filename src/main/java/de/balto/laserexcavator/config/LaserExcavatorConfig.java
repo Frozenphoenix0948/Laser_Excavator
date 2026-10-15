@@ -160,7 +160,11 @@ public final class LaserExcavatorConfig {
                         " The cost is spread across the current Speed-upgrade work interval, so Speed changes power throughput rather than total FE per block."
                 )
                 .defineInRange("energyPerBlock", 640, 0, Integer.MAX_VALUE);
-        SUPPRESS_NEIGHBOR_UPDATES = builder.comment(" Suppress neighbor/shape updates when blocks are removed. This is faster and stops stable fluids from immediately flowing into excavated cells.")
+        SUPPRESS_NEIGHBOR_UPDATES = builder.comment(
+                        " Suppress neighbor/shape updates from excavator block removal.",
+                        " Also freeze vanilla water fluid ticks within active excavation volumes and block water flowing in from outside.",
+                        " Water outside active areas retains normal behavior; disabling this restores vanilla water flow."
+                )
                 .define("suppressNeighborUpdates", true);
         ENABLE_DETERMINISTIC_LOOT_CACHE = builder.comment(
                         " Learn deterministic block drops server-wide and reuse them across excavators.",

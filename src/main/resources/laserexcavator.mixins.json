@@ -2,6 +2,11 @@
   "required": true,
   "package": "de.balto.laserexcavator.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["RecipeManagerMixin"],
-  "injectors": {"defaultRequire": 1}
+  "mixins": [
+    "RecipeManagerMixin",
+    "ExcavatorWaterFreezeMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
 }

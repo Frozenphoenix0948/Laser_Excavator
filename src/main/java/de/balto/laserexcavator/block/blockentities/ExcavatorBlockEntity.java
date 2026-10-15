@@ -7,6 +7,7 @@ import de.balto.laserexcavator.block.excavator.ExcavatorTransferItemHandler;
 import de.balto.laserexcavator.block.excavator.ExcavatorAutoSmelter;
 import de.balto.laserexcavator.block.excavator.ExcavatorLootCache;
 import de.balto.laserexcavator.block.excavator.ExcavatorFastBlockRemoval;
+import de.balto.laserexcavator.block.excavator.ExcavatorFluidProtection;
 import de.balto.laserexcavator.block.excavator.ExcavatorDeliveryManager;
 import de.balto.laserexcavator.block.excavator.ExcavatorEnergyStorage;
 import de.balto.laserexcavator.block.excavator.ExcavatorFuelManager;
@@ -79,6 +80,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     private static final String TAG_PHASE_START_GAME_TIME = "PhaseStartGameTime";
     private static final String TAG_LASER_POWERED_TICKS = "LaserPoweredTicks";
     private static final String TAG_LASER_ENERGY_SPENT = "LaserEnergySpent";
+    private static final String TAG_NEXT_LASER_READY_TICK = "NextLaserReadyTick";
     private static final String TAG_FILTER_SKIP_COOLDOWN_END_TICK = "FilterSkipCooldownEndTick";
     private static final String TAG_ACTIVE_TARGET = "ActiveTarget";
     private static final String TAG_ACTIVE_TARGET_BLOCK = "ActiveTargetBlock";
@@ -135,6 +137,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     private int laserPoweredTicks = 0;
     /** FE already paid toward the current block. Persisted so unload/reload cannot discount a shot. */
     private int laserEnergySpent = 0;
+    private long nextLaserReadyTick = Long.MIN_VALUE;
     private boolean laserVisualNeedsRestart = false;
     private long filterSkipCooldownEndTick = Long.MIN_VALUE;
 
@@ -266,6 +269,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         long blockEntityProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.BLOCK_ENTITY_TICK);
         try {
+            blockEntity.syncFluidProtection(serverLevel);
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_SERVER_TICKS);
             if (!blockEntity.developmentBenchmarkResourceBypass) {
                 int solarGeneration = blockEntity.solar.isInstalled() ? blockEntity.solar.tick(serverLevel, pos) : 0;
@@ -422,7 +426,30 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     @Override
+    public void onLoad() {
+        super.onLoad();
+        if (level instanceof ServerLevel serverLevel) syncFluidProtection(serverLevel);
+    }
+
+    private void syncFluidProtection(ServerLevel serverLevel) {
+        boolean active = (scanState == ExcavatorScanState.EXCAVATING
+                || scanState == ExcavatorScanState.STORAGE_FULL) && !isOverheating();
+        ExcavatorFluidProtection.update(serverLevel, worldPosition, active ? getExcavatorArea() : null);
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        if (level instanceof ServerLevel serverLevel) {
+            ExcavatorFluidProtection.update(serverLevel, worldPosition, null);
+        }
+        super.onChunkUnloaded();
+    }
+
+    @Override
     public void setRemoved() {
+        if (level instanceof ServerLevel serverLevel) {
+            ExcavatorFluidProtection.update(serverLevel, worldPosition, null);
+        }
         unregisterSharedColumns();
         super.setRemoved();
     }
@@ -504,44 +531,15 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     public int getCurrentEnergyUsagePerTick() {
-        if (developmentBenchmarkResourceBypass) return 0;
-        if (scanState != ExcavatorScanState.EXCAVATING || isOverheating()) return 0;
+        if (developmentBenchmarkResourceBypass || scanState != ExcavatorScanState.EXCAVATING || isOverheating()) return 0;
         if (filterSkipCooldownEndTick != Long.MIN_VALUE) return 0;
-        return getRequiredEnergyForNextPoweredTick();
+        if (level != null && level.getGameTime() < nextLaserReadyTick) return 0;
+        // Energy is now paid once, when the block is actually mined.
+        return getEnergyPerBlock();
     }
 
-    private boolean hasEnergyForLaserTick() {
-        if (developmentBenchmarkResourceBypass) return true;
-        int required = getRequiredEnergyForNextPoweredTick();
-        return getEnergyStored() >= required;
-    }
-
-    private boolean consumeLaserEnergyTick() {
-        if (developmentBenchmarkResourceBypass) return true;
-        int required = getRequiredEnergyForNextPoweredTick();
-        if (!energyStorage.consumeInternal(required)) return false;
-        laserEnergySpent = (int) Math.min(Integer.MAX_VALUE, (long) laserEnergySpent + (long) required);
-        return true;
-    }
-
-    /**
-     * Spreads the remaining per-block FE budget over the remaining powered work
-     * ticks. This keeps total block cost independent of Speed while still making
-     * faster tiers demand more FE/t. Live Speed/Efficiency swaps are handled by
-     * redistributing the remaining unpaid energy over the new remaining duration.
-     */
-    private int getRequiredEnergyForNextPoweredTick() {
-        int totalCost = getEnergyPerBlock();
-        int remainingEnergy = Math.max(0, totalCost - laserEnergySpent);
-        if (remainingEnergy <= 0) return 0;
-
-        int duration = Math.max(1, getLaserWorkDurationTicks());
-        int completedTicks = workPhase == ExcavatorWorkPhase.LASER ? Math.max(0, laserPoweredTicks) : 0;
-        int remainingTicks = Math.max(1, duration - completedTicks);
-        return (int) Math.min(
-                Integer.MAX_VALUE,
-                ((long) remainingEnergy + (long) remainingTicks - 1L) / (long) remainingTicks
-        );
+    private boolean hasEnergyForLaserShot() {
+        return developmentBenchmarkResourceBypass || getEnergyStored() >= getEnergyPerBlock();
     }
 
     private void startLaserVisual(ServerLevel level, BlockPos target) {
@@ -836,42 +834,11 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             }
         }
 
-        if (workPhase == ExcavatorWorkPhase.LASER) {
-            // A started machine remains in EXCAVATING state when power runs out.
-            // The current shot simply stops accumulating powered work ticks until
-            // enough FE is supplied again.
-            if (!consumeLaserEnergyTick()) {
-                laserVisualNeedsRestart = true;
-                return;
-            }
+        // The shot completes immediately; the previous shot only delays the next one.
+        if (level.getGameTime() < nextLaserReadyTick) return;
 
-            if (laserVisualNeedsRestart && activeTarget != null) {
-                // Clients own the cosmetic beam lifetime, so a resumed shot sends one
-                // refresh event and each client coalesces it with the same target beam.
-                startLaserVisual(level, activeTarget);
-                laserVisualNeedsRestart = false;
-            }
-
-            laserPoweredTicks++;
-            if (laserPoweredTicks >= getLaserWorkDurationTicks()) {
-                completeActiveTarget(level);
-
-                // Start the next shot immediately so speed upgrades scale exactly.
-                if (scanState == ExcavatorScanState.EXCAVATING
-                        && workPhase == ExcavatorWorkPhase.NONE) {
-                    if (columns.activeCount() <= 0) {
-                        finishExcavation();
-                    } else if (hasEnergyForLaserTick()) {
-                        selectRandomTarget(level);
-                    }
-                }
-            }
-            return;
-        }
-
-        // Start may be pressed with an empty buffer. Do not start a visual laser
-        // until at least one powered tick is available; just wait here.
-        if (!hasEnergyForLaserTick()) return;
+        // Starting with no power remains valid: wait without firing a cosmetic beam.
+        if (!hasEnergyForLaserShot()) return;
         selectRandomTarget(level);
     }
 
@@ -931,7 +898,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
                 Block targetBlock = target.block();
                 if (targetBlock == null) continue;
-                beginLaserShot(level, columnIndex, new BlockPos(worldX, y, worldZ), targetBlock, true);
+                beginLaserShot(level, columnIndex, new BlockPos(worldX, y, worldZ), targetBlock);
                 setChanged();
                 return;
             }
@@ -1001,41 +968,38 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
     private record LoadedColumnSelection(int slot, LevelChunk chunk) {}
 
-    private void beginLaserShot(
-            ServerLevel level,
-            int columnIndex,
-            BlockPos target,
-            Block targetBlock,
-            boolean startVisual
-    ) {
+    private void beginLaserShot(ServerLevel level, int columnIndex, BlockPos target, Block targetBlock) {
+        if (!hasEnergyForLaserShot()) return;
         activeColumnIndex = columnIndex;
         activeTarget = target;
         activeTargetBlock = targetBlock;
-        workPhase = ExcavatorWorkPhase.LASER;
-        phaseStartGameTime = level.getGameTime();
-        laserPoweredTicks = 0;
-        laserEnergySpent = 0;
-        laserVisualNeedsRestart = !startVisual;
 
-        if (startVisual) {
-            startLaserVisual(level, target);
+        // Resolve drops, storage capacity and removal in this same server tick.
+        // A failed/unloaded/storage-blocked target neither costs FE nor triggers cooldown.
+        if (!completeActiveTarget(level)) return;
+
+        if (!developmentBenchmarkResourceBypass) {
+            // Server BE tick is single-threaded: the prechecked budget remains available.
+            energyStorage.consumeInternal(getEnergyPerBlock());
         }
+        nextLaserReadyTick = level.getGameTime() + Math.max(1, getLaserWorkDurationTicks());
+        startLaserVisual(level, target);
+        setChanged();
     }
 
-    private void completeActiveTarget(ServerLevel level) {
+    private boolean completeActiveTarget(ServerLevel level) {
         if (activeTarget == null || activeColumnIndex < 0) {
             clearActiveAnimation();
-            return;
+            return false;
         }
 
         ExcavatorArea area = getExcavatorArea();
         BlockState state = resolveActiveTargetForCompletion(level);
-        if (state == null || activeTarget == null) return;
+        if (state == null || activeTarget == null) return false;
 
         BlockPos target = activeTarget;
         if (isFluidBlock(state)) {
-            completeFluidTarget(level, target, state, area.min().getY());
-            return;
+            return completeFluidTarget(level, target, state, area.min().getY());
         }
 
         List<ItemStack> drops;
@@ -1080,7 +1044,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         if (!developmentBenchmarkResourceBypass && !deliveries.canFitAll(drops)) {
             waitForStorageCapacity(target, activeColumnIndex, state, drops);
-            return;
+            return false;
         }
 
         ItemStack representative = cachedLoot != null
@@ -1088,7 +1052,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 : firstRepresentativeDrop(drops);
 
         if (!removeTargetAndAdvance(level, target, state, area.min().getY())) {
-            return;
+            return false;
         }
 
         int transportDurationTicks = drops.isEmpty() ? 0 : getTransportDurationTicks(target);
@@ -1114,6 +1078,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         clearStorageWaitState();
         clearActiveAnimation();
         setChanged();
+        return true;
     }
 
     private @Nullable BlockState resolveActiveTargetForCompletion(ServerLevel level) {
@@ -1180,15 +1145,16 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         return true;
     }
 
-    private void completeFluidTarget(
+    private boolean completeFluidTarget(
             ServerLevel level,
             BlockPos target,
             BlockState state,
             int minimumY
     ) {
-        if (!removeTargetAndAdvance(level, target, state, minimumY)) return;
+        if (!removeTargetAndAdvance(level, target, state, minimumY)) return false;
         clearActiveAnimation();
         setChanged();
+        return true;
     }
 
     private void waitForStorageCapacity(
@@ -1226,9 +1192,12 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         if (lastStorageWaitCheckedRevision == deliveries.storageRevision()) return;
-        lastStorageWaitCheckedRevision = deliveries.storageRevision();
-
-        if (!deliveries.canFitAll(storageBlockedDrops)) return;
+        if (!deliveries.canFitAll(storageBlockedDrops)) {
+            lastStorageWaitCheckedRevision = deliveries.storageRevision();
+            return;
+        }
+        // Capacity is available now, but power may not be. Retry next tick.
+        if (!hasEnergyForLaserShot()) return;
 
         if (!level.hasChunkAt(storageBlockedTarget)) {
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.STORAGE_RETRIES_SKIPPED_UNLOADED);
@@ -1246,17 +1215,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     }
 
     private void resumeBlockedTargetLaser(ServerLevel level) {
-        // Evaluate availability while still STORAGE_FULL using the first powered
-        // tick of the resumed block's current Speed/Efficiency budget.
-        boolean startVisual = hasEnergyForLaserTick();
         scanState = ExcavatorScanState.EXCAVATING;
-        beginLaserShot(
-                level,
-                storageBlockedColumnIndex,
-                storageBlockedTarget,
-                storageBlockedState.getBlock(),
-                startVisual
-        );
+        beginLaserShot(level, storageBlockedColumnIndex, storageBlockedTarget, storageBlockedState.getBlock());
         setChangedAndSync();
     }
 
@@ -1444,6 +1404,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         targetScanner.clearCaches();
         columns.finishExcavation();
         filterSkipCooldownEndTick = Long.MIN_VALUE;
+        nextLaserReadyTick = Long.MIN_VALUE;
         scanState = ExcavatorScanState.COMPLETE;
         clearActiveAnimation();
         setChangedAndSync();
@@ -1468,11 +1429,13 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         columns.resetAll();
         blocksExcavated = 0;
         filterSkipCooldownEndTick = Long.MIN_VALUE;
+        nextLaserReadyTick = Long.MIN_VALUE;
         clearStorageWaitState();
         clearActiveAnimation();
     }
 
     private void setChangedAndSync() {
+        if (level instanceof ServerLevel serverLevel) syncFluidProtection(serverLevel);
         setChanged();
         syncToClient();
     }
@@ -1595,7 +1558,14 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         laserEnergySpent = Math.max(0, tag.getIntOr(TAG_LASER_ENERGY_SPENT, 0));
 
         columns.setSharedColumnsRegistered(false);
-        laserVisualNeedsRestart = workPhase == ExcavatorWorkPhase.LASER;
+        laserVisualNeedsRestart = false;
+        // Legacy charged-over-time shots are discarded during migration to immediate shots.
+        if (workPhase == ExcavatorWorkPhase.LASER) {
+            workPhase = ExcavatorWorkPhase.NONE;
+            activeColumnIndex = -1;
+            laserPoweredTicks = 0;
+            laserEnergySpent = 0;
+        }
 
         if (tag.getInt(TAG_ENERGY).isPresent()) {
             energyStorage.loadStoredEnergy(tag.getIntOr(TAG_ENERGY, 0));
@@ -1617,6 +1587,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
     private void loadExcavationState(ValueInput tag) {
         filterSkipCooldownEndTick = tag.getLong(TAG_FILTER_SKIP_COOLDOWN_END_TICK).orElse(Long.MIN_VALUE);
+        nextLaserReadyTick = tag.getLong(TAG_NEXT_LASER_READY_TICK).orElse(Long.MIN_VALUE);
         columns.loadExcavationState(
                 tag.getIntArray(TAG_SURFACE_HEIGHTS).orElseGet(() -> new int[0]),
                 tag.getIntArray(TAG_CURRENT_HEIGHTS).orElseGet(() -> new int[0]),
@@ -1671,6 +1642,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         tag.putInt(TAG_PENDING_ITEM_COUNT, deliveries.pendingCount());
 
         if (!clientSyncOnly) {
+            tag.putLong(TAG_NEXT_LASER_READY_TICK, nextLaserReadyTick);
             tag.putInt(TAG_WORK_PHASE, workPhase.id());
             tag.putLong(TAG_PHASE_START_GAME_TIME, phaseStartGameTime);
             tag.putInt(TAG_LASER_POWERED_TICKS, laserPoweredTicks);
@@ -1698,6 +1670,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         tag.putInt(TAG_PENDING_ITEM_COUNT, deliveries.pendingCount());
 
         if (!clientSyncOnly) {
+            tag.putLong(TAG_NEXT_LASER_READY_TICK, nextLaserReadyTick);
             tag.putInt(TAG_WORK_PHASE, workPhase.id());
             tag.putLong(TAG_PHASE_START_GAME_TIME, phaseStartGameTime);
             tag.putInt(TAG_LASER_POWERED_TICKS, laserPoweredTicks);

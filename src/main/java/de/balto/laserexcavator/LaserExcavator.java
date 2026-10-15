@@ -7,6 +7,7 @@ import de.balto.laserexcavator.block.excavator.ExcavatorBlockSyncBatcher;
 import de.balto.laserexcavator.block.excavator.ExcavatorCapabilities;
 import de.balto.laserexcavator.block.excavator.ExcavatorLootCache;
 import de.balto.laserexcavator.block.excavator.ExcavatorSharedColumnHeights;
+import de.balto.laserexcavator.block.excavator.ExcavatorFluidProtection;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import de.balto.laserexcavator.item.ModCreativeTabs;
 import de.balto.laserexcavator.item.ModItems;
@@ -48,6 +49,7 @@ public final class LaserExcavator {
         ExcavatorNetworking.clearPendingVisuals();
         ExcavatorBlockSyncBatcher.clearPendingSections();
         ExcavatorSharedColumnHeights.clearAll();
+        ExcavatorFluidProtection.clearAll();
         ExcavatorLootCache.clear(event.getServer());
     }
 }

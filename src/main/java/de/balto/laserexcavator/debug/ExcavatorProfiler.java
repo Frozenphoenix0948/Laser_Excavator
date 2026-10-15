@@ -134,6 +134,8 @@ public final class ExcavatorProfiler {
         BLOCKS_EXCAVATED("Blocks excavated"),
         LASER_COMPLETIONS_SKIPPED_UNLOADED("Laser completions skipped - target chunk unloaded"),
         BLOCK_REMOVALS_FAILED_COLUMN_RETAINED("Block removals failed - column retained"),
+        FLUID_TICKS_SUPPRESSED("Water fluid ticks suppressed in excavator areas"),
+        FLUID_ENTRIES_SUPPRESSED("Inbound water flow placements blocked"),
         FAST_REMOVAL_ELIGIBILITY_CACHE_HITS("Fast-removal eligibility cache hits"),
         FAST_REMOVAL_ELIGIBILITY_CACHE_MISSES("Fast-removal eligibility cache misses"),
         DIRECT_CHUNK_REMOVAL_ATTEMPTS("Direct-chunk removal attempts"),
@@ -551,6 +553,9 @@ public final class ExcavatorProfiler {
         lines.add("Correctness:");
         lines.add("  Unloaded laser targets skipped: " + formatCount(getCounter(Counter.LASER_COMPLETIONS_SKIPPED_UNLOADED)));
         lines.add("  Failed block removals retained: " + formatCount(getCounter(Counter.BLOCK_REMOVALS_FAILED_COLUMN_RETAINED)));
+        lines.add("  Suppressed water ticks / inbound flows: "
+                + formatCount(getCounter(Counter.FLUID_TICKS_SUPPRESSED)) + " / "
+                + formatCount(getCounter(Counter.FLUID_ENTRIES_SUPPRESSED)));
         lines.add("  Unloaded storage retries skipped: " + formatCount(getCounter(Counter.STORAGE_RETRIES_SKIPPED_UNLOADED)));
         lines.add("  Detailed developer report: /excavatorprofiler detailed");
         return finish(lines);
@@ -866,6 +871,9 @@ public final class ExcavatorProfiler {
                 + formatCount(getCounter(Counter.LASER_COMPLETIONS_SKIPPED_UNLOADED)));
         lines.add("  Block removals failed - column retained: "
                 + formatCount(getCounter(Counter.BLOCK_REMOVALS_FAILED_COLUMN_RETAINED)));
+        lines.add("  Water fluid ticks suppressed / inbound water placements prevented: "
+                + formatCount(getCounter(Counter.FLUID_TICKS_SUPPRESSED)) + " / "
+                + formatCount(getCounter(Counter.FLUID_ENTRIES_SUPPRESSED)));
         lines.add("  Storage retries skipped - target chunk unloaded: "
                 + formatCount(getCounter(Counter.STORAGE_RETRIES_SKIPPED_UNLOADED)));
 
