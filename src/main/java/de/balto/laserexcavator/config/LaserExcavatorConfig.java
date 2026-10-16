@@ -36,6 +36,7 @@ public final class LaserExcavatorConfig {
     public static final ModConfigSpec.IntValue FUEL_BURN_TICKS_PER_SERVER_TICK;
     public static final ModConfigSpec.BooleanValue SUPPRESS_NEIGHBOR_UPDATES;
     public static final ModConfigSpec.BooleanValue ENABLE_DETERMINISTIC_LOOT_CACHE;
+    public static final ModConfigSpec.BooleanValue ENABLE_EXPECTED_LOOT_DROPS;
     public static final ModConfigSpec.BooleanValue ENABLE_DIRECT_TERRAIN_REMOVAL;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> UNBREAKABLE_BLOCKS;
     public static final ModConfigSpec.IntValue VISUAL_BATCH_TICKS;
@@ -167,10 +168,16 @@ public final class LaserExcavatorConfig {
                 )
                 .define("suppressNeighborUpdates", true);
         ENABLE_DETERMINISTIC_LOOT_CACHE = builder.comment(
-                        " Learn deterministic block drops server-wide and reuse them across excavators.",
-                        " Cache keys include BlockState, Silk Touch and Fortune level. Random/dynamic results remain on the normal loot-table path."
+                        " Use a loot cache to avoid constant loot table evaluations",
+                        " Unsupported tables always use vanilla loot generation."
                 )
                 .define("deterministicLootCache", true);
+        ENABLE_EXPECTED_LOOT_DROPS = builder.comment(
+                        " Allow inspected random loot tables to produce their long-term expected item counts.",
+                        " Shared fractional counters replace per-block randomness; turn off for exact vanilla drop distributions.",
+                        " This should keep the same item drops long-term but is faster for the server."
+                )
+                .define("expectedLootDrops", true);
         ENABLE_DIRECT_TERRAIN_REMOVAL = builder.comment(
                         " Use a direct LevelChunk block-state mutation for conservatively recognized plain terrain blocks.",
                         " This path is only used while neighbor updates are suppressed. Complex/subclassed blocks always fall back to Level#setBlock."

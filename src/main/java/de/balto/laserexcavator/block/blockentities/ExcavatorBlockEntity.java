@@ -1007,15 +1007,27 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         List<ItemStack> drops;
         ExcavatorLootCache.CachedDrops cachedLoot = null;
+        ExcavatorLootCache.CachedDrops expectedCommitCandidate = null;
         if (isStorageBlockedTarget(target, activeColumnIndex, state)) {
             drops = storageBlockedDrops;
+            if (LaserExcavatorConfig.ENABLE_DETERMINISTIC_LOOT_CACHE.get()) {
+                cachedLoot = lootTableCache(level).getCached(level, state);
+                expectedCommitCandidate = cachedLoot;
+                if (cachedLoot != null) {
+                    drops = cachedLoot.reservationView();
+                    if (hasAutoSmeltingUpgrade() && !drops.isEmpty()) {
+                        ExcavatorAutoSmelter.Result smelted = ExcavatorAutoSmelter.smelt(level, drops);
+                        drops = smelted.stacks();
+                        if (smelted.changed()) cachedLoot = null;
+                    }
+                }
+            }
         } else {
             clearStorageWaitState();
             long lootProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.LOOT_GENERATION);
-            ExcavatorLootCache.Table lootTable = null;
             if (LaserExcavatorConfig.ENABLE_DETERMINISTIC_LOOT_CACHE.get()) {
-                lootTable = lootTableCache(level);
-                cachedLoot = lootTable.getCached(state);
+                cachedLoot = lootTableCache(level).getCached(level, state);
+                expectedCommitCandidate = cachedLoot;
             }
 
             if (cachedLoot != null) {
@@ -1032,9 +1044,6 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 );
                 ExcavatorProfiler.increment(ExcavatorProfiler.Counter.NORMAL_LOOT_TABLE_CALLS);
 
-                if (lootTable != null) {
-                    cachedLoot = lootTable.observe(state, drops);
-                }
             }
 
             if (hasAutoSmeltingUpgrade() && !drops.isEmpty()) {
@@ -1056,6 +1065,10 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         if (!removeTargetAndAdvance(level, target, state, area.min().getY())) {
             return false;
+        }
+
+        if (expectedCommitCandidate != null) {
+            expectedCommitCandidate.commitExpectedAfterRemoval();
         }
 
         int transportDurationTicks = drops.isEmpty() ? 0 : getTransportDurationTicks(target);

@@ -143,12 +143,11 @@ public final class ExcavatorProfiler {
         DIRECT_CHUNK_REMOVAL_SUCCESSES("Direct-chunk removal successes"),
         NORMAL_LEVEL_SETBLOCK_FALLBACKS("Normal Level#setBlock removal fallbacks"),
         STORAGE_RETRIES_SKIPPED_UNLOADED("Storage retries skipped - target chunk unloaded"),
-        DETERMINISTIC_LOOT_CACHE_HITS("Deterministic loot cache hits"),
-        DETERMINISTIC_LOOT_CACHE_MISSES("Deterministic loot cache misses"),
-        DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS("Deterministic loot learning observations"),
-        DETERMINISTIC_LOOT_CACHE_PROMOTIONS("Deterministic loot cache promotions"),
-        DETERMINISTIC_LOOT_CACHE_REJECTIONS("Deterministic loot cache rejections"),
-        NORMAL_LOOT_TABLE_CALLS("Normal loot-table calls"),
+        LOOT_TABLE_COMPILED_FIXED("Compiled constant loot rules"),
+        LOOT_TABLE_COMPILED_EXPECTED("Compiled fractional loot rules"),
+        LOOT_TABLE_INSPECTION_FALLBACKS("Uncompiled loot rules"),
+        DETERMINISTIC_LOOT_CACHE_HITS("Loot cache hits"),
+        NORMAL_LOOT_TABLE_CALLS("Vanilla loot-table calls"),
         SINGLE_STACK_RESERVATION_CHECKS("Single-stack capacity checks"),
         DELIVERY_BATCHES_PROCESSED("Delivery batches processed"),
         DELIVERY_STACKS_INSERTED("Delivery stacks inserted"),
@@ -711,14 +710,12 @@ public final class ExcavatorProfiler {
                 getCounter(Counter.FAST_REMOVAL_ELIGIBILITY_CACHE_HITS), fastEligibilityLookups));
         long cachedLoot = getCounter(Counter.DETERMINISTIC_LOOT_CACHE_HITS);
         long normalLoot = getCounter(Counter.NORMAL_LOOT_TABLE_CALLS);
-        lines.add("  Deterministic loot cache hit share: " + formatPercent(cachedLoot, cachedLoot + normalLoot));
-        lines.add("  Deterministic loot cache hits / misses: "
-                + formatCount(cachedLoot) + " / "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_MISSES)));
-        lines.add("  Deterministic loot learning observations / promotions / rejections: "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS)) + " / "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_PROMOTIONS)) + " / "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_REJECTIONS)));
+        String lootHitRate = cachedLoot + normalLoot == 0L ? "n/a"
+                : String.format(Locale.ROOT, "%.2f%%", 100.0 * cachedLoot / (cachedLoot + normalLoot));
+        lines.add("  Loot cache: " + lootHitRate + " hits | rules constant/fractional/fallback: "
+                + formatCount(getCounter(Counter.LOOT_TABLE_COMPILED_FIXED)) + "/"
+                + formatCount(getCounter(Counter.LOOT_TABLE_COMPILED_EXPECTED)) + "/"
+                + formatCount(getCounter(Counter.LOOT_TABLE_INSPECTION_FALLBACKS)));
         lines.add("  Storage capacity checks: " + formatCount(getCounter(Counter.SINGLE_STACK_RESERVATION_CHECKS)));
         lines.add("  Delivery batches/stacks inserted: "
                 + formatCount(getCounter(Counter.DELIVERY_BATCHES_PROCESSED)) + " / "
