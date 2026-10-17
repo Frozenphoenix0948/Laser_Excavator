@@ -36,14 +36,16 @@ public final class ExcavatorNetworking {
     private ExcavatorNetworking() {}
 
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("6");
+        PayloadRegistrar registrar = event.registrar("7");
 
         registrar.playToClient(
-                ExcavatorSectionBlockUpdatePayload.TYPE,
-                ExcavatorSectionBlockUpdatePayload.STREAM_CODEC,
-                (payload, context) -> context.enqueueWork(() ->
-                        ExcavatorClientBlockUpdates.applySectionRemovals(payload)
-                )
+                ExcavatorMultiSectionBlockUpdatePayload.TYPE,
+                ExcavatorMultiSectionBlockUpdatePayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    for (ExcavatorSectionBlockUpdatePayload section : payload.sections()) {
+                        ExcavatorClientBlockUpdates.applySectionRemovals(section);
+                    }
+                })
         );
 
         registrar.playToClient(

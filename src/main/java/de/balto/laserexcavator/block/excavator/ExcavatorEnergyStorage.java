@@ -29,17 +29,14 @@ public final class ExcavatorEnergyStorage implements IEnergyStorage {
             if (maxReceive <= 0) return 0;
 
             long gameTime = gameTimeSupplier.getAsLong();
-            if (gameTime != receiveBudgetTick) {
-                receiveBudgetTick = gameTime;
-                receivedThisTick = 0;
-            }
-
-            int rateRemaining = Math.max(0, LaserExcavatorConfig.ENERGY_MAX_RECEIVE.get() - receivedThisTick);
+            int received = gameTime == receiveBudgetTick ? receivedThisTick : 0;
+            int rateRemaining = Math.max(0, LaserExcavatorConfig.ENERGY_MAX_RECEIVE.get() - received);
             int accepted = Math.min(maxReceive, Math.min(rateRemaining, remainingCapacity()));
 
             if (!simulate && accepted > 0) {
+                receiveBudgetTick = gameTime;
+                receivedThisTick = received + accepted;
                 energy += accepted;
-                receivedThisTick += accepted;
                 changeListener.run();
             }
             return accepted;
