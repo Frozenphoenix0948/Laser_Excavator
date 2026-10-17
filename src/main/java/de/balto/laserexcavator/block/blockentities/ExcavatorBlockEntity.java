@@ -902,7 +902,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
                 ExcavatorProfiler.end(ExcavatorProfiler.Section.TARGET_SELECTION, targetProfile);
                 targetProfile = 0L;
-                beginLaserShot(level, columnIndex, targetPos, targetState, false);
+                beginLaserShot(level, columnIndex, targetPos, targetState, false, loadedColumn.chunk());
                 return;
             }
 
@@ -971,28 +971,28 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
     private record LoadedColumnSelection(int slot, LevelChunk chunk) {}
 
-    private void beginLaserShot(ServerLevel level, int columnIndex, BlockPos target, BlockState targetState, boolean storageRetry) {
+    private void beginLaserShot(ServerLevel level, int columnIndex, BlockPos target, BlockState targetState, boolean storageRetry, @Nullable LevelChunk loadedChunk) {
         long shotProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.LASER_SHOT_COMPLETION);
         try {
             activeColumnIndex = columnIndex;
             activeTarget = target;
             activeTargetBlock = targetState.getBlock();
 
-            BlockState state = storageRetry ? resolveActiveTargetForCompletion(level) : targetState;
-            if (state == null || !completeActiveTarget(level, state)) return;
+            LevelChunk chunk = loadedChunk != null ? loadedChunk : level.getChunkSource().getChunkNow(target.getX() >> 4, target.getZ() >> 4);
+            BlockState state = storageRetry ? resolveActiveTargetForCompletion(level, chunk) : targetState;
+            if (state == null || chunk == null || !completeActiveTarget(level, state, chunk)) return;
 
             if (!developmentBenchmarkResourceBypass) {
                 energyStorage.consumeInternal(getEnergyPerBlock());
             }
             nextLaserReadyTick = level.getGameTime() + Math.max(1, getLaserWorkDurationTicks());
             startLaserVisual(level, target);
-            setChanged();
         } finally {
             ExcavatorProfiler.end(ExcavatorProfiler.Section.LASER_SHOT_COMPLETION, shotProfile);
         }
     }
 
-    private boolean completeActiveTarget(ServerLevel level, BlockState state) {
+    private boolean completeActiveTarget(ServerLevel level, BlockState state, LevelChunk chunk) {
         if (activeTarget == null || activeColumnIndex < 0) {
             clearActiveAnimation();
             return false;
@@ -1002,7 +1002,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         BlockPos target = activeTarget;
         if (isFluidBlock(state)) {
-            return completeFluidTarget(level, target, state, area.min().getY());
+            return completeFluidTarget(level, target, state, area.min().getY(), chunk);
         }
 
         List<ItemStack> drops;
@@ -1063,7 +1063,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 ? cachedLoot.representativePrototype()
                 : firstRepresentativeDrop(drops);
 
-        if (!removeTargetAndAdvance(level, target, state, area.min().getY())) {
+        if (!removeTargetAndAdvance(level, target, state, area.min().getY(), chunk)) {
             return false;
         }
 
@@ -1097,7 +1097,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         return true;
     }
 
-    private @Nullable BlockState resolveActiveTargetForCompletion(ServerLevel level) {
+    private @Nullable BlockState resolveActiveTargetForCompletion(ServerLevel level, @Nullable LevelChunk chunk) {
         BlockPos target = activeTarget;
         Block expectedBlock = activeTargetBlock;
         if (target == null || expectedBlock == null) {
@@ -1105,7 +1105,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             return null;
         }
 
-        if (!level.hasChunkAt(target)) {
+        if (chunk == null) {
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.LASER_COMPLETIONS_SKIPPED_UNLOADED);
             stopCurrentTarget(true);
             return null;
@@ -1125,7 +1125,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             }
         }
 
-        BlockState state = level.getBlockState(target);
+        BlockState state = chunk.getBlockState(target);
         if (state.getBlock() == expectedBlock) {
             return state;
         }
@@ -1144,9 +1144,10 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             ServerLevel level,
             BlockPos target,
             BlockState state,
-            int minimumY
+            int minimumY,
+            LevelChunk chunk
     ) {
-        if (!removeExcavatedBlock(level, target, state)) {
+        if (!removeExcavatedBlock(level, target, state, chunk)) {
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.BLOCK_REMOVALS_FAILED_COLUMN_RETAINED);
             clearActiveAnimation();
             setChanged();
@@ -1157,7 +1158,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
         blocksExcavated++;
         ExcavatorProfiler.increment(ExcavatorProfiler.Counter.BLOCKS_EXCAVATED);
-        advanceColumnAfterRemoval(level, activeColumnIndex, target.getY(), minimumY);
+        advanceColumnAfterRemoval(level, activeColumnIndex, target.getY(), minimumY, chunk);
         return true;
     }
 
@@ -1165,9 +1166,10 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             ServerLevel level,
             BlockPos target,
             BlockState state,
-            int minimumY
+            int minimumY,
+            LevelChunk chunk
     ) {
-        if (!removeTargetAndAdvance(level, target, state, minimumY)) return false;
+        if (!removeTargetAndAdvance(level, target, state, minimumY, chunk)) return false;
         clearActiveAnimation();
         setChanged();
         return true;
@@ -1232,7 +1234,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
 
     private void resumeBlockedTargetLaser(ServerLevel level) {
         scanState = ExcavatorScanState.EXCAVATING;
-        beginLaserShot(level, storageBlockedColumnIndex, storageBlockedTarget, storageBlockedState, true);
+        beginLaserShot(level, storageBlockedColumnIndex, storageBlockedTarget, storageBlockedState, true, null);
         setChangedAndSync();
     }
 
@@ -1253,18 +1255,13 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         lastStorageWaitCheckedRevision = -1L;
     }
 
-    private void advanceColumnAfterRemoval(ServerLevel level, int columnIndex, int removedY, int minY) {
+    private void advanceColumnAfterRemoval(ServerLevel level, int columnIndex, int removedY, int minY, LevelChunk chunk) {
         ExcavatorArea area = getExcavatorArea();
         int x = area.worldXForColumn(columnIndex);
         int z = area.worldZForColumn(columnIndex);
 
         if (canShareColumnHeights()) {
-            LevelChunk loadedChunk = level.getChunkSource().getChunkNow(x >> 4, z >> 4);
-            if (loadedChunk == null) return;
-
-            int nextY = columns.isSharedColumn(columnIndex)
-                    ? targetScanner.advanceSharedAfterRemoval(level, loadedChunk, x, z, removedY, minY)
-                    : targetScanner.advanceLocalAfterRemoval(level, loadedChunk, x, z, removedY, minY);
+            int nextY = columns.isSharedColumn(columnIndex) ? targetScanner.advanceSharedAfterRemoval(level, chunk, x, z, removedY, minY) : targetScanner.advanceLocalAfterRemoval(level, chunk, x, z, removedY, minY);
             columns.setCurrentHeight(columnIndex, nextY);
             if (nextY == ExcavationScanner.NO_SURFACE || nextY < minY) {
                 columns.removeActiveColumnByColumnIndex(columnIndex);
@@ -1306,13 +1303,10 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             ServerLevel level, int transportDurationTicks, ExcavatorLootCache.CachedDrops drops
     ) {
         deliveries.enqueueCachedDrops(level.getGameTime() + transportDurationTicks, drops);
-        setChanged();
     }
 
     private void enqueuePendingDelivery(ServerLevel level, int transportDurationTicks, List<ItemStack> drops) {
-        if (deliveries.enqueue(level.getGameTime() + transportDurationTicks, drops)) {
-            setChanged();
-        }
+        deliveries.enqueue(level.getGameTime() + transportDurationTicks, drops);
     }
 
     private int getTransportDurationTicks(BlockPos sourcePos) {
@@ -1334,7 +1328,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         return liftTicks + fieldTicks + descentTicks;
     }
 
-    private boolean removeExcavatedBlock(ServerLevel level, BlockPos target, BlockState state) {
+    private boolean removeExcavatedBlock(ServerLevel level, BlockPos target, BlockState state, LevelChunk chunk) {
         long totalProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.BLOCK_REMOVAL);
         boolean removed;
 
@@ -1342,28 +1336,15 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
                 && LaserExcavatorConfig.SUPPRESS_NEIGHBOR_UPDATES.get()
                 && ExcavatorFastBlockRemoval.isEligible(state);
 
+        removed = false;
         if (directFastPath) {
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DIRECT_CHUNK_REMOVAL_ATTEMPTS);
             long directProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.BLOCK_REMOVAL_DIRECT_CHUNK);
-            removed = ExcavatorFastBlockRemoval.removeDirect(level, target);
+            removed = ExcavatorFastBlockRemoval.removeDirect(chunk, target);
             ExcavatorProfiler.end(ExcavatorProfiler.Section.BLOCK_REMOVAL_DIRECT_CHUNK, directProfile);
-            if (removed) {
-                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DIRECT_CHUNK_REMOVAL_SUCCESSES);
-            } else {
-                // Extremely defensive fallback: if the direct mutation ever refuses
-                // a state change, retry through the normal Level wrapper so the
-                // logical excavation cursor never advances past a real block.
-                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.NORMAL_LEVEL_SETBLOCK_FALLBACKS);
-                long normalProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.BLOCK_REMOVAL_LEVEL_SETBLOCK);
-                removed = level.setBlock(
-                        target,
-                        Blocks.AIR.defaultBlockState(),
-                        excavationRemovalFlags(),
-                        excavationRemovalDepth()
-                );
-                ExcavatorProfiler.end(ExcavatorProfiler.Section.BLOCK_REMOVAL_LEVEL_SETBLOCK, normalProfile);
-            }
-        } else {
+            if (removed) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.DIRECT_CHUNK_REMOVAL_SUCCESSES);
+        }
+        if (!removed) {
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.NORMAL_LEVEL_SETBLOCK_FALLBACKS);
             long normalProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.BLOCK_REMOVAL_LEVEL_SETBLOCK);
             removed = level.setBlock(

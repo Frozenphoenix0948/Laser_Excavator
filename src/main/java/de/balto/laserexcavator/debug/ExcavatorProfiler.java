@@ -53,6 +53,7 @@ public final class ExcavatorProfiler {
         CLIENT_SECTION_DIRTY_FLUSH("09d Client distance-scheduled section refresh", Side.CLIENT),
         CLIENT_VISUAL_INGESTION("09e Client visual ingestion", Side.CLIENT),
         CLIENT_VISUAL_TRANSPORT_PREPARATION("09f Client transport preparation", Side.CLIENT),
+        BLOCK_MULTI_PACKET_SEND("09g Grouped block packet send", Side.SERVER),
         FORCE_FIELD_RENDER("10 Force-field + pillars render", Side.CLIENT),
         LASER_RENDER("11 Laser rendering", Side.CLIENT),
         TRANSPORT_RENDER("12 Transport rendering", Side.CLIENT),
@@ -168,7 +169,8 @@ public final class ExcavatorProfiler {
         VISUAL_EVENT_AGE_TICKS_SENT("Accumulated visual-event queue age ticks sent"),
         BLOCK_CLIENT_UPDATES_BATCHED("Block client updates batched"),
         BLOCK_UPDATE_SECTION_PACKETS("Block section packets built"),
-        BLOCK_UPDATE_PACKET_TRANSMISSIONS("Block section payload transmissions"),
+        BLOCK_UPDATE_PACKET_TRANSMISSIONS("Grouped block network packet transmissions"),
+        BLOCK_UPDATE_SECTION_TRANSMISSIONS("Section update deliveries to tracking players"),
         BLOCK_UPDATE_NEAR_SECTION_FLUSHES("Near section payload flushes"),
         BLOCK_UPDATE_MID_SECTION_FLUSHES("Mid section payload flushes"),
         BLOCK_UPDATE_FAR_SECTION_FLUSHES("Far section payload flushes"),
@@ -530,6 +532,7 @@ public final class ExcavatorProfiler {
         lines.add("  Client block changes/section rebuild submission: " + formatRatio(
                 getCounter(Counter.CLIENT_BLOCK_UPDATES_APPLIED), clientUniqueDirtyCalls));
         addSummaryTiming(lines, "Block update batching", Section.BLOCK_UPDATE_PACKET_SEND);
+        addSummaryTiming(lines, "Grouped block packet send", Section.BLOCK_MULTI_PACKET_SEND);
         addSummaryTiming(lines, "Client silent apply", Section.CLIENT_BLOCK_UPDATE_APPLY);
         addSummaryTiming(lines, "Client section-dirty flush", Section.CLIENT_SECTION_DIRTY_FLUSH);
         addSummaryTiming(lines, "Client visual ingestion", Section.CLIENT_VISUAL_INGESTION);
@@ -751,8 +754,11 @@ public final class ExcavatorProfiler {
                 + formatCount(getCounter(Counter.NETWORK_DEBUG_PENDING_VISUAL_EVENTS_DROPPED)));
         lines.add("  Block changes/section payload: " + formatRatio(
                 getCounter(Counter.BLOCK_CLIENT_UPDATES_BATCHED), getCounter(Counter.BLOCK_UPDATE_SECTION_PACKETS)));
-        lines.add("  Block section payload transmissions: " + formatCount(
-                getCounter(Counter.BLOCK_UPDATE_PACKET_TRANSMISSIONS)));
+        lines.add("  Section deliveries / grouped packets sent / sections per packet: "
+                + formatCount(getCounter(Counter.BLOCK_UPDATE_SECTION_TRANSMISSIONS)) + " / "
+                + formatCount(getCounter(Counter.BLOCK_UPDATE_PACKET_TRANSMISSIONS)) + " / "
+                + formatRatio(getCounter(Counter.BLOCK_UPDATE_SECTION_TRANSMISSIONS),
+                        getCounter(Counter.BLOCK_UPDATE_PACKET_TRANSMISSIONS)));
         lines.add("  Section payload flushes NEAR / MID / FAR / VERY-FAR: "
                 + formatCount(getCounter(Counter.BLOCK_UPDATE_NEAR_SECTION_FLUSHES)) + " / "
                 + formatCount(getCounter(Counter.BLOCK_UPDATE_MID_SECTION_FLUSHES)) + " / "
