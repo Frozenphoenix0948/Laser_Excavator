@@ -37,6 +37,8 @@ final class ExcavatorTargetScanner {
     private static final byte IGNORED = 2;
     private static final byte FILTERED = 3;
     private static final byte NORMAL = 4;
+    private static final int ADAPTIVE_SAMPLE_SIZE = 64;
+    private static final int DIRECT_FILTER_STREAK = 8;
 
     enum Handling {
         NORMAL,
@@ -73,6 +75,9 @@ final class ExcavatorTargetScanner {
     private final IdentityHashMap<BlockState, Byte> stateClassifications = new IdentityHashMap<>();
     private final IdentityHashMap<Palette<BlockState>, PaletteClassification> paletteClassifications = new IdentityHashMap<>();
     private @Nullable PaletteClassification globalPaletteClassification;
+    private int sampledBlocks;
+    private int sampledFiltered;
+    private boolean paletteMode;
 
     ExcavatorTargetScanner(ExcavatorUpgradeManager upgrades) {
         this.upgrades = upgrades;
@@ -82,6 +87,9 @@ final class ExcavatorTargetScanner {
         stateClassifications.clear();
         paletteClassifications.clear();
         globalPaletteClassification = null;
+        sampledBlocks = 0;
+        sampledFiltered = 0;
+        paletteMode = false;
     }
 
     Result initializeColumn(ServerLevel level, int x, int z, int startY, int minY, boolean unrestricted, LevelChunk loadedChunk) {
@@ -181,6 +189,8 @@ final class ExcavatorTargetScanner {
         int filterSkips = 0;
         boolean attempted = false;
         byte returned = UNKNOWN;
+        boolean adaptive = false;
+        boolean switched = false;
 
         try {
             if (startY == ExcavationScanner.NO_SURFACE) {
@@ -218,17 +228,46 @@ final class ExcavatorTargetScanner {
                 return noSurface();
             }
 
+            adaptive = filterEnabled;
+            boolean usePalette = paletteMode && adaptive;
+            int streak = 0;
             cursor.set(x, start, z);
             int localColumnIndex = ((z & 15) << 4) | (x & 15);
             int y = start;
 
             while (y >= min) {
+                int sectionBottom = Math.max(min, y & ~15);
+                if (!usePalette) {
+                    for (; y >= sectionBottom; y--) {
+                        cursor.setY(y);
+                        BlockState state = loadedChunk.getBlockState(cursor);
+                        lookups++;
+                        byte handling = classifyState(level, y, state, unbreakable, fluidIgnore, filterEnabled);
+                        if (handling == AIR || handling == IGNORED) {
+                            streak = 0;
+                            continue;
+                        }
+                        if (handling == FILTERED) {
+                            filterSkips++;
+                            if (++streak >= DIRECT_FILTER_STREAK) {
+                                usePalette = true;
+                                switched = true;
+                                y--;
+                                break;
+                            }
+                            continue;
+                        }
+                        returned = NORMAL;
+                        return Result.normal(y, state);
+                    }
+                    continue;
+                }
+
                 LevelChunkSection section = loadedChunk.getSection(loadedChunk.getSectionIndex(y));
                 PalettedContainer.Data<BlockState> data = section.getStates().data;
                 BitStorage storage = data.storage();
                 Palette<BlockState> palette = data.palette();
                 PaletteClassification classification = classificationFor(palette);
-                int sectionBottom = Math.max(min, y & ~15);
                 int storageIndex = ((y & 15) << 8) | localColumnIndex;
 
                 for (; y >= sectionBottom; y--, storageIndex -= 256) {
@@ -270,6 +309,16 @@ final class ExcavatorTargetScanner {
 
             return noSurface();
         } finally {
+            if (adaptive) {
+                if (switched) paletteMode = true;
+                sampledBlocks += lookups;
+                sampledFiltered += filterSkips;
+                if (sampledBlocks >= ADAPTIVE_SAMPLE_SIZE) {
+                    paletteMode = paletteMode ? sampledFiltered * 5 >= sampledBlocks : sampledFiltered * 5 >= sampledBlocks * 3;
+                    sampledBlocks = 0;
+                    sampledFiltered = 0;
+                }
+            }
             if (profile) {
                 ExcavatorProfiler.recordNextTargetScan(lookups, filterSkips, attempted, returned == NORMAL, returned == FILTERED);
                 ExcavatorProfiler.end(ExcavatorProfiler.Section.NEXT_TARGET_LOOKUP, profileStart);
