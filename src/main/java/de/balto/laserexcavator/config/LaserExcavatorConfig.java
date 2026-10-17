@@ -334,7 +334,7 @@ public final class LaserExcavatorConfig {
         SOLAR_TIER_2_ENERGY_PER_TICK = builder.defineInRange("tier2EnergyPerTick", 160, 0, Integer.MAX_VALUE);
         SOLAR_TIER_3_ENERGY_PER_TICK = builder.comment(" Default matches the internal fuel generator's maximum 320 FE/t output.")
                 .defineInRange("tier3EnergyPerTick", 320, 0, Integer.MAX_VALUE);
-        SOLAR_SKY_CHECK_INTERVAL = builder.comment(" Server ticks between checks for blocks/water above a solar-equipped excavator.")
+        SOLAR_SKY_CHECK_INTERVAL = builder.comment(" Server ticks between sky-access checks; day/night is checked every 20 ticks.")
                 .defineInRange("skyCheckIntervalTicks", 20, 1, 1200);
         SOLAR_MAX_WATER_BLOCKS = builder.comment(" Maximum consecutive water blocks directly above the excavator that still allow solar generation.")
                 .defineInRange("maxWaterBlocks", 3, 0, 64);
@@ -580,13 +580,12 @@ public final class LaserExcavatorConfig {
     }
 
     public static int solarEnergyPerTick(int tier) {
-        int tier1 = SOLAR_TIER_1_ENERGY_PER_TICK.get();
-        int tier2 = Math.max(tier1, SOLAR_TIER_2_ENERGY_PER_TICK.get());
-        int tier3 = Math.max(tier2, SOLAR_TIER_3_ENERGY_PER_TICK.get());
         return switch (tier) {
-            case 1 -> tier1;
-            case 2 -> tier2;
-            case 3 -> tier3;
+            case 1 -> SOLAR_TIER_1_ENERGY_PER_TICK.get();
+            case 2 -> Math.max(SOLAR_TIER_1_ENERGY_PER_TICK.get(), SOLAR_TIER_2_ENERGY_PER_TICK.get());
+            case 3 -> Math.max(
+                    Math.max(SOLAR_TIER_1_ENERGY_PER_TICK.get(), SOLAR_TIER_2_ENERGY_PER_TICK.get()),
+                    SOLAR_TIER_3_ENERGY_PER_TICK.get());
             default -> 0;
         };
     }

@@ -272,7 +272,12 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             blockEntity.syncFluidProtection(serverLevel);
             ExcavatorProfiler.increment(ExcavatorProfiler.Counter.EXCAVATOR_SERVER_TICKS);
             if (!blockEntity.developmentBenchmarkResourceBypass) {
-                int solarGeneration = blockEntity.solar.isInstalled() ? blockEntity.solar.tick(serverLevel, pos) : 0;
+                int solarGeneration = 0;
+                if (blockEntity.solar.isInstalled()) {
+                    long solarProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.SOLAR_PROCESSING);
+                    solarGeneration = blockEntity.solar.tick(serverLevel, pos);
+                    ExcavatorProfiler.end(ExcavatorProfiler.Section.SOLAR_PROCESSING, solarProfile);
+                }
 
                 long fuelProfile = ExcavatorProfiler.begin(ExcavatorProfiler.Section.FUEL_PROCESSING);
                 blockEntity.fuel.tick(solarGeneration);
@@ -978,7 +983,8 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
             activeTarget = target;
             activeTargetBlock = targetState.getBlock();
 
-            LevelChunk chunk = loadedChunk != null ? loadedChunk : level.getChunkSource().getChunkNow(target.getX() >> 4, target.getZ() >> 4);
+            LevelChunk chunk = loadedChunk != null ? loadedChunk
+                    : level.getChunkSource().getChunkNow(target.getX() >> 4, target.getZ() >> 4);
             BlockState state = storageRetry ? resolveActiveTargetForCompletion(level, chunk) : targetState;
             if (state == null || chunk == null || !completeActiveTarget(level, state, chunk)) return;
 
@@ -1261,7 +1267,9 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         int z = area.worldZForColumn(columnIndex);
 
         if (canShareColumnHeights()) {
-            int nextY = columns.isSharedColumn(columnIndex) ? targetScanner.advanceSharedAfterRemoval(level, chunk, x, z, removedY, minY) : targetScanner.advanceLocalAfterRemoval(level, chunk, x, z, removedY, minY);
+            int nextY = columns.isSharedColumn(columnIndex)
+                    ? targetScanner.advanceSharedAfterRemoval(level, chunk, x, z, removedY, minY)
+                    : targetScanner.advanceLocalAfterRemoval(level, chunk, x, z, removedY, minY);
             columns.setCurrentHeight(columnIndex, nextY);
             if (nextY == ExcavationScanner.NO_SURFACE || nextY < minY) {
                 columns.removeActiveColumnByColumnIndex(columnIndex);

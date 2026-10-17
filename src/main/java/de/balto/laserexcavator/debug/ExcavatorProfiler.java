@@ -25,6 +25,7 @@ public final class ExcavatorProfiler {
         SERVER_TICK_SPAN("00 Whole server tick span", Side.SERVER),
         BLOCK_ENTITY_TICK("00a Excavator BE serverTick", Side.SERVER),
         FUEL_PROCESSING("00b Fuel processing", Side.SERVER),
+        SOLAR_PROCESSING("00c Solar processing", Side.SERVER),
         SCANNER("01 Scanner total", Side.SERVER),
         EXCAVATION_TICK("02 Excavation tick total", Side.SERVER),
         TARGET_SELECTION("03 Target selection", Side.SERVER),
@@ -635,7 +636,8 @@ public final class ExcavatorProfiler {
         long excavationTotal = totalNanos(Section.EXCAVATION_TICK);
         long deliveryTotal = totalNanos(Section.DELIVERY_PROCESSING);
         long fuelTotal = totalNanos(Section.FUEL_PROCESSING);
-        long beRemainder = Math.max(0L, beTotal - scannerTotal - excavationTotal - deliveryTotal - fuelTotal);
+        long solarTotal = totalNanos(Section.SOLAR_PROCESSING);
+        long beRemainder = Math.max(0L, beTotal - scannerTotal - excavationTotal - deliveryTotal - fuelTotal - solarTotal);
         long postTotal = totalNanos(Section.SERVER_POST_TICK);
         long blockSyncTotal = totalNanos(Section.BLOCK_SYNC_FLUSH);
         long visualFlushTotal = totalNanos(Section.VISUAL_BATCH_FLUSH);
@@ -646,11 +648,12 @@ public final class ExcavatorProfiler {
                 + formatPerTickNanos(totalNanos(Section.SERVER_TICK_SPAN), globalTicks) + " / "
                 + formatNanos(maxNanos(Section.SERVER_TICK_SPAN)));
         lines.add("    Excavator BE CPU/server tick: " + formatPerTickNanos(beTotal, globalTicks));
-        lines.add("      Scanner / excavation / delivery / fuel / remainder: "
+        lines.add("      Scanner / excavation / delivery / fuel / solar / remainder: "
                 + formatPerTickNanos(scannerTotal, globalTicks) + " / "
                 + formatPerTickNanos(excavationTotal, globalTicks) + " / "
                 + formatPerTickNanos(deliveryTotal, globalTicks) + " / "
                 + formatPerTickNanos(fuelTotal, globalTicks) + " / "
+                + formatPerTickNanos(solarTotal, globalTicks) + " / "
                 + formatPerTickNanos(beRemainder, globalTicks));
         lines.add("    Server post-tick CPU/server tick: " + formatPerTickNanos(postTotal, globalTicks));
         lines.add("      Block-sync / visual flush / remainder: "
