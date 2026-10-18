@@ -37,7 +37,7 @@ public final class ExcavatorNetworking {
 
     private ExcavatorNetworking() {}
 
-    private static final String PROTOCOL_VERSION = "6";
+    private static final String PROTOCOL_VERSION = "7";
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation("laserexcavator", "main"),
             () -> PROTOCOL_VERSION,
@@ -49,7 +49,20 @@ public final class ExcavatorNetworking {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
     }
 
+    public static void sendToPlayer(net.minecraft.server.level.ServerPlayer player, ExcavatorMultiSectionBlockUpdatePayload payload) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
+    }
+
     public static void registerPackets() {
+        CHANNEL.messageBuilder(ExcavatorMultiSectionBlockUpdatePayload.class, 2, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(ExcavatorMultiSectionBlockUpdatePayload::encode)
+                .decoder(ExcavatorMultiSectionBlockUpdatePayload::decode)
+                .consumerMainThread((payload, ctx) -> {
+                    for (ExcavatorSectionBlockUpdatePayload section : payload.sections())
+                        ExcavatorClientBlockUpdates.applySectionRemovals(section);
+                    ctx.get().setPacketHandled(true);
+                })
+                .add();
         CHANNEL.messageBuilder(ExcavatorSectionBlockUpdatePayload.class, 0, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(ExcavatorSectionBlockUpdatePayload::encode)
                 .decoder(ExcavatorSectionBlockUpdatePayload::decode)

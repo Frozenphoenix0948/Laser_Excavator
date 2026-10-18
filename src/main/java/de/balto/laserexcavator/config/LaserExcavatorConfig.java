@@ -36,6 +36,7 @@ public final class LaserExcavatorConfig {
     public static final ForgeConfigSpec.IntValue FUEL_BURN_TICKS_PER_SERVER_TICK;
     public static final ForgeConfigSpec.BooleanValue SUPPRESS_NEIGHBOR_UPDATES;
     public static final ForgeConfigSpec.BooleanValue ENABLE_DETERMINISTIC_LOOT_CACHE;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_EXPECTED_LOOT_DROPS;
     public static final ForgeConfigSpec.BooleanValue ENABLE_DIRECT_TERRAIN_REMOVAL;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> UNBREAKABLE_BLOCKS;
     public static final ForgeConfigSpec.IntValue VISUAL_BATCH_TICKS;
@@ -156,16 +157,25 @@ public final class LaserExcavatorConfig {
                 .defineInRange("energyMaxReceivePerTick", 10_000, 1, Integer.MAX_VALUE);
         ENERGY_PER_BLOCK = builder.comment(
                         " Total FE required to excavate one normal block before Energy Efficiency reductions.",
-                        " The cost is spread across the current Speed-upgrade work interval, so Speed changes power throughput rather than total FE per block."
+                        " Energy is charged when the block is removed; Speed changes the delay until the next shot."
                 )
                 .defineInRange("energyPerBlock", 640, 0, Integer.MAX_VALUE);
-        SUPPRESS_NEIGHBOR_UPDATES = builder.comment(" Suppress neighbor/shape updates when blocks are removed. This is faster and stops stable fluids from immediately flowing into excavated cells.")
+        SUPPRESS_NEIGHBOR_UPDATES = builder.comment(
+                        " Suppress neighbor/shape updates from excavator block removal.",
+                        " Also suppress water ticks and inbound water flow in active excavation volumes.",
+                        " Outside these areas, normal water behavior is preserved."
+                )
                 .define("suppressNeighborUpdates", true);
         ENABLE_DETERMINISTIC_LOOT_CACHE = builder.comment(
-                        " Learn deterministic block drops server-wide and reuse them across excavators.",
-                        " Cache keys include BlockState, Silk Touch and Fortune level. Random/dynamic results remain on the normal loot-table path."
+                        " Compile supported block loot tables into efficient deterministic and fractional rules.",
+                        " Unsupported and context-dependent tables retain vanilla loot generation."
                 )
                 .define("deterministicLootCache", true);
+        ENABLE_EXPECTED_LOOT_DROPS = builder.comment(
+                        " Allow inspected random loot tables to produce long-term expected item counts.",
+                        " Fractional counters preserve mean yields, not the vanilla per-block randomness."
+                )
+                .define("expectedLootDrops", true);
         ENABLE_DIRECT_TERRAIN_REMOVAL = builder.comment(
                         " Use a direct LevelChunk block-state mutation for conservatively recognized plain terrain blocks.",
                         " This path is only used while neighbor updates are suppressed. Complex/subclassed blocks always fall back to Level#setBlock."
@@ -567,13 +577,11 @@ public final class LaserExcavatorConfig {
     }
 
     public static int solarEnergyPerTick(int tier) {
-        int tier1 = SOLAR_TIER_1_ENERGY_PER_TICK.get();
-        int tier2 = Math.max(tier1, SOLAR_TIER_2_ENERGY_PER_TICK.get());
-        int tier3 = Math.max(tier2, SOLAR_TIER_3_ENERGY_PER_TICK.get());
         return switch (tier) {
-            case 1 -> tier1;
-            case 2 -> tier2;
-            case 3 -> tier3;
+            case 1 -> SOLAR_TIER_1_ENERGY_PER_TICK.get();
+            case 2 -> Math.max(SOLAR_TIER_1_ENERGY_PER_TICK.get(), SOLAR_TIER_2_ENERGY_PER_TICK.get());
+            case 3 -> Math.max(Math.max(SOLAR_TIER_1_ENERGY_PER_TICK.get(), SOLAR_TIER_2_ENERGY_PER_TICK.get()),
+                    SOLAR_TIER_3_ENERGY_PER_TICK.get());
             default -> 0;
         };
     }
