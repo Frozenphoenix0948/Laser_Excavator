@@ -93,7 +93,7 @@ public final class ExcavatorClientBlockUpdates {
         if (debugMode == BlockUpdateDebugMode.NO_BLOCK_SYNC) {
             ExcavatorProfiler.add(
                     ExcavatorProfiler.Counter.CLIENT_BLOCK_SYNC_POSITIONS_SKIPPED,
-                    payload.localPositions().size()
+                    payload.localPositions().length
             );
             return;
         }
@@ -121,9 +121,8 @@ public final class ExcavatorClientBlockUpdates {
             int minY = sectionPos.minBlockY();
             int minZ = sectionPos.minBlockZ();
 
-            List<Short> localPositions = payload.localPositions();
-            for (int i = 0, size = localPositions.size(); i < size; i++) {
-                short packed = localPositions.get(i);
+            short[] localPositions = payload.localPositions();
+            for (short packed : localPositions) {
                 int localX = SectionPos.sectionRelativeX(packed);
                 int localY = SectionPos.sectionRelativeY(packed);
                 int localZ = SectionPos.sectionRelativeZ(packed);

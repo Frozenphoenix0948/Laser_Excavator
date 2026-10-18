@@ -65,6 +65,10 @@ public final class ExcavatorTrailerCommands {
                                         .executes(context -> startSetup(context.getSource(), Layout.TEN)))
                                 .then(Commands.literal("100")
                                         .executes(context -> startSetup(context.getSource(), Layout.HUNDRED)))
+                                .then(Commands.literal("1000")
+                                        .executes(context -> startSetup(context.getSource(), Layout.THOUSAND)))
+                                .then(Commands.literal("5000")
+                                        .executes(context -> startSetup(context.getSource(), Layout.FIVE_THOUSAND)))
                                 .then(Commands.literal("720")
                                         .executes(context -> startSetup(context.getSource(), Layout.SEVEN_TWENTY)))
                                 .then(Commands.literal("clear")
@@ -142,14 +146,17 @@ public final class ExcavatorTrailerCommands {
 
         ServerPlayer player = source.getPlayerOrException();
         ServerLevel level = source.getLevel();
-        clearManagedMachines(level);
-
         Direction playerFacing = player.getDirection();
         BlockPos playerPos = player.blockPosition();
         BlockPos center = playerPos.relative(playerFacing, SETUP_FORWARD_OFFSET);
         int foundationY = playerPos.getY() - 1;
         int machineY = foundationY + 1;
+        if (machineY + layout.layers - 1 > level.getMaxBuildHeight() - 1) {
+            source.sendFailure(Component.literal("Not enough build height for " + layout.layers + " stacked excavators."));
+            return 0;
+        }
 
+        clearManagedMachines(level);
         TrailerSetup setup = createSetup(layout, center.getX(), center.getZ(), machineY);
         List<FoundationRow> foundation = createFoundation(setup, foundationY);
         List<MachineSpec> machines = createMachines(setup);
@@ -272,9 +279,10 @@ public final class ExcavatorTrailerCommands {
     }
 
     private static TrailerSetup createSetup(Layout layout, int anchorX, int anchorZ, int machineY) {
-        int firstX = anchorX - (layout.columns / 2) * MACHINE_SPACING;
+        int spacedColumns = layout == Layout.FIVE_THOUSAND ? 10 : layout.columns;
+        int firstX = anchorX - (spacedColumns / 2) * MACHINE_SPACING;
         int firstZ = anchorZ - (layout.rows / 2) * MACHINE_SPACING;
-        int lastX = firstX + (layout.columns - 1) * MACHINE_SPACING;
+        int lastX = firstX + (spacedColumns - 1) * MACHINE_SPACING;
         int lastZ = firstZ + (layout.rows - 1) * MACHINE_SPACING;
         double visualCenterX = (firstX + lastX) * 0.5D;
         double visualCenterZ = (firstZ + lastZ) * 0.5D;
@@ -282,6 +290,7 @@ public final class ExcavatorTrailerCommands {
                 layout.count,
                 layout.columns,
                 layout.rows,
+                layout.layers,
                 visualCenterX,
                 visualCenterZ,
                 machineY,
@@ -305,17 +314,40 @@ public final class ExcavatorTrailerCommands {
 
     private static List<MachineSpec> createMachines(TrailerSetup setup) {
         ArrayList<MachineSpec> machines = new ArrayList<>(setup.count);
+        int[] columnPositions = createColumnPositions(setup);
         for (int row = 0; row < setup.rows; row++) {
             int z = setup.firstZ + row * MACHINE_SPACING;
-            for (int column = 0; column < setup.columns; column++) {
-                int x = setup.firstX + column * MACHINE_SPACING;
-                machines.add(new MachineSpec(new BlockPos(x, setup.machineY, z), Direction.NORTH));
+            for (int x : columnPositions) {
+                for (int layer = 0; layer < setup.layers; layer++) {
+                    machines.add(new MachineSpec(new BlockPos(x, setup.machineY + layer, z), Direction.NORTH));
+                }
             }
         }
         if (machines.size() != setup.count) {
             throw new IllegalStateException("Expected " + setup.count + " grid excavators, got " + machines.size());
         }
         return machines;
+    }
+
+    private static int[] createColumnPositions(TrailerSetup setup) {
+        int[] positions = new int[setup.columns];
+        if (setup.count == 5000) {
+            // Preserve the ten original stack positions on each stone bridge.
+            int index = 0;
+            for (int gap = 0; gap < 9; gap++) {
+                int divisions = 5 + (gap & 1);
+                for (int step = 0; step < divisions; step++) {
+                    positions[index++] = setup.firstX + gap * MACHINE_SPACING
+                            + step * MACHINE_SPACING / divisions;
+                }
+            }
+            positions[index] = setup.lastX;
+        } else {
+            for (int column = 0; column < positions.length; column++) {
+                positions[column] = setup.firstX + column * MACHINE_SPACING;
+            }
+        }
+        return positions;
     }
 
     private static final class TrailerBuild {
@@ -526,16 +558,24 @@ public final class ExcavatorTrailerCommands {
         ONE(1, 1, 1),
         TEN(10, 5, 2),
         HUNDRED(100, 10, 10),
-        SEVEN_TWENTY(720, 30, 24);
+        SEVEN_TWENTY(720, 30, 24),
+        THOUSAND(1000, 10, 10, 10),
+        FIVE_THOUSAND(5000, 50, 10, 10);
 
         private final int count;
         private final int columns;
         private final int rows;
+        private final int layers;
 
         Layout(int count, int columns, int rows) {
+            this(count, columns, rows, 1);
+        }
+
+        Layout(int count, int columns, int rows, int layers) {
             this.count = count;
             this.columns = columns;
             this.rows = rows;
+            this.layers = layers;
         }
     }
 
@@ -543,6 +583,7 @@ public final class ExcavatorTrailerCommands {
             int count,
             int columns,
             int rows,
+            int layers,
             double centerX,
             double centerZ,
             int machineY,
@@ -550,7 +591,11 @@ public final class ExcavatorTrailerCommands {
             int lastX,
             int firstZ,
             int lastZ
-    ) {}
+    ) {
+        private String dimensions() {
+            return columns + "x" + rows + (layers == 1 ? "" : "x" + layers);
+        }
+    }
 
     private record FoundationRow(int minX, int maxX, int y, int z) {}
 

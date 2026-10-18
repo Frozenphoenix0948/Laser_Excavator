@@ -25,6 +25,7 @@ public final class ExcavatorProfiler {
         SERVER_TICK_SPAN("00 Whole server tick span", Side.SERVER),
         BLOCK_ENTITY_TICK("00a Excavator BE serverTick", Side.SERVER),
         FUEL_PROCESSING("00b Fuel processing", Side.SERVER),
+        SOLAR_PROCESSING("00c Solar processing", Side.SERVER),
         SCANNER("01 Scanner total", Side.SERVER),
         EXCAVATION_TICK("02 Excavation tick total", Side.SERVER),
         TARGET_SELECTION("03 Target selection", Side.SERVER),
@@ -32,6 +33,7 @@ public final class ExcavatorProfiler {
         TARGET_SELECTION_SETUP("03b Target-selection setup", Side.SERVER),
         TARGET_COLUMN_CHOICE("03c Loaded-column choice", Side.SERVER),
         TARGET_RESOLUTION("03d Target resolution", Side.SERVER),
+        LASER_SHOT_COMPLETION("03e Immediate shot completion", Side.SERVER),
         LOOT_GENERATION("04 Loot generation", Side.SERVER),
         STORAGE_RESERVATION("05 Storage capacity check", Side.SERVER),
         BLOCK_REMOVAL("06 setBlock / block removal", Side.SERVER),
@@ -52,6 +54,7 @@ public final class ExcavatorProfiler {
         CLIENT_SECTION_DIRTY_FLUSH("09d Client distance-scheduled section refresh", Side.CLIENT),
         CLIENT_VISUAL_INGESTION("09e Client visual ingestion", Side.CLIENT),
         CLIENT_VISUAL_TRANSPORT_PREPARATION("09f Client transport preparation", Side.CLIENT),
+        BLOCK_MULTI_PACKET_SEND("09g Grouped block packet send", Side.SERVER),
         FORCE_FIELD_RENDER("10 Force-field + pillars render", Side.CLIENT),
         LASER_RENDER("11 Laser rendering", Side.CLIENT),
         TRANSPORT_RENDER("12 Transport rendering", Side.CLIENT),
@@ -134,12 +137,23 @@ public final class ExcavatorProfiler {
         BLOCKS_EXCAVATED("Blocks excavated"),
         LASER_COMPLETIONS_SKIPPED_UNLOADED("Laser completions skipped - target chunk unloaded"),
         BLOCK_REMOVALS_FAILED_COLUMN_RETAINED("Block removals failed - column retained"),
+        FLUID_TICKS_SUPPRESSED("Water fluid ticks suppressed in excavator areas"),
+        FLUID_ENTRIES_SUPPRESSED("Inbound water flow placements blocked"),
         FAST_REMOVAL_ELIGIBILITY_CACHE_HITS("Fast-removal eligibility cache hits"),
         FAST_REMOVAL_ELIGIBILITY_CACHE_MISSES("Fast-removal eligibility cache misses"),
         DIRECT_CHUNK_REMOVAL_ATTEMPTS("Direct-chunk removal attempts"),
         DIRECT_CHUNK_REMOVAL_SUCCESSES("Direct-chunk removal successes"),
         NORMAL_LEVEL_SETBLOCK_FALLBACKS("Normal Level#setBlock removal fallbacks"),
         STORAGE_RETRIES_SKIPPED_UNLOADED("Storage retries skipped - target chunk unloaded"),
+        LOOT_TABLE_INSPECTIONS("Loot table inspections"),
+        LOOT_TABLE_COMPILED_FIXED("Compiled constant loot rules"),
+        LOOT_TABLE_COMPILED_EXPECTED("Compiled fractional loot rules"),
+        LOOT_TABLE_INSPECTION_FALLBACKS("Uncompiled loot rules"),
+        LOOT_TABLE_FIXED_USES("Constant loot rule uses"),
+        LOOT_TABLE_EXPECTED_USES("Fractional loot rule uses"),
+        LOOT_EXPECTED_SNAPSHOTS_BUILT("Fractional loot snapshots built"),
+        LOOT_EXPECTED_SNAPSHOTS_REUSED("Fractional loot snapshots reused"),
+        LOOT_EXPECTED_COMMITS("Fractional loot rules committed"),
         DETERMINISTIC_LOOT_CACHE_HITS("Deterministic loot cache hits"),
         DETERMINISTIC_LOOT_CACHE_MISSES("Deterministic loot cache misses"),
         DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS("Deterministic loot learning observations"),
@@ -166,7 +180,8 @@ public final class ExcavatorProfiler {
         VISUAL_EVENT_AGE_TICKS_SENT("Accumulated visual-event queue age ticks sent"),
         BLOCK_CLIENT_UPDATES_BATCHED("Block client updates batched"),
         BLOCK_UPDATE_SECTION_PACKETS("Block section packets built"),
-        BLOCK_UPDATE_PACKET_TRANSMISSIONS("Block section payload transmissions"),
+        BLOCK_UPDATE_PACKET_TRANSMISSIONS("Grouped block network packet transmissions"),
+        BLOCK_UPDATE_SECTION_TRANSMISSIONS("Section update deliveries to tracking players"),
         BLOCK_UPDATE_NEAR_SECTION_FLUSHES("Near section payload flushes"),
         BLOCK_UPDATE_MID_SECTION_FLUSHES("Mid section payload flushes"),
         BLOCK_UPDATE_FAR_SECTION_FLUSHES("Far section payload flushes"),
@@ -528,6 +543,7 @@ public final class ExcavatorProfiler {
         lines.add("  Client block changes/section rebuild submission: " + formatRatio(
                 getCounter(Counter.CLIENT_BLOCK_UPDATES_APPLIED), clientUniqueDirtyCalls));
         addSummaryTiming(lines, "Block update batching", Section.BLOCK_UPDATE_PACKET_SEND);
+        addSummaryTiming(lines, "Grouped block packet send", Section.BLOCK_MULTI_PACKET_SEND);
         addSummaryTiming(lines, "Client silent apply", Section.CLIENT_BLOCK_UPDATE_APPLY);
         addSummaryTiming(lines, "Client section-dirty flush", Section.CLIENT_SECTION_DIRTY_FLUSH);
         addSummaryTiming(lines, "Client visual ingestion", Section.CLIENT_VISUAL_INGESTION);
@@ -627,7 +643,8 @@ public final class ExcavatorProfiler {
         long excavationTotal = totalNanos(Section.EXCAVATION_TICK);
         long deliveryTotal = totalNanos(Section.DELIVERY_PROCESSING);
         long fuelTotal = totalNanos(Section.FUEL_PROCESSING);
-        long beRemainder = Math.max(0L, beTotal - scannerTotal - excavationTotal - deliveryTotal - fuelTotal);
+        long solarTotal = totalNanos(Section.SOLAR_PROCESSING);
+        long beRemainder = Math.max(0L, beTotal - scannerTotal - excavationTotal - deliveryTotal - fuelTotal - solarTotal);
         long postTotal = totalNanos(Section.SERVER_POST_TICK);
         long blockSyncTotal = totalNanos(Section.BLOCK_SYNC_FLUSH);
         long visualFlushTotal = totalNanos(Section.VISUAL_BATCH_FLUSH);
@@ -638,11 +655,12 @@ public final class ExcavatorProfiler {
                 + formatPerTickNanos(totalNanos(Section.SERVER_TICK_SPAN), globalTicks) + " / "
                 + formatNanos(maxNanos(Section.SERVER_TICK_SPAN)));
         lines.add("    Excavator BE CPU/server tick: " + formatPerTickNanos(beTotal, globalTicks));
-        lines.add("      Scanner / excavation / delivery / fuel / remainder: "
+        lines.add("      Scanner / excavation / delivery / fuel / solar / remainder: "
                 + formatPerTickNanos(scannerTotal, globalTicks) + " / "
                 + formatPerTickNanos(excavationTotal, globalTicks) + " / "
                 + formatPerTickNanos(deliveryTotal, globalTicks) + " / "
                 + formatPerTickNanos(fuelTotal, globalTicks) + " / "
+                + formatPerTickNanos(solarTotal, globalTicks) + " / "
                 + formatPerTickNanos(beRemainder, globalTicks));
         lines.add("    Server post-tick CPU/server tick: " + formatPerTickNanos(postTotal, globalTicks));
         lines.add("      Block-sync / visual flush / remainder: "
@@ -709,10 +727,10 @@ public final class ExcavatorProfiler {
         lines.add("  Deterministic loot cache hits / misses: "
                 + formatCount(cachedLoot) + " / "
                 + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_MISSES)));
-        lines.add("  Deterministic loot learning observations / promotions / rejections: "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_LEARNING_OBSERVATIONS)) + " / "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_PROMOTIONS)) + " / "
-                + formatCount(getCounter(Counter.DETERMINISTIC_LOOT_CACHE_REJECTIONS)));
+        lines.add("  Compiled loot rules fixed / fractional / fallback: "
+                + formatCount(getCounter(Counter.LOOT_TABLE_COMPILED_FIXED)) + " / "
+                + formatCount(getCounter(Counter.LOOT_TABLE_COMPILED_EXPECTED)) + " / "
+                + formatCount(getCounter(Counter.LOOT_TABLE_INSPECTION_FALLBACKS)));
         lines.add("  Storage capacity checks: " + formatCount(getCounter(Counter.SINGLE_STACK_RESERVATION_CHECKS)));
         lines.add("  Delivery batches/stacks inserted: "
                 + formatCount(getCounter(Counter.DELIVERY_BATCHES_PROCESSED)) + " / "
@@ -748,8 +766,11 @@ public final class ExcavatorProfiler {
                 + formatCount(getCounter(Counter.NETWORK_DEBUG_PENDING_VISUAL_EVENTS_DROPPED)));
         lines.add("  Block changes/section payload: " + formatRatio(
                 getCounter(Counter.BLOCK_CLIENT_UPDATES_BATCHED), getCounter(Counter.BLOCK_UPDATE_SECTION_PACKETS)));
-        lines.add("  Block section payload transmissions: " + formatCount(
-                getCounter(Counter.BLOCK_UPDATE_PACKET_TRANSMISSIONS)));
+        lines.add("  Section deliveries / grouped packets sent / sections per packet: "
+                + formatCount(getCounter(Counter.BLOCK_UPDATE_SECTION_TRANSMISSIONS)) + " / "
+                + formatCount(getCounter(Counter.BLOCK_UPDATE_PACKET_TRANSMISSIONS)) + " / "
+                + formatRatio(getCounter(Counter.BLOCK_UPDATE_SECTION_TRANSMISSIONS),
+                        getCounter(Counter.BLOCK_UPDATE_PACKET_TRANSMISSIONS)));
         lines.add("  Section payload flushes NEAR / MID / FAR / VERY-FAR: "
                 + formatCount(getCounter(Counter.BLOCK_UPDATE_NEAR_SECTION_FLUSHES)) + " / "
                 + formatCount(getCounter(Counter.BLOCK_UPDATE_MID_SECTION_FLUSHES)) + " / "

@@ -1,0 +1,17 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="GNU LESSER GENERAL PUBLIC LICENSE"
+
+[[mods]]
+modId="laserexcavator"
+version="1.1.0"
+displayName="Laser Excavator"
+authors="Balto/FrozenPhoenix"
+description='''Laser Excavator: automated mining with modular upgrades.'''
+
+[[dependencies.laserexcavator]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.20.2)"
+ordering="NONE"
+side="BOTH"
