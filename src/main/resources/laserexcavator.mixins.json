@@ -2,6 +2,7 @@
   "required": true,
   "package": "de.balto.laserexcavator.mixin",
   "compatibilityLevel": "JAVA_17",
+  "refmap": "laserexcavator.refmap.json",
   "mixins": ["ExcavatorWaterFreezeMixin"],
   "injectors": {"defaultRequire": 1}
 }

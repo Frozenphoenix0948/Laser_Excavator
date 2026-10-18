@@ -48,3 +48,18 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17
 }
+
+dependencies {
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+mixin {
+    add sourceSets.main, 'laserexcavator.refmap.json'
+    config 'laserexcavator.mixins.json'
+}
+
+tasks.named('jar', Jar) {
+    manifest {
+        attributes('MixinConfigs': 'laserexcavator.mixins.json')
+    }
+}
