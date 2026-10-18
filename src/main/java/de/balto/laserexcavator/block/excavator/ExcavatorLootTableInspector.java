@@ -1,14 +1,12 @@
 package de.balto.laserexcavator.block.excavator;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.JsonOps;
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -35,15 +33,14 @@ import java.util.Map;
  */
 final class ExcavatorLootTableInspector {
     private static final double EPSILON = 1.0e-9;
-    private static final Codec<LootTable> TABLE_CODEC = lookupTableCodec();
+    private static final Gson TABLE_GSON = lookupTableGson();
 
-    @SuppressWarnings("unchecked")
-    private static Codec<LootTable> lookupTableCodec() {
+    private static Gson lookupTableGson() {
         try {
             for (Field field : LootDataType.class.getDeclaredFields()) {
-                if (field.getType() == Codec.class) {
+                if (field.getType() == Gson.class) {
                     field.setAccessible(true);
-                    return (Codec<LootTable>) field.get(LootDataType.TABLE);
+                    return (Gson) field.get(LootDataType.TABLE);
                 }
             }
         } catch (ReflectiveOperationException | RuntimeException ignored) {
@@ -88,10 +85,8 @@ final class ExcavatorLootTableInspector {
                     .getLootTable(state.getBlock().getLootTable());
             // Resolve through the live server registry so datapack-defined entries
             // and functions are seen, rather than assuming vanilla JSON defaults.
-            if (TABLE_CODEC == null) throw reject(Failure.TABLE_ENCODING, "loot table codec unavailable");
-            JsonElement encoded = TABLE_CODEC.encodeStart(
-                    RegistryOps.create(JsonOps.INSTANCE, level.registryAccess()), resolved)
-                    .result().orElse(null);
+            if (TABLE_GSON == null) throw reject(Failure.TABLE_ENCODING, "loot table gson unavailable");
+            JsonElement encoded = TABLE_GSON.toJsonTree(resolved, LootTable.class);
             if (encoded == null || !encoded.isJsonObject()) throw reject(Failure.TABLE_ENCODING);
             JsonObject root = encoded.getAsJsonObject();
             // Matches ExcavatorUpgradeManager.excavationTool(): a netherite
@@ -420,6 +415,13 @@ final class ExcavatorLootTableInspector {
                     return p;
                 }
                 case "minecraft:match_tool" -> { return matchTool(c.get("predicate"), fortune, silk); }
+                case "forge:can_tool_perform_action" -> {
+                    if (c.size() != 2 || !c.has("action") || !c.get("action").isJsonPrimitive() || !c.get("action").getAsJsonPrimitive().isString())
+                        throw reject(Failure.CONDITION, kind + " [invalid action]");
+                    String action = c.get("action").getAsString();
+                    if (action.isBlank()) throw reject(Failure.CONDITION, kind + " [invalid action]");
+                    return tool.canPerformAction(ToolAction.get(action)) ? 1 : 0;
+                }
                 case "neoforge:can_item_perform_ability" -> {
                     // NeoForge tests the actual loot-context tool. The
                     // inspector uses the same tool+enchantments as excavation.
@@ -480,6 +482,34 @@ final class ExcavatorLootTableInspector {
             } else throw reject(Failure.TOOL_PREDICATE);
             matches = found;
         }
+        if (predicate.has("enchantments")) {
+            JsonArray enchantments = array(predicate, "enchantments");
+            if (enchantments == null || enchantments.isEmpty()) throw reject(Failure.TOOL_PREDICATE);
+            for (JsonElement el : enchantments) {
+                if (!el.isJsonObject()) throw reject(Failure.TOOL_PREDICATE);
+                JsonObject enchantment = el.getAsJsonObject();
+                if (!enchantment.has("enchantment") || enchantment.size() != (enchantment.has("levels") ? 2 : 1))
+                    throw reject(Failure.TOOL_PREDICATE);
+                int actual = enchantmentLevel(string(enchantment, "enchantment", ""), fortune, silk);
+                if (actual < 0) throw reject(Failure.TOOL_PREDICATE);
+                matches &= actual > 0;
+                if (enchantment.has("levels")) {
+                    JsonElement levels = enchantment.get("levels");
+                    if (!levels.isJsonObject()) throw reject(Failure.TOOL_PREDICATE);
+                    JsonObject range = levels.getAsJsonObject();
+                    for (String key : range.keySet()) {
+                        if (!"min".equals(key) && !"max".equals(key)) throw reject(Failure.TOOL_PREDICATE);
+                        if (!range.get(key).isJsonPrimitive() || !range.get(key).getAsJsonPrimitive().isNumber()
+                                || Math.rint(range.get(key).getAsDouble()) != range.get(key).getAsDouble())
+                            throw reject(Failure.TOOL_PREDICATE);
+                    }
+                    int min = integer(range, "min", Integer.MIN_VALUE);
+                    int max = integer(range, "max", Integer.MAX_VALUE);
+                    if (min > max) throw reject(Failure.TOOL_PREDICATE);
+                    matches &= actual >= min && actual <= max;
+                }
+            }
+        }
         if (predicate.has("predicates")) {
             JsonObject predicates = object(predicate, "predicates", Failure.TOOL_PREDICATE);
             if (predicates.size() != 1 || !predicates.has("minecraft:enchantments"))
@@ -506,10 +536,10 @@ final class ExcavatorLootTableInspector {
         // All other item predicates (components, count, enchantment tags, etc.)
         // can change outcomes in modded setups and must not be ignored.
         for (String key : predicate.keySet()) {
-            if (!"items".equals(key) && !"predicates".equals(key))
+            if (!"items".equals(key) && !"predicates".equals(key) && !"enchantments".equals(key))
                 throw reject(Failure.TOOL_PREDICATE);
         }
-        if (!predicate.has("items") && !predicate.has("predicates"))
+        if (!predicate.has("items") && !predicate.has("predicates") && !predicate.has("enchantments"))
             throw reject(Failure.TOOL_PREDICATE);
         return matches ? 1 : 0;
     }

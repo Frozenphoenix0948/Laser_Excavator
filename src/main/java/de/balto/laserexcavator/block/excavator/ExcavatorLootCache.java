@@ -1,6 +1,8 @@
 package de.balto.laserexcavator.block.excavator;
 
 import de.balto.laserexcavator.debug.ExcavatorProfiler;
+import de.balto.laserexcavator.LaserExcavator;
+import net.minecraft.core.registries.BuiltInRegistries;
 import de.balto.laserexcavator.config.LaserExcavatorConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
