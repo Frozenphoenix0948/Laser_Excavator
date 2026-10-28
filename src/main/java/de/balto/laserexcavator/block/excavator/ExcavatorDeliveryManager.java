@@ -231,6 +231,26 @@ public final class ExcavatorDeliveryManager {
         }
     }
 
+    public boolean restoreTiming(long shift, long now, long maxDelay) {
+        if (pendingDeliveryCount == 0) return false;
+        Long2ObjectOpenHashMap<ArrayList<Delivery>> adjusted = new Long2ObjectOpenHashMap<>();
+        boolean changed = false;
+        for (var entry : pendingByTick.long2ObjectEntrySet()) {
+            long original = entry.getLongKey();
+            long arrival = shift == 0L ? original : Math.max(now, original + shift);
+            if (arrival > now + maxDelay) arrival = now;
+            changed |= arrival != original;
+            adjusted.computeIfAbsent(arrival, ignored -> new ArrayList<>()).addAll(entry.getValue());
+        }
+        if (changed) {
+            pendingByTick.clear();
+            pendingByTick.putAll(adjusted);
+            schedulerCatchUpRequired = true;
+            lastProcessedGameTime = Long.MIN_VALUE;
+        }
+        return changed;
+    }
+
     private boolean canMerge(ItemStack stack) {
         int candidates = itemSlots.getInt(stack.getItem());
         while (candidates != 0) {

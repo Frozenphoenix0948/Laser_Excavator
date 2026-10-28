@@ -67,6 +67,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     private static final int PERSISTENCE_VERSION = 3;
 
     private static final String TAG_DATA_VERSION = "DataVersion";
+    private static final String TAG_SAVED_GAME_TIME = "SavedGameTime";
     private static final String TAG_SELECTION_WIDTH = "SelectionWidth";
     private static final String TAG_SELECTION_HEIGHT = "SelectionHeight";
     private static final String TAG_SELECTION_LENGTH = "SelectionLength";
@@ -138,6 +139,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     /** FE already paid toward the current block. Persisted so unload/reload cannot discount a shot. */
     private int laserEnergySpent = 0;
     private long nextLaserReadyTick = Long.MIN_VALUE;
+    private long loadedSavedGameTime = Long.MIN_VALUE;
     private boolean laserVisualNeedsRestart = false;
     private long filterSkipCooldownEndTick = Long.MIN_VALUE;
 
@@ -433,7 +435,44 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
     @Override
     public void onLoad() {
         super.onLoad();
-        if (level instanceof ServerLevel serverLevel) syncFluidProtection(serverLevel);
+        if (level instanceof ServerLevel serverLevel) {
+            restoreSavedTimers(serverLevel.getGameTime());
+            syncFluidProtection(serverLevel);
+        }
+    }
+
+    private void restoreSavedTimers(long now) {
+        long shift = 0L;
+        if (loadedSavedGameTime != Long.MIN_VALUE && now < loadedSavedGameTime) {
+            shift = now - loadedSavedGameTime;
+        } else if (loadedSavedGameTime == Long.MIN_VALUE && nextLaserReadyTick != Long.MIN_VALUE) {
+            long latestReady = now + Math.max(1, getLaserWorkDurationTicks());
+            if (nextLaserReadyTick > latestReady) shift = latestReady - nextLaserReadyTick;
+        }
+        boolean changed = false;
+        if (shift != 0L) {
+            if (nextLaserReadyTick != Long.MIN_VALUE) nextLaserReadyTick = Math.max(now, nextLaserReadyTick + shift);
+            if (filterSkipCooldownEndTick != Long.MIN_VALUE) filterSkipCooldownEndTick = Math.max(now, filterSkipCooldownEndTick + shift);
+            changed = true;
+        }
+        if (nextLaserReadyTick != Long.MIN_VALUE && nextLaserReadyTick > now + Math.max(1, getLaserWorkDurationTicks())) {
+            nextLaserReadyTick = now + Math.max(1, getLaserWorkDurationTicks());
+            changed = true;
+        }
+        int filterCooldown = LaserExcavatorConfig.filterSkipCooldownTicks(upgrades.tier(ExcavatorUpgradeType.FILTER), getLaserWorkDurationTicks());
+        if (filterSkipCooldownEndTick != Long.MIN_VALUE && filterSkipCooldownEndTick > now + filterCooldown) {
+            filterSkipCooldownEndTick = now + filterCooldown;
+            changed = true;
+        }
+        if (deliveries.hasPending()) {
+            ExcavatorArea area = getExcavatorArea();
+            int x = Math.abs(area.min().getX() - worldPosition.getX()) > Math.abs(area.max().getX() - worldPosition.getX()) ? area.min().getX() : area.max().getX();
+            int z = Math.abs(area.min().getZ() - worldPosition.getZ()) > Math.abs(area.max().getZ() - worldPosition.getZ()) ? area.min().getZ() : area.max().getZ();
+            int maxDelay = getTransportDurationTicks(new BlockPos(x, area.min().getY(), z));
+            changed |= deliveries.restoreTiming(shift, now, Math.max(1, maxDelay));
+        }
+        loadedSavedGameTime = Long.MIN_VALUE;
+        if (changed) setChanged();
     }
 
     private void syncFluidProtection(ServerLevel serverLevel) {
@@ -1456,6 +1495,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         super.saveAdditional(tag);
 
         tag.putInt(TAG_DATA_VERSION, PERSISTENCE_VERSION);
+        if (level != null) tag.putLong(TAG_SAVED_GAME_TIME, level.getGameTime());
         writeCommonData(tag, false);
         saveExcavationState(tag);
         saveInventories(tag);
@@ -1512,6 +1552,7 @@ public class ExcavatorBlockEntity extends BlockEntity implements MenuProvider {
         }
 
         int persistenceVersion = readPersistenceVersion(tag);
+        loadedSavedGameTime = tag.getLong(TAG_SAVED_GAME_TIME).orElse(Long.MIN_VALUE);
         loadExcavationState(tag);
         loadInventories(tag);
         fuel.load(tag);
