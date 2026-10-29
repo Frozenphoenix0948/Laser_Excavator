@@ -130,7 +130,7 @@ public final class LaserExcavatorConfig {
         DEFAULT_WIDTH = builder.comment(" Default horizontal width of a newly placed excavator.")
                 .defineInRange("defaultWidth", 16, 1, 512);
         DEFAULT_HEIGHT = builder.comment(" Default excavation depth/height.")
-                .defineInRange("defaultHeight", 32, 1, 384);
+                .defineInRange("defaultHeight", 32, 1, 4096);
         DEFAULT_LENGTH = builder.comment(" Default horizontal length of a newly placed excavator.")
                 .defineInRange("defaultLength", 16, 1, 512);
         MIN_SELECTION_SIZE = builder.comment(" Smallest selectable width, height, or length.")
@@ -138,7 +138,7 @@ public final class LaserExcavatorConfig {
         MAX_HORIZONTAL_SIZE = builder.comment(" Hard horizontal X/Z selection cap. Area-upgrade sizes are clamped to this value.")
                 .defineInRange("maximumHorizontalSize", 128, 1, 512);
         MAX_VERTICAL_SIZE = builder.comment(" Maximum selectable excavation depth/height.")
-                .defineInRange("maximumVerticalSize", 256, 1, 384);
+                .defineInRange("maximumVerticalSize", 384, 1, 4096);
         SCAN_COLUMNS_PER_TICK = builder.comment(" X/Z columns scanned each server tick. Higher values finish scans faster but create a larger short CPU burst.")
                 .defineInRange("scanColumnsPerTick", 64, 1, 4096);
         FORCE_FIELD_HEIGHT = builder.comment(
