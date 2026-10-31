@@ -114,6 +114,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
     private ExcavatorStyledButton excavationButton;
     private ExcavatorStyledButton filterButton;
     private final ExcavatorFilterPanel filterPanel;
+    private int filterSkipStatusTicks;
 
     private static final int FILTER_BUTTON_MARGIN = 2;
     private static final int FILTER_BUTTON_W = 11;
@@ -323,6 +324,9 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         super.containerTick();
         syncFieldsFromMenu();
         updateControls();
+        if (menu.getScanState() != ExcavatorScanState.EXCAVATING || menu.isWaitingForEnergy()) filterSkipStatusTicks = 0;
+        else if (menu.isSkippingFilteredBlocks()) filterSkipStatusTicks = 40;
+        else if (filterSkipStatusTicks > 0) filterSkipStatusTicks--;
     }
 
     @Override
@@ -506,6 +510,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             case READY -> "Ready  |  field Y " + menu.getForceFieldY() + transitText(pending);
             case EXCAVATING -> menu.isWaitingForEnergy()
                     ? "Waiting for energy  |  " + menu.getBlocksExcavated() + " removed" + transitText(pending)
+                    : filterSkipStatusTicks > 0 ? "Skipping filtered blocks" + transitText(pending)
                     : "Excavating  |  " + menu.getBlocksExcavated() + " removed" + transitText(pending);
             case STORAGE_FULL -> "Output full  |  waiting" + transitText(pending);
             case COMPLETE -> pending > 0
@@ -520,7 +525,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             case IDLE -> MUTED;
             case SCANNING -> WARNING;
             case READY, COMPLETE -> GOOD;
-            case EXCAVATING -> ACCENT;
+            case EXCAVATING -> filterSkipStatusTicks > 0 ? WARNING : ACCENT;
             case STORAGE_FULL -> ERROR;
         };
     }

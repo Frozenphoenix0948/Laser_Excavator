@@ -265,6 +265,28 @@ public final class ExcavatorProfiler {
         TRANSPORT_FRUSTUM_REGION_TESTS("Transport spatial-region frustum tests"),
         TRANSPORT_FRUSTUM_REGIONS_CULLED("Transport spatial regions frustum-culled"),
         TRANSPORT_FRUSTUM_MEMBERS_CULLED("Transport members skipped by group frustum culling"),
+        TEXTURE_CUBE_CANDIDATES("Textured cube candidates"),
+        TEXTURE_BILLBOARD_CANDIDATES("Textured block billboard candidates"),
+        TEXTURE_BLOCK_ATLAS_ITEM_CANDIDATES("Block-atlas non-block item candidates"),
+        TEXTURE_ITEM_ATLAS_ITEM_CANDIDATES("Item-atlas non-block item candidates"),
+        TEXTURE_APPEARANCE_RESOLVES("Texture appearance initial resolution attempts"),
+        TEXTURE_APPEARANCE_CACHE_HITS("Texture appearance cached attempts"),
+        TEXTURE_APPEARANCE_SUCCESSES("Texture appearance successful checks"),
+        TEXTURE_APPEARANCE_FAILURES("Texture appearance failed checks"),
+        TEXTURE_EMPTY_STACKS("Texture appearance empty-stack failures"),
+        TEXTURE_NOT_BLOCK_ITEM("Texture appearance non-BlockItem failures"),
+        TEXTURE_MISSING_BLOCK_TEXTURE("Texture appearance missing block texture failures"),
+        TEXTURE_MISSING_ITEM_TEXTURE("Texture appearance missing item texture failures"),
+        TEXTURE_NONBLOCK_WRONG_ATLAS("Non-block sprites using a different atlas"),
+        TEXTURE_CUBES_EMITTED("Textured block cubes actually emitted"),
+        TEXTURE_BILLBOARDS_EMITTED("Textured block billboards actually emitted"),
+        TEXTURE_BLOCK_ATLAS_ITEMS_EMITTED("Block-atlas item billboards actually emitted"),
+        TEXTURE_ITEM_ATLAS_ITEMS_EMITTED("Item-atlas item billboards actually emitted"),
+        TEXTURE_VERTICES_EMITTED("Textured vertices submitted to VertexConsumer"),
+        TEXTURE_BAD_POSITIONS("Textured submissions with non-finite positions"),
+        TEXTURE_BAD_UVS("Textured submissions with non-finite, inverted or out-of-range UVs"),
+        TEXTURE_BAD_NORMALS("Textured submissions with invalid normal vectors"),
+        TEXTURE_ZERO_LIGHT("Textured submissions with zero block and sky light"),
         BLOCK_CUBES_RENDERED("Individual textured block cubes rendered"),
         BLOCK_BILLBOARDS_RENDERED("Individual textured block billboards rendered"),
         INDIVIDUAL_MARKERS_RENDERED("Individual transport markers queued"),
@@ -318,6 +340,8 @@ public final class ExcavatorProfiler {
     private static final AtomicLong[] TRANSPORT_SUB_MAX_NANOS = createAtomicLongs(TRANSPORT_SUBSECTIONS.length);
 
     private static final LongAdder[] COUNTER_VALUES = createAdders(COUNTERS.length);
+    private static volatile String blockAtlasConsumerClass = "not observed";
+    private static volatile String itemAtlasConsumerClass = "not observed";
     private static final AtomicLong[] COUNTER_MAX_VALUES = createAtomicLongs(COUNTERS.length);
 
     private static volatile boolean enabled;
@@ -456,6 +480,8 @@ public final class ExcavatorProfiler {
 
     public static synchronized void start() {
         enabled = false;
+        blockAtlasConsumerClass = "not observed";
+        itemAtlasConsumerClass = "not observed";
         clearStats();
         serverTickStartNanos = 0L;
         startedAtNanos = System.nanoTime();
@@ -471,6 +497,8 @@ public final class ExcavatorProfiler {
 
     public static synchronized void reset() {
         boolean wasEnabled = enabled;
+        blockAtlasConsumerClass = "not observed";
+        itemAtlasConsumerClass = "not observed";
         enabled = false;
         clearStats();
         serverTickStartNanos = 0L;
@@ -479,6 +507,12 @@ public final class ExcavatorProfiler {
         startedAtNanos = now;
         stoppedAtNanos = wasEnabled ? 0L : now;
         enabled = wasEnabled;
+    }
+
+    public static void recordTransportAtlasConsumer(boolean itemAtlas, String implementation) {
+        if (!enabled) return;
+        if (itemAtlas) itemAtlasConsumerClass = implementation;
+        else blockAtlasConsumerClass = implementation;
     }
 
     public static long getCounter(Counter counter) {
@@ -1026,6 +1060,37 @@ public final class ExcavatorProfiler {
         long largeMarkers = getCounter(Counter.LARGE_TRANSPORT_MARKERS_EMITTED);
         long smallMarkers = getCounter(Counter.SMALL_TRANSPORT_MARKERS_EMITTED);
         long totalVertices = (largeMarkers + smallMarkers) * 4L;
+        lines.add("");
+        lines.add("Transport textured rendering diagnostics:");
+        lines.add("  Current transport diagnostic mode: " + LaserExcavatorClientConfig.transportDebugMode());
+        lines.add("  Block / item atlas consumers: " + blockAtlasConsumerClass + " / " + itemAtlasConsumerClass);
+        lines.add("  Cube / block billboard / block-atlas item / item-atlas item candidates: "
+                + formatCount(getCounter(Counter.TEXTURE_CUBE_CANDIDATES)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_BILLBOARD_CANDIDATES)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_BLOCK_ATLAS_ITEM_CANDIDATES)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_ITEM_ATLAS_ITEM_CANDIDATES)));
+        lines.add("  Appearance initial resolves / cached checks / successful / failed: "
+                + formatCount(getCounter(Counter.TEXTURE_APPEARANCE_RESOLVES)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_APPEARANCE_CACHE_HITS)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_APPEARANCE_SUCCESSES)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_APPEARANCE_FAILURES)));
+        lines.add("  Appearance failures empty stack / not BlockItem / missing block / missing item: "
+                + formatCount(getCounter(Counter.TEXTURE_EMPTY_STACKS)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_NOT_BLOCK_ITEM)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_MISSING_BLOCK_TEXTURE)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_MISSING_ITEM_TEXTURE)));
+        lines.add("  Item appearance using different atlas: " + formatCount(getCounter(Counter.TEXTURE_NONBLOCK_WRONG_ATLAS)));
+        lines.add("  Emitted cubes / block billboards / block-atlas items / item-atlas items: "
+                + formatCount(getCounter(Counter.TEXTURE_CUBES_EMITTED)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_BILLBOARDS_EMITTED)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_BLOCK_ATLAS_ITEMS_EMITTED)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_ITEM_ATLAS_ITEMS_EMITTED)));
+        lines.add("  Textured vertices submitted to VertexConsumer: " + formatCount(getCounter(Counter.TEXTURE_VERTICES_EMITTED)));
+        lines.add("  Bad positions / UVs / normals / zero-light textured submissions: "
+                + formatCount(getCounter(Counter.TEXTURE_BAD_POSITIONS)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_BAD_UVS)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_BAD_NORMALS)) + " / "
+                + formatCount(getCounter(Counter.TEXTURE_ZERO_LIGHT)));
         lines.add("");
         lines.add("Primitive renderer:");
         lines.add("  Frame-wide primitives/flush: " + formatRatio(emitted, flushes));

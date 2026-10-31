@@ -200,6 +200,8 @@ final class ExcavatorTransportRenderer {
         if (visuals.transports().isEmpty() || forcedTier == DISTANCE_TIER_HIDDEN
                 || LaserExcavatorClientConfig.transportDebugMode() != TransportDebugMode.NORMAL) return;
         boolean profiling = ExcavatorProfiler.isEnabled();
+        if (profiling) ExcavatorProfiler.recordTransportAtlasConsumer(true,
+                consumer == null ? "null" : consumer.getClass().getName());
         long itemProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.Section.TRANSPORT_RENDER);
         long gameTime = level.getGameTime();
         double renderGameTime = gameTime + partialTick;
@@ -219,11 +221,16 @@ final class ExcavatorTransportRenderer {
                     float dx = cameraX - transportPosition.x;
                     float dy = cameraY - transportPosition.y;
                     float dz = cameraZ - transportPosition.z;
-                    if (dx * dx + dy * dy + dz * dz >= smallMarkerDistanceSq || !ensureTransportAppearance(cached, level)
-                            || cached.itemTexture.blockAtlas()) continue;
+                    if (dx * dx + dy * dy + dz * dz >= smallMarkerDistanceSq) continue;
+                    if (profiling) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_ITEM_ATLAS_ITEM_CANDIDATES);
+                    if (!ensureTransportAppearance(cached, level) || cached.itemTexture.blockAtlas()) continue;
+                    int packedLight = resolveRegionPackedLight(cached.region, level, origin, profiling);
                     renderTexturedItemBillboard(pose, consumer, cached.itemTexture,
+                            transportPosition.x, transportPosition.y, transportPosition.z, packedLight);
+                    profileTexturedSubmission(ExcavatorProfiler.Counter.TEXTURE_ITEM_ATLAS_ITEMS_EMITTED,
                             transportPosition.x, transportPosition.y, transportPosition.z,
-                            resolveRegionPackedLight(cached.region, level, origin, profiling));
+                            cached.itemTexture.u0(), cached.itemTexture.u1(), cached.itemTexture.v0(), cached.itemTexture.v1(), packedLight, 4,
+                            itemBillboardGeometry.normalX, itemBillboardGeometry.normalY, itemBillboardGeometry.normalZ);
                 }
             }
         }
@@ -260,6 +267,8 @@ final class ExcavatorTransportRenderer {
         }
 
         boolean profiling = ExcavatorProfiler.isEnabled();
+        if (profiling) ExcavatorProfiler.recordTransportAtlasConsumer(false,
+                providedAtlasConsumer == null ? "null" : providedAtlasConsumer.getClass().getName());
         long transportProfile = ExcavatorProfiler.begin(profiling, ExcavatorProfiler.Section.TRANSPORT_RENDER);
         long gameTime = level.getGameTime();
         double renderGameTime = gameTime + partialTick;
@@ -1651,22 +1660,49 @@ final class ExcavatorTransportRenderer {
     }
 
     private boolean ensureTransportAppearance(CachedTransport cached, ClientLevel level) {
+        boolean profiling = ExcavatorProfiler.isEnabled();
         if (cached.appearanceResolved) {
-            return cached.blockItem ? cached.blockU1 > cached.blockU0 : cached.itemTexture != null;
+            boolean resolved = cached.blockItem ? cached.blockU1 > cached.blockU0 : cached.itemTexture != null;
+            if (profiling) {
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_CACHE_HITS);
+                ExcavatorProfiler.increment(resolved ? ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_SUCCESSES
+                        : ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_FAILURES);
+            }
+            return resolved;
         }
+        if (profiling) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_RESOLVES);
         cached.appearanceResolved = true;
-        if (cached.visualStack.isEmpty()) return false;
+        if (cached.visualStack.isEmpty()) {
+            if (profiling) {
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_EMPTY_STACKS);
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_FAILURES);
+            }
+            return false;
+        }
 
         if (cached.blockItem) {
-            if (!(cached.visualStack.getItem() instanceof BlockItem blockItem)) return false;
+            if (!(cached.visualStack.getItem() instanceof BlockItem blockItem)) {
+                if (profiling) {
+                    ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_NOT_BLOCK_ITEM);
+                    ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_FAILURES);
+                }
+                return false;
+            }
             ExcavatorClientVisuals.BlockCubeTexture texture =
                     ExcavatorClientVisuals.resolveBlockTexture(blockItem);
-            if (texture == null) return false;
+            if (texture == null) {
+                if (profiling) {
+                    ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_MISSING_BLOCK_TEXTURE);
+                    ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_FAILURES);
+                }
+                return false;
+            }
             cached.blockU0 = texture.u0();
             cached.blockU1 = texture.u1();
             cached.blockV0 = texture.v0();
             cached.blockV1 = texture.v1();
             cached.markerRgb = texture.markerRgb();
+            if (profiling) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_SUCCESSES);
             return true;
         }
 
@@ -1674,7 +1710,31 @@ final class ExcavatorTransportRenderer {
         cached.itemTexture = ExcavatorClientVisuals.resolveItemTexture(
                 cached.visualStack, level, seed
         );
+        if (profiling) {
+            if (cached.itemTexture == null) {
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_MISSING_ITEM_TEXTURE);
+                ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_FAILURES);
+            } else ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_APPEARANCE_SUCCESSES);
+        }
         return cached.itemTexture != null;
+    }
+
+    private static void profileTexturedSubmission(ExcavatorProfiler.Counter type, float x, float y, float z,
+                                                  float u0, float u1, float v0, float v1, int packedLight,
+                                                  int vertexCount, float nx, float ny, float nz) {
+        if (!ExcavatorProfiler.isEnabled()) return;
+        ExcavatorProfiler.increment(type);
+        ExcavatorProfiler.add(ExcavatorProfiler.Counter.TEXTURE_VERTICES_EMITTED, vertexCount);
+        if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z))
+            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_BAD_POSITIONS);
+        if (!Float.isFinite(u0) || !Float.isFinite(u1) || !Float.isFinite(v0) || !Float.isFinite(v1)
+                || u0 < 0F || u1 > 1F || v0 < 0F || v1 > 1F || u1 <= u0 || v1 <= v0)
+            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_BAD_UVS);
+        float normSq = nx * nx + ny * ny + nz * nz;
+        if (!Float.isFinite(normSq) || normSq < 0.01F)
+            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_BAD_NORMALS);
+        if (LightCoordsUtil.block(packedLight) == 0 && LightCoordsUtil.sky(packedLight) == 0)
+            ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_ZERO_LIGHT);
     }
 
     private int resolveRegionPackedLight(
@@ -1760,7 +1820,9 @@ final class ExcavatorTransportRenderer {
                 long billboardProfile = ExcavatorProfiler.begin(
                         sampleBillboard, ExcavatorProfiler.TransportSubsection.BLOCK_BILLBOARD_RENDERING
                 );
+                if (profiling && emitGeometry) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_BILLBOARD_CANDIDATES);
                 if (emitGeometry && ensureTransportAppearance(cached, level)) {
+                    int packedLight = resolveRegionPackedLight(cached.region, level, origin, profiling);
                     renderTexturedBlockBillboard(
                             basePose,
                             consumer,
@@ -1768,9 +1830,13 @@ final class ExcavatorTransportRenderer {
                             transportPosition.x,
                             transportPosition.y,
                             transportPosition.z,
-                            resolveRegionPackedLight(cached.region, level, origin, profiling),
+                            packedLight,
                             billboardBand
                     );
+                    profileTexturedSubmission(ExcavatorProfiler.Counter.TEXTURE_BILLBOARDS_EMITTED,
+                            transportPosition.x, transportPosition.y, transportPosition.z,
+                            cached.blockU0, cached.blockU1, cached.blockV0, cached.blockV1, packedLight, 4,
+                            blockBillboardNormalX, blockBillboardNormalY, blockBillboardNormalZ);
                 }
                 ExcavatorProfiler.end(
                         ExcavatorProfiler.TransportSubsection.BLOCK_BILLBOARD_RENDERING, billboardProfile
@@ -1782,7 +1848,9 @@ final class ExcavatorTransportRenderer {
             long cubeProfile = ExcavatorProfiler.begin(
                     sampleCube, ExcavatorProfiler.TransportSubsection.BLOCK_CUBE_RENDERING
             );
+            if (profiling && emitGeometry) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_CUBE_CANDIDATES);
             if (emitGeometry && ensureTransportAppearance(cached, level)) {
+                int packedLight = resolveRegionPackedLight(cached.region, level, origin, profiling);
                 renderTexturedCube(
                         basePose,
                         consumer,
@@ -1793,8 +1861,12 @@ final class ExcavatorTransportRenderer {
                         cameraDeltaX,
                         cameraDeltaY,
                         cameraDeltaZ,
-                        resolveRegionPackedLight(cached.region, level, origin, profiling)
+                        packedLight
                 );
+                profileTexturedSubmission(ExcavatorProfiler.Counter.TEXTURE_CUBES_EMITTED,
+                        transportPosition.x, transportPosition.y, transportPosition.z,
+                        cached.blockU0, cached.blockU1, cached.blockV0, cached.blockV1, packedLight, 12,
+                        rotatingCubeGeometry.southNormalX, 1.0F, rotatingCubeGeometry.southNormalZ);
             }
             ExcavatorProfiler.end(ExcavatorProfiler.TransportSubsection.BLOCK_CUBE_RENDERING, cubeProfile);
             return VISUAL_BLOCK_CUBE;
@@ -1810,10 +1882,17 @@ final class ExcavatorTransportRenderer {
             return VISUAL_ITEM_MARKER;
         }
 
-        if (emitGeometry && ensureTransportAppearance(cached, level) && cached.itemTexture.blockAtlas()) {
-            renderTexturedItemBillboard(basePose, consumer, cached.itemTexture,
-                    transportPosition.x, transportPosition.y, transportPosition.z,
-                    resolveRegionPackedLight(cached.region, level, origin, profiling));
+        if (profiling && emitGeometry) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_BLOCK_ATLAS_ITEM_CANDIDATES);
+        if (emitGeometry && ensureTransportAppearance(cached, level)) {
+            if (cached.itemTexture.blockAtlas()) {
+                int packedLight = resolveRegionPackedLight(cached.region, level, origin, profiling);
+                renderTexturedItemBillboard(basePose, consumer, cached.itemTexture,
+                        transportPosition.x, transportPosition.y, transportPosition.z, packedLight);
+                profileTexturedSubmission(ExcavatorProfiler.Counter.TEXTURE_BLOCK_ATLAS_ITEMS_EMITTED,
+                        transportPosition.x, transportPosition.y, transportPosition.z,
+                        cached.itemTexture.u0(), cached.itemTexture.u1(), cached.itemTexture.v0(), cached.itemTexture.v1(), packedLight, 4,
+                        itemBillboardGeometry.normalX, itemBillboardGeometry.normalY, itemBillboardGeometry.normalZ);
+            } else if (profiling) ExcavatorProfiler.increment(ExcavatorProfiler.Counter.TEXTURE_NONBLOCK_WRONG_ATLAS);
         }
         return VISUAL_ITEM_BILLBOARD;
     }
