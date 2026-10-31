@@ -270,7 +270,7 @@ public final class ExcavatorRenderAdvancedScreen extends Screen {
         if (hoveredImpact != null) graphics.setTooltipForNextFrame(font, Component.literal(hoveredImpact.tooltip), mouseX, mouseY);
         else if (hovered != null) graphics.setTooltipForNextFrame(font, font.split(settingTooltip(hovered), 260), mouseX, mouseY);
         else if (breakEffectsButton.isHovered()) graphics.setTooltipForNextFrame(font, font.split(Component.literal("Play vanilla block-break sounds and particles locally when excavator removals reach this client."), 260), mouseX, mouseY);
-        else if (transportModeButton.isHovered()) graphics.setTooltipForNextFrame(font, font.split(Component.literal("Transport rendering mode: Normal uses full LOD visuals, Dots uses the cheapest markers, and Off renders no transports."), 260), mouseX, mouseY);
+        else if (transportModeButton.isHovered()) graphics.setTooltipForNextFrame(font, font.split(Component.literal("Transport rendering mode: Normal uses full LOD visuals, Dots uses the cheapest markers, and Off skips transport decoding and rendering."), 260), mouseX, mouseY);
     }
 
     private Impact hoveredImpact(int mouseX, int mouseY) {

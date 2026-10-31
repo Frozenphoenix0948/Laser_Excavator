@@ -80,6 +80,7 @@ public final class ExcavatorClientVisuals {
     private static Object[] pruneScratch = new Object[0];
     private static long nextTransportSequence = 1L;
     private static ClientLevel lastClientLevel;
+    private static boolean lastTransportsEnabled = true;
 
     public static final class LaserVisual {
         private float localX;
@@ -294,6 +295,12 @@ public final class ExcavatorClientVisuals {
             }
         }
 
+        private void clearTransports() {
+            if (!mutable) return;
+            transportStorage.clearAndRecycle();
+            nextTransportExpiry = Long.MAX_VALUE;
+        }
+
         private void clearAndRecycle() {
             if (!mutable) return;
             laserStorage.clearAndRecycle();
@@ -352,6 +359,7 @@ public final class ExcavatorClientVisuals {
      * is touched here, so this is safe on the networking thread.
      */
     public static void enqueueVisualBatch(ExcavatorVisualBatchPayload payload) {
+        if (payload.eventCount() == 0) return;
         synchronized (PENDING_VISUAL_BATCHES) {
             if (PENDING_VISUAL_BATCH_COUNT.get() == MAX_PENDING_VISUAL_BATCHES) {
                 PENDING_VISUAL_BATCHES.poll();
@@ -488,6 +496,14 @@ public final class ExcavatorClientVisuals {
             ExcavatorForceFieldRenderer.clearCachedTransportStates();
         }
         lastClientLevel = level;
+        boolean transportsEnabled = LaserExcavatorClientConfig.TRANSPORTS_ENABLED.get();
+        if (lastTransportsEnabled && !transportsEnabled) {
+            Map<BlockPos, VisualSet> sets = BY_LEVEL.get(level);
+            if (sets != null) for (VisualSet set : sets.values()) set.clearTransports();
+            TRANSPORT_POOL.clear();
+            ExcavatorForceFieldRenderer.clearCachedTransportStates();
+        }
+        lastTransportsEnabled = transportsEnabled;
 
         drainPendingVisualBatches(level);
 
@@ -524,6 +540,7 @@ public final class ExcavatorClientVisuals {
         long gameTime = level.getGameTime();
         int maxLasers = LaserExcavatorClientConfig.MAX_LASERS_PER_EXCAVATOR.get();
         int maxTransports = LaserExcavatorClientConfig.MAX_TRANSPORTS_PER_EXCAVATOR.get();
+        boolean transportsEnabled = LaserExcavatorClientConfig.TRANSPORTS_ENABLED.get();
         Map<BlockPos, VisualSet> levelMap = BY_LEVEL.get(level);
 
         int budgetMicros = LaserExcavatorClientConfig.VISUAL_INGESTION_BUDGET_MICROS.get();
@@ -582,7 +599,7 @@ public final class ExcavatorClientVisuals {
 
                 int transportStartIndex = payload.groupTransportStart(groupIndex);
                 int transportEnd = transportStartIndex + payload.groupTransportCount(groupIndex);
-                if (transportStartIndex < transportEnd) {
+                if (transportsEnabled && transportStartIndex < transportEnd) {
                     long transportStart = profiling ? System.nanoTime() : 0L;
                     for (int transportIndex = transportStartIndex; transportIndex < transportEnd; transportIndex++) {
                         stats.eventsDrained++;

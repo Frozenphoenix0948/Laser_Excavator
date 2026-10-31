@@ -1,5 +1,6 @@
 package de.balto.laserexcavator.network.excavator;
 
+import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -65,11 +66,16 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                 @Override
                 public ExcavatorVisualBatchPayload decode(RegistryFriendlyByteBuf buf) {
                     long serverGameTime = buf.readVarLong();
-
-                    int paletteSize = readBoundedCount(buf, "visual stack palette", MAX_STACK_PALETTE);
-                    ItemStack[] palette = new ItemStack[paletteSize];
-                    for (int i = 0; i < paletteSize; i++) {
-                        palette[i] = ItemStack.STREAM_CODEC.decode(buf);
+                    boolean decodeTransports = LaserExcavatorClientConfig.TRANSPORTS_ENABLED.get();
+                    int paletteEnd = readSectionEnd(buf, "visual stack palette");
+                    ItemStack[] palette = new ItemStack[0];
+                    if (decodeTransports) {
+                        int paletteSize = readBoundedCount(buf, "visual stack palette", MAX_STACK_PALETTE);
+                        palette = new ItemStack[paletteSize];
+                        for (int i = 0; i < paletteSize; i++) palette[i] = ItemStack.STREAM_CODEC.decode(buf);
+                        requireSectionEnd(buf, paletteEnd, "visual stack palette");
+                    } else {
+                        buf.readerIndex(paletteEnd);
                     }
 
                     int groupCount = readBoundedCount(buf, "excavator visual groups", MAX_GROUPS);
@@ -83,17 +89,15 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                     int totalTransports = 0;
                     for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
                         excavatorPositions[groupIndex] = BlockPos.STREAM_CODEC.decode(buf).immutable();
-
                         int remaining = MAX_TOTAL_EVENTS - totalLasers - totalTransports;
                         int laserCount = readBoundedCount(buf, "laser events", remaining);
-                        remaining -= laserCount;
-                        int transportCount = readBoundedCount(buf, "transport events", remaining);
-
+                        int transportCount = readBoundedCount(buf, "transport events", remaining - laserCount);
                         groupLaserStart[groupIndex] = totalLasers;
                         groupLaserCount[groupIndex] = laserCount;
-                        groupTransportStart[groupIndex] = totalTransports;
-                        groupTransportCount[groupIndex] = transportCount;
-
+                        if (decodeTransports) {
+                            groupTransportStart[groupIndex] = totalTransports;
+                            groupTransportCount[groupIndex] = transportCount;
+                        }
                         totalLasers += laserCount;
                         totalTransports += transportCount;
                     }
@@ -102,82 +106,69 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                     int[] laserDeltaY = new int[totalLasers];
                     int[] laserDeltaZ = new int[totalLasers];
                     int[] laserAgeTicks = new int[totalLasers];
+                    int decodedTransportCount = decodeTransports ? totalTransports : 0;
+                    int[] transportDeltaX = new int[decodedTransportCount];
+                    int[] transportDeltaY = new int[decodedTransportCount];
+                    int[] transportDeltaZ = new int[decodedTransportCount];
+                    ItemStack[] transportStacks = new ItemStack[decodedTransportCount];
+                    int[] transportDurationTicks = new int[decodedTransportCount];
+                    int[] transportForceFieldYOffset = new int[decodedTransportCount];
+                    int[] transportAgeTicks = new int[decodedTransportCount];
 
-                    int[] transportDeltaX = new int[totalTransports];
-                    int[] transportDeltaY = new int[totalTransports];
-                    int[] transportDeltaZ = new int[totalTransports];
-                    ItemStack[] transportStacks = new ItemStack[totalTransports];
-                    int[] transportDurationTicks = new int[totalTransports];
-                    int[] transportForceFieldYOffset = new int[totalTransports];
-                    int[] transportAgeTicks = new int[totalTransports];
-
-                    // Event bodies follow group metadata so every group occupies one
-                    // contiguous slice in the payload-wide arrays.
                     for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-                        int laserStart = groupLaserStart[groupIndex];
-                        int laserEnd = laserStart + groupLaserCount[groupIndex];
-                        for (int i = laserStart; i < laserEnd; i++) {
+                        int end = groupLaserStart[groupIndex] + groupLaserCount[groupIndex];
+                        for (int i = groupLaserStart[groupIndex]; i < end; i++) {
                             laserDeltaX[i] = readSignedVarInt(buf);
                             laserDeltaY[i] = readSignedVarInt(buf);
                             laserDeltaZ[i] = readSignedVarInt(buf);
                             laserAgeTicks[i] = readNonNegativeVarInt(buf, "laser age");
                         }
+                    }
 
-                        int transportStart = groupTransportStart[groupIndex];
-                        int transportEnd = transportStart + groupTransportCount[groupIndex];
-                        for (int i = transportStart; i < transportEnd; i++) {
-                            transportDeltaX[i] = readSignedVarInt(buf);
-                            transportDeltaY[i] = readSignedVarInt(buf);
-                            transportDeltaZ[i] = readSignedVarInt(buf);
-                            int paletteIndex = readNonNegativeVarInt(buf, "transport palette index");
-                            if (paletteIndex >= palette.length) {
-                                throw new IllegalArgumentException(
-                                        "Invalid excavator visual stack palette index: " + paletteIndex
-                                );
+                    int transportEnd = readSectionEnd(buf, "transport events");
+                    if (decodeTransports) {
+                        for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+                            int end = groupTransportStart[groupIndex] + groupTransportCount[groupIndex];
+                            for (int i = groupTransportStart[groupIndex]; i < end; i++) {
+                                transportDeltaX[i] = readSignedVarInt(buf);
+                                transportDeltaY[i] = readSignedVarInt(buf);
+                                transportDeltaZ[i] = readSignedVarInt(buf);
+                                int paletteIndex = readNonNegativeVarInt(buf, "transport palette index");
+                                if (paletteIndex >= palette.length) {
+                                    throw new IllegalArgumentException("Invalid excavator visual stack palette index: " + paletteIndex);
+                                }
+                                transportStacks[i] = palette[paletteIndex];
+                                transportDurationTicks[i] = readPositiveVarInt(buf, "transport duration");
+                                transportForceFieldYOffset[i] = readSignedVarInt(buf);
+                                transportAgeTicks[i] = readNonNegativeVarInt(buf, "transport age");
                             }
-                            transportStacks[i] = palette[paletteIndex];
-                            transportDurationTicks[i] = readPositiveVarInt(buf, "transport duration");
-                            transportForceFieldYOffset[i] = readSignedVarInt(buf);
-                            transportAgeTicks[i] = readNonNegativeVarInt(buf, "transport age");
                         }
+                        requireSectionEnd(buf, transportEnd, "transport events");
+                    } else {
+                        buf.readerIndex(transportEnd);
                     }
 
                     return new ExcavatorVisualBatchPayload(
-                            serverGameTime,
-                            excavatorPositions,
-                            groupLaserStart,
-                            groupLaserCount,
-                            groupTransportStart,
-                            groupTransportCount,
-                            laserDeltaX,
-                            laserDeltaY,
-                            laserDeltaZ,
-                            laserAgeTicks,
-                            transportDeltaX,
-                            transportDeltaY,
-                            transportDeltaZ,
-                            transportStacks,
-                            transportDurationTicks,
-                            transportForceFieldYOffset,
-                            transportAgeTicks
+                            serverGameTime, excavatorPositions, groupLaserStart, groupLaserCount,
+                            groupTransportStart, groupTransportCount, laserDeltaX, laserDeltaY,
+                            laserDeltaZ, laserAgeTicks, transportDeltaX, transportDeltaY,
+                            transportDeltaZ, transportStacks, transportDurationTicks,
+                            transportForceFieldYOffset, transportAgeTicks
                     );
                 }
 
                 @Override
                 public void encode(RegistryFriendlyByteBuf buf, ExcavatorVisualBatchPayload payload) {
                     buf.writeVarLong(payload.serverGameTime);
-
+                    int paletteLengthIndex = buf.writerIndex();
+                    buf.writeInt(0);
                     List<ItemStack> palette = buildStackPalette(payload.transportStacks);
                     buf.writeVarInt(palette.size());
-                    for (ItemStack stack : palette) {
-                        ItemStack.STREAM_CODEC.encode(buf, stack);
-                    }
+                    for (ItemStack stack : palette) ItemStack.STREAM_CODEC.encode(buf, stack);
+                    buf.setInt(paletteLengthIndex, buf.writerIndex() - paletteLengthIndex - Integer.BYTES);
 
                     int groupCount = payload.groupCount();
                     buf.writeVarInt(groupCount);
-
-                    // Metadata precedes event bodies so the decoder can allocate exact
-                    // payload-wide array sizes before reading events.
                     for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
                         BlockPos.STREAM_CODEC.encode(buf, payload.excavatorPositions[groupIndex]);
                         buf.writeVarInt(payload.groupLaserCount[groupIndex]);
@@ -185,18 +176,20 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                     }
 
                     for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-                        int laserStart = payload.groupLaserStart[groupIndex];
-                        int laserEnd = laserStart + payload.groupLaserCount[groupIndex];
-                        for (int i = laserStart; i < laserEnd; i++) {
+                        int end = payload.groupLaserStart[groupIndex] + payload.groupLaserCount[groupIndex];
+                        for (int i = payload.groupLaserStart[groupIndex]; i < end; i++) {
                             writeSignedVarInt(buf, payload.laserDeltaX[i]);
                             writeSignedVarInt(buf, payload.laserDeltaY[i]);
                             writeSignedVarInt(buf, payload.laserDeltaZ[i]);
                             buf.writeVarInt(Math.max(0, payload.laserAgeTicks[i]));
                         }
+                    }
 
-                        int transportStart = payload.groupTransportStart[groupIndex];
-                        int transportEnd = transportStart + payload.groupTransportCount[groupIndex];
-                        for (int i = transportStart; i < transportEnd; i++) {
+                    int transportLengthIndex = buf.writerIndex();
+                    buf.writeInt(0);
+                    for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+                        int end = payload.groupTransportStart[groupIndex] + payload.groupTransportCount[groupIndex];
+                        for (int i = payload.groupTransportStart[groupIndex]; i < end; i++) {
                             writeSignedVarInt(buf, payload.transportDeltaX[i]);
                             writeSignedVarInt(buf, payload.transportDeltaY[i]);
                             writeSignedVarInt(buf, payload.transportDeltaZ[i]);
@@ -206,7 +199,9 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
                             buf.writeVarInt(Math.max(0, payload.transportAgeTicks[i]));
                         }
                     }
+                    buf.setInt(transportLengthIndex, buf.writerIndex() - transportLengthIndex - Integer.BYTES);
                 }
+
             };
 
     public ExcavatorVisualBatchPayload(
@@ -318,6 +313,18 @@ public final class ExcavatorVisualBatchPayload implements CustomPacketPayload {
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
+    }
+
+    private static int readSectionEnd(RegistryFriendlyByteBuf buf, String label) {
+        int length = buf.readInt();
+        if (length < 0 || length > buf.readableBytes()) {
+            throw new IllegalArgumentException("Invalid " + label + " section length: " + length);
+        }
+        return buf.readerIndex() + length;
+    }
+
+    private static void requireSectionEnd(RegistryFriendlyByteBuf buf, int end, String label) {
+        if (buf.readerIndex() != end) throw new IllegalArgumentException("Invalid " + label + " section size");
     }
 
     private static int readBoundedCount(RegistryFriendlyByteBuf buf, String label, int max) {
