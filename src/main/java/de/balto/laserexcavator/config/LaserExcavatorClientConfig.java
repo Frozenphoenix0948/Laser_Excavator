@@ -74,7 +74,7 @@ public final class LaserExcavatorClientConfig {
                 .defineInRange("laserVisualDurationTicks", 20, 1, 200);
         EMIT_VANILLA_BREAK_EFFECTS = builder.comment(" Play vanilla block-break sounds and particles locally when excavator block removals reach this client.")
                 .define("emitVanillaBreakEffects", false);
-        TRANSPORTS_ENABLED = builder.comment(" Render transported block/item visuals. Disabling this keeps transport/network state but emits no transport geometry.")
+        TRANSPORTS_ENABLED = builder.comment(" Render transported block/item visuals. Disabling this skips client transport packet decoding and visuals.")
                 .define("transportsEnabled", true);
         TRANSPORT_MARKERS_ONLY = builder.comment(
                         " When transport rendering is enabled, render transports as the cheapest opaque markers instead of cubes and billboards."

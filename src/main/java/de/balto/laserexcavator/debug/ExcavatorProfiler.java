@@ -565,6 +565,9 @@ public final class ExcavatorProfiler {
 
         lines.add("");
         lines.add("Correctness:");
+        lines.add("  Suppressed water ticks / inbound flows: "
+                + formatCount(getCounter(Counter.FLUID_TICKS_SUPPRESSED)) + " / "
+                + formatCount(getCounter(Counter.FLUID_ENTRIES_SUPPRESSED)));
         lines.add("  Unloaded laser targets skipped: " + formatCount(getCounter(Counter.LASER_COMPLETIONS_SKIPPED_UNLOADED)));
         lines.add("  Failed block removals retained: " + formatCount(getCounter(Counter.BLOCK_REMOVALS_FAILED_COLUMN_RETAINED)));
         lines.add("  Unloaded storage retries skipped: " + formatCount(getCounter(Counter.STORAGE_RETRIES_SKIPPED_UNLOADED)));
@@ -883,6 +886,9 @@ public final class ExcavatorProfiler {
                 + formatCount(getCounter(Counter.CLIENT_VISUAL_LIGHT_LOOKUPS)));
         lines.add("");
         lines.add("Correctness:");
+        lines.add("  Suppressed water ticks / inbound flows: "
+                + formatCount(getCounter(Counter.FLUID_TICKS_SUPPRESSED)) + " / "
+                + formatCount(getCounter(Counter.FLUID_ENTRIES_SUPPRESSED)));
         lines.add("  Laser completions skipped - target chunk unloaded: "
                 + formatCount(getCounter(Counter.LASER_COMPLETIONS_SKIPPED_UNLOADED)));
         lines.add("  Block removals failed - column retained: "
