@@ -37,7 +37,7 @@ public final class ExcavatorNetworking {
 
     private ExcavatorNetworking() {}
 
-    private static final String PROTOCOL_VERSION = "7";
+    private static final String PROTOCOL_VERSION = "8";
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation("laserexcavator", "main"),
             () -> PROTOCOL_VERSION,

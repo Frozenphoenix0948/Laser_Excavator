@@ -1,5 +1,6 @@
 package de.balto.laserexcavator.network.excavator;
 
+import de.balto.laserexcavator.config.LaserExcavatorClientConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -55,148 +56,133 @@ public final class ExcavatorVisualBatchPayload {
     private final int eventCount;
 
     public static ExcavatorVisualBatchPayload decode(FriendlyByteBuf buf) {
-                    long serverGameTime = buf.readVarLong();
+        long serverGameTime = buf.readVarLong();
+        boolean decodeTransports = LaserExcavatorClientConfig.TRANSPORTS_ENABLED.get();
+        int paletteEnd = readSectionEnd(buf, "visual stack palette");
+        ItemStack[] palette = new ItemStack[0];
+        if (decodeTransports) {
+            int paletteSize = readBoundedCount(buf, "visual stack palette", MAX_STACK_PALETTE);
+            palette = new ItemStack[paletteSize];
+            for (int i = 0; i < paletteSize; i++) palette[i] = buf.readItem();
+            requireSectionEnd(buf, paletteEnd, "visual stack palette");
+        } else {
+            buf.readerIndex(paletteEnd);
+        }
 
-                    int paletteSize = readBoundedCount(buf, "visual stack palette", MAX_STACK_PALETTE);
-                    ItemStack[] palette = new ItemStack[paletteSize];
-                    for (int i = 0; i < paletteSize; i++) {
-                        palette[i] = buf.readItem();
-                    }
+        int groupCount = readBoundedCount(buf, "excavator visual groups", MAX_GROUPS);
+        BlockPos[] excavatorPositions = new BlockPos[groupCount];
+        int[] groupLaserStart = new int[groupCount];
+        int[] groupLaserCount = new int[groupCount];
+        int[] groupTransportStart = new int[groupCount];
+        int[] groupTransportCount = new int[groupCount];
+        int totalLasers = 0;
+        int totalTransports = 0;
+        for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+            excavatorPositions[groupIndex] = buf.readBlockPos().immutable();
+            int remaining = MAX_TOTAL_EVENTS - totalLasers - totalTransports;
+            int laserCount = readBoundedCount(buf, "laser events", remaining);
+            int transportCount = readBoundedCount(buf, "transport events", remaining - laserCount);
+            groupLaserStart[groupIndex] = totalLasers;
+            groupLaserCount[groupIndex] = laserCount;
+            if (decodeTransports) {
+                groupTransportStart[groupIndex] = totalTransports;
+                groupTransportCount[groupIndex] = transportCount;
+            }
+            totalLasers += laserCount;
+            totalTransports += transportCount;
+        }
 
-                    int groupCount = readBoundedCount(buf, "excavator visual groups", MAX_GROUPS);
-                    BlockPos[] excavatorPositions = new BlockPos[groupCount];
-                    int[] groupLaserStart = new int[groupCount];
-                    int[] groupLaserCount = new int[groupCount];
-                    int[] groupTransportStart = new int[groupCount];
-                    int[] groupTransportCount = new int[groupCount];
+        int[] laserDeltaX = new int[totalLasers];
+        int[] laserDeltaY = new int[totalLasers];
+        int[] laserDeltaZ = new int[totalLasers];
+        int[] laserAgeTicks = new int[totalLasers];
+        int decodedTransportCount = decodeTransports ? totalTransports : 0;
+        int[] transportDeltaX = new int[decodedTransportCount];
+        int[] transportDeltaY = new int[decodedTransportCount];
+        int[] transportDeltaZ = new int[decodedTransportCount];
+        ItemStack[] transportStacks = new ItemStack[decodedTransportCount];
+        int[] transportDurationTicks = new int[decodedTransportCount];
+        int[] transportForceFieldYOffset = new int[decodedTransportCount];
+        int[] transportAgeTicks = new int[decodedTransportCount];
 
-                    int totalLasers = 0;
-                    int totalTransports = 0;
-                    for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-                        excavatorPositions[groupIndex] = buf.readBlockPos().immutable();
+        for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+            int end = groupLaserStart[groupIndex] + groupLaserCount[groupIndex];
+            for (int i = groupLaserStart[groupIndex]; i < end; i++) {
+                laserDeltaX[i] = readSignedVarInt(buf);
+                laserDeltaY[i] = readSignedVarInt(buf);
+                laserDeltaZ[i] = readSignedVarInt(buf);
+                laserAgeTicks[i] = readNonNegativeVarInt(buf, "laser age");
+            }
+        }
 
-                        int remaining = MAX_TOTAL_EVENTS - totalLasers - totalTransports;
-                        int laserCount = readBoundedCount(buf, "laser events", remaining);
-                        remaining -= laserCount;
-                        int transportCount = readBoundedCount(buf, "transport events", remaining);
-
-                        groupLaserStart[groupIndex] = totalLasers;
-                        groupLaserCount[groupIndex] = laserCount;
-                        groupTransportStart[groupIndex] = totalTransports;
-                        groupTransportCount[groupIndex] = transportCount;
-
-                        totalLasers += laserCount;
-                        totalTransports += transportCount;
-                    }
-
-                    int[] laserDeltaX = new int[totalLasers];
-                    int[] laserDeltaY = new int[totalLasers];
-                    int[] laserDeltaZ = new int[totalLasers];
-                    int[] laserAgeTicks = new int[totalLasers];
-
-                    int[] transportDeltaX = new int[totalTransports];
-                    int[] transportDeltaY = new int[totalTransports];
-                    int[] transportDeltaZ = new int[totalTransports];
-                    ItemStack[] transportStacks = new ItemStack[totalTransports];
-                    int[] transportDurationTicks = new int[totalTransports];
-                    int[] transportForceFieldYOffset = new int[totalTransports];
-                    int[] transportAgeTicks = new int[totalTransports];
-
-                    // Event bodies follow group metadata so every group occupies one
-                    // contiguous slice in the payload-wide arrays.
-                    for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-                        int laserStart = groupLaserStart[groupIndex];
-                        int laserEnd = laserStart + groupLaserCount[groupIndex];
-                        for (int i = laserStart; i < laserEnd; i++) {
-                            laserDeltaX[i] = readSignedVarInt(buf);
-                            laserDeltaY[i] = readSignedVarInt(buf);
-                            laserDeltaZ[i] = readSignedVarInt(buf);
-                            laserAgeTicks[i] = readNonNegativeVarInt(buf, "laser age");
-                        }
-
-                        int transportStart = groupTransportStart[groupIndex];
-                        int transportEnd = transportStart + groupTransportCount[groupIndex];
-                        for (int i = transportStart; i < transportEnd; i++) {
-                            transportDeltaX[i] = readSignedVarInt(buf);
-                            transportDeltaY[i] = readSignedVarInt(buf);
-                            transportDeltaZ[i] = readSignedVarInt(buf);
-                            int paletteIndex = readNonNegativeVarInt(buf, "transport palette index");
-                            if (paletteIndex >= palette.length) {
-                                throw new IllegalArgumentException(
-                                        "Invalid excavator visual stack palette index: " + paletteIndex
-                                );
-                            }
-                            transportStacks[i] = palette[paletteIndex];
-                            transportDurationTicks[i] = readPositiveVarInt(buf, "transport duration");
-                            transportForceFieldYOffset[i] = readSignedVarInt(buf);
-                            transportAgeTicks[i] = readNonNegativeVarInt(buf, "transport age");
-                        }
-                    }
-
-                    return new ExcavatorVisualBatchPayload(
-                            serverGameTime,
-                            excavatorPositions,
-                            groupLaserStart,
-                            groupLaserCount,
-                            groupTransportStart,
-                            groupTransportCount,
-                            laserDeltaX,
-                            laserDeltaY,
-                            laserDeltaZ,
-                            laserAgeTicks,
-                            transportDeltaX,
-                            transportDeltaY,
-                            transportDeltaZ,
-                            transportStacks,
-                            transportDurationTicks,
-                            transportForceFieldYOffset,
-                            transportAgeTicks
-                    );
+        int transportEnd = readSectionEnd(buf, "transport events");
+        if (decodeTransports) {
+            for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+                int end = groupTransportStart[groupIndex] + groupTransportCount[groupIndex];
+                for (int i = groupTransportStart[groupIndex]; i < end; i++) {
+                    transportDeltaX[i] = readSignedVarInt(buf);
+                    transportDeltaY[i] = readSignedVarInt(buf);
+                    transportDeltaZ[i] = readSignedVarInt(buf);
+                    int paletteIndex = readNonNegativeVarInt(buf, "transport palette index");
+                    if (paletteIndex >= palette.length) throw new IllegalArgumentException("Invalid excavator visual stack palette index: " + paletteIndex);
+                    transportStacks[i] = palette[paletteIndex];
+                    transportDurationTicks[i] = readPositiveVarInt(buf, "transport duration");
+                    transportForceFieldYOffset[i] = readSignedVarInt(buf);
+                    transportAgeTicks[i] = readNonNegativeVarInt(buf, "transport age");
                 }
+            }
+            requireSectionEnd(buf, transportEnd, "transport events");
+        } else {
+            buf.readerIndex(transportEnd);
+        }
+
+        return new ExcavatorVisualBatchPayload(serverGameTime, excavatorPositions, groupLaserStart, groupLaserCount,
+                groupTransportStart, groupTransportCount, laserDeltaX, laserDeltaY, laserDeltaZ, laserAgeTicks,
+                transportDeltaX, transportDeltaY, transportDeltaZ, transportStacks, transportDurationTicks,
+                transportForceFieldYOffset, transportAgeTicks);
+    }
 
     public static void encode(ExcavatorVisualBatchPayload payload, FriendlyByteBuf buf) {
-                    buf.writeVarLong(payload.serverGameTime);
+        buf.writeVarLong(payload.serverGameTime);
+        int paletteLengthIndex = buf.writerIndex();
+        buf.writeInt(0);
+        List<ItemStack> palette = buildStackPalette(payload.transportStacks);
+        buf.writeVarInt(palette.size());
+        for (ItemStack stack : palette) buf.writeItem(stack);
+        buf.setInt(paletteLengthIndex, buf.writerIndex() - paletteLengthIndex - Integer.BYTES);
 
-                    List<ItemStack> palette = buildStackPalette(payload.transportStacks);
-                    buf.writeVarInt(palette.size());
-                    for (ItemStack stack : palette) {
-                        buf.writeItem(stack);
-                    }
-
-                    int groupCount = payload.groupCount();
-                    buf.writeVarInt(groupCount);
-
-                    // Metadata precedes event bodies so the decoder can allocate exact
-                    // payload-wide array sizes before reading events.
-                    for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-                        buf.writeBlockPos(payload.excavatorPositions[groupIndex]);
-                        buf.writeVarInt(payload.groupLaserCount[groupIndex]);
-                        buf.writeVarInt(payload.groupTransportCount[groupIndex]);
-                    }
-
-                    for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-                        int laserStart = payload.groupLaserStart[groupIndex];
-                        int laserEnd = laserStart + payload.groupLaserCount[groupIndex];
-                        for (int i = laserStart; i < laserEnd; i++) {
-                            writeSignedVarInt(buf, payload.laserDeltaX[i]);
-                            writeSignedVarInt(buf, payload.laserDeltaY[i]);
-                            writeSignedVarInt(buf, payload.laserDeltaZ[i]);
-                            buf.writeVarInt(Math.max(0, payload.laserAgeTicks[i]));
-                        }
-
-                        int transportStart = payload.groupTransportStart[groupIndex];
-                        int transportEnd = transportStart + payload.groupTransportCount[groupIndex];
-                        for (int i = transportStart; i < transportEnd; i++) {
-                            writeSignedVarInt(buf, payload.transportDeltaX[i]);
-                            writeSignedVarInt(buf, payload.transportDeltaY[i]);
-                            writeSignedVarInt(buf, payload.transportDeltaZ[i]);
-                            buf.writeVarInt(findPaletteIndex(palette, payload.transportStacks[i]));
-                            buf.writeVarInt(Math.max(1, payload.transportDurationTicks[i]));
-                            writeSignedVarInt(buf, payload.transportForceFieldYOffset[i]);
-                            buf.writeVarInt(Math.max(0, payload.transportAgeTicks[i]));
-                        }
-                    }
-                }
+        int groupCount = payload.groupCount();
+        buf.writeVarInt(groupCount);
+        for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+            buf.writeBlockPos(payload.excavatorPositions[groupIndex]);
+            buf.writeVarInt(payload.groupLaserCount[groupIndex]);
+            buf.writeVarInt(payload.groupTransportCount[groupIndex]);
+        }
+        for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+            int end = payload.groupLaserStart[groupIndex] + payload.groupLaserCount[groupIndex];
+            for (int i = payload.groupLaserStart[groupIndex]; i < end; i++) {
+                writeSignedVarInt(buf, payload.laserDeltaX[i]);
+                writeSignedVarInt(buf, payload.laserDeltaY[i]);
+                writeSignedVarInt(buf, payload.laserDeltaZ[i]);
+                buf.writeVarInt(Math.max(0, payload.laserAgeTicks[i]));
+            }
+        }
+        int transportLengthIndex = buf.writerIndex();
+        buf.writeInt(0);
+        for (int groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+            int end = payload.groupTransportStart[groupIndex] + payload.groupTransportCount[groupIndex];
+            for (int i = payload.groupTransportStart[groupIndex]; i < end; i++) {
+                writeSignedVarInt(buf, payload.transportDeltaX[i]);
+                writeSignedVarInt(buf, payload.transportDeltaY[i]);
+                writeSignedVarInt(buf, payload.transportDeltaZ[i]);
+                buf.writeVarInt(findPaletteIndex(palette, payload.transportStacks[i]));
+                buf.writeVarInt(Math.max(1, payload.transportDurationTicks[i]));
+                writeSignedVarInt(buf, payload.transportForceFieldYOffset[i]);
+                buf.writeVarInt(Math.max(0, payload.transportAgeTicks[i]));
+            }
+        }
+        buf.setInt(transportLengthIndex, buf.writerIndex() - transportLengthIndex - Integer.BYTES);
+    }
 
     public ExcavatorVisualBatchPayload(
             long serverGameTime,
@@ -303,6 +289,16 @@ public final class ExcavatorVisualBatchPayload {
     public int transportDurationTicks(int eventIndex) { return transportDurationTicks[eventIndex]; }
     public int transportForceFieldYOffset(int eventIndex) { return transportForceFieldYOffset[eventIndex]; }
     public int transportAgeTicks(int eventIndex) { return transportAgeTicks[eventIndex]; }
+
+    private static int readSectionEnd(FriendlyByteBuf buf, String label) {
+        int length = buf.readInt();
+        if (length < 0 || length > buf.readableBytes()) throw new IllegalArgumentException("Invalid " + label + " section length: " + length);
+        return buf.readerIndex() + length;
+    }
+
+    private static void requireSectionEnd(FriendlyByteBuf buf, int end, String label) {
+        if (buf.readerIndex() != end) throw new IllegalArgumentException("Invalid " + label + " section size");
+    }
 
     private static int readBoundedCount(FriendlyByteBuf buf, String label, int max) {
         int value = buf.readVarInt();

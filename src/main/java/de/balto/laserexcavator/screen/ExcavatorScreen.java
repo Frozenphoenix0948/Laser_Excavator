@@ -25,6 +25,7 @@ import static de.balto.laserexcavator.screen.ExcavatorUiStyle.*;
  */
 
 public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
+    private int filterSkipStatusTicks;
     private static final int ENERGY_EMPTY = 0xFF35171B;
     private static final int ENERGY_FILL = 0xFFE34F55;
     private static final int ENERGY_HIGHLIGHT = 0xFFFF8589;
@@ -323,6 +324,9 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
         super.containerTick();
         syncFieldsFromMenu();
         updateControls();
+        if (menu.getScanState() != ExcavatorScanState.EXCAVATING || menu.isWaitingForEnergy()) filterSkipStatusTicks = 0;
+        else if (menu.isSkippingFilteredBlocks()) filterSkipStatusTicks = 40;
+        else if (filterSkipStatusTicks > 0) filterSkipStatusTicks--;
     }
 
     @Override
@@ -506,6 +510,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             case READY -> "Ready  |  field Y " + menu.getForceFieldY() + transitText(pending);
             case EXCAVATING -> menu.isWaitingForEnergy()
                     ? "Waiting for energy  |  " + menu.getBlocksExcavated() + " removed" + transitText(pending)
+                    : filterSkipStatusTicks > 0 ? "Skipping filtered blocks" + transitText(pending)
                     : "Excavating  |  " + menu.getBlocksExcavated() + " removed" + transitText(pending);
             case STORAGE_FULL -> "Output full  |  waiting" + transitText(pending);
             case COMPLETE -> pending > 0
@@ -520,7 +525,7 @@ public class ExcavatorScreen extends AbstractContainerScreen<ExcavatorMenu> {
             case IDLE -> MUTED;
             case SCANNING -> WARNING;
             case READY, COMPLETE -> GOOD;
-            case EXCAVATING -> ACCENT;
+            case EXCAVATING -> filterSkipStatusTicks > 0 ? WARNING : ACCENT;
             case STORAGE_FULL -> ERROR;
         };
     }
