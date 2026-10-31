@@ -119,8 +119,7 @@ final class ExcavatorLootTableInspector {
                     // state/tool may filter weighted entries before selection.
                     // Genuinely stochastic eligibility still needs a fuller model.
                     double totalWeight = 0;
-                    List<ExpectedEntry> choices = new ArrayList<>();
-                    List<Integer> weights = new ArrayList<>();
+                    List<WeightedEntry> choices = new ArrayList<>();
                     for (JsonElement el : entries) {
                         if (!el.isJsonObject()) throw reject(Failure.ENTRY);
                         JsonObject obj = el.getAsJsonObject();
@@ -130,15 +129,13 @@ final class ExcavatorLootTableInspector {
                         int weight = integer(obj, "weight", 1);
                         int quality = integer(obj, "quality", 0);
                         if (weight < 0 || quality != 0) throw reject(Failure.ENTRY);
-                        choices.add(part);
-                        weights.add(weight);
+                        choices.add(new WeightedEntry(part, weight));
                         totalWeight += weight;
                     }
-                    if (totalWeight == 0 && choices.isEmpty()) continue;
+                    if (choices.isEmpty()) continue;
                     if (totalWeight <= 0) throw reject(Failure.ENTRY);
-                    for (int i = 0; i < choices.size(); i++) {
-                        merge(expected, choices.get(i).items,
-                                poolChance * rolls * weights.get(i) / totalWeight);
+                    for (WeightedEntry choice : choices) {
+                        merge(expected, choice.entry.items, poolChance * rolls * choice.weight / totalWeight);
                     }
                 }
             }
@@ -248,6 +245,7 @@ final class ExcavatorLootTableInspector {
 
     /** items already include the probability of this entry's own conditions. */
     private record ExpectedEntry(double chance, Map<Item, Double> items) {}
+    private record WeightedEntry(ExpectedEntry entry, int weight) {}
 
     private static ExpectedEntry entry(JsonElement el, BlockState state, int fortune, boolean silk, ItemStack tool) {
         if (!el.isJsonObject()) throw reject(Failure.ENTRY);
@@ -445,8 +443,8 @@ final class ExcavatorLootTableInspector {
     private static double blockStateProperty(JsonObject condition, BlockState state) {
         String id = string(condition, "block", "");
         if (!BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString().equals(id)) return 0;
-        JsonObject values = condition.has("properties")
-                ? object(condition, "properties", Failure.CONDITION) : new JsonObject();
+        if (!condition.has("properties")) return 1;
+        JsonObject values = object(condition, "properties", Failure.CONDITION);
         for (Map.Entry<String, JsonElement> e : values.entrySet()) {
             Property<?> prop = state.getBlock().getStateDefinition().getProperty(e.getKey());
             if (prop == null || !e.getValue().isJsonPrimitive()) throw reject(Failure.CONDITION);

@@ -55,7 +55,8 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     public static final int DATA_OVERHEATING = DATA_FUEL_BURN_TOTAL + 1;
     public static final int DATA_FILTER_WHITELIST = DATA_OVERHEATING + 1;
     public static final int DATA_SOLAR_STATUS = DATA_FILTER_WHITELIST + 1;
-    public static final int DATA_COUNT = DATA_SOLAR_STATUS + 1;
+    public static final int DATA_FILTER_SKIPPING = DATA_SOLAR_STATUS + 1;
+    public static final int DATA_COUNT = DATA_FILTER_SKIPPING + 1;
 
     private static final int SLOT_STEP = 17;
 
@@ -348,6 +349,7 @@ public class ExcavatorMenu extends AbstractContainerMenu {
     public int getFilterCapacity() { return Mth.clamp(data.get(DATA_FILTER_CAPACITY), 0, ExcavatorBlockEntity.MAX_FILTER_SLOTS); }
     public boolean isFilterWhitelist() { return data.get(DATA_FILTER_WHITELIST) != 0; }
     public int getSolarStatus() { return data.get(DATA_SOLAR_STATUS); }
+    public boolean isSkippingFilteredBlocks() { return data.get(DATA_FILTER_SKIPPING) != 0; }
     public boolean areRunningLimitsEnabled() { return limitInfo[0] != 0; }
     public int getRunningLimitActive(int tier) { return limitInfo[1 + tier]; }
     public int getRunningLimitAllowed(int tier) { return limitInfo[7 + tier]; }
